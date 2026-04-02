@@ -227,9 +227,31 @@ def inyectar_estilos() -> None:
             .kelly-main { font-size: 1.7rem; font-weight: 800; color: #ffffff; }
             .kelly-sub { color: var(--muted); margin-top: 0.3rem; }
 
-            .ranking-list { display: grid; gap: 0.75rem; }
-            .ranking-item strong { display: block; color: #ffffff; margin-bottom: 0.35rem; }
-            .ranking-item p { color: var(--muted); margin: 0.2rem 0; font-size: 0.9rem; }
+            .ranking-shell { display: grid; gap: 0.9rem; }
+            .ranking-head { display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; margin-bottom: 0.25rem; }
+            .ranking-head-copy h3 { margin: 0; }
+            .ranking-head-copy p { margin: 0.2rem 0 0 0; color: var(--muted); font-size: 0.92rem; }
+            .ranking-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 110px; padding: 0.48rem 0.8rem; border-radius: 999px; background: rgba(0,229,168,0.12); border: 1px solid rgba(0,229,168,0.28); color: #cbfff2; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+            .ranking-top3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
+            .ranking-spotlight { border-radius: 18px; padding: 1rem; border: 1px solid rgba(255,255,255,0.07); background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); min-height: 168px; }
+            .ranking-spotlight.top-1 { border-color: rgba(0,229,168,0.34); box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); }
+            .ranking-rank { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.28rem 0.62rem; border-radius: 999px; background: rgba(59,130,246,0.14); color: #d9e8ff; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+            .ranking-market { margin: 0.65rem 0 0.2rem 0; color: #ffffff; font-size: 1rem; font-weight: 800; line-height: 1.3; }
+            .ranking-match { color: var(--muted); font-size: 0.9rem; line-height: 1.4; min-height: 2.5em; }
+            .ranking-edge { margin: 0.9rem 0 0.2rem 0; color: #00e5a8; font-size: 1.7rem; font-weight: 900; line-height: 1; }
+            .ranking-edge.negative { color: #ff8f8f; }
+            .ranking-odds-meta { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
+            .ranking-odds-meta span { padding: 0.28rem 0.56rem; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); color: var(--muted); font-size: 0.78rem; }
+            .ranking-table { display: grid; gap: 0.55rem; }
+            .ranking-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(120px, 0.8fr) repeat(3, minmax(90px, 0.6fr)); gap: 0.7rem; align-items: center; border-radius: 16px; padding: 0.78rem 0.9rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); }
+            .ranking-row.header { background: rgba(59,130,246,0.10); border-color: rgba(96,165,250,0.20); color: #dcebff; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+            .ranking-cell-main strong { display: block; color: #ffffff; font-size: 0.95rem; line-height: 1.3; }
+            .ranking-cell-main span { display: block; color: var(--muted); font-size: 0.82rem; margin-top: 0.14rem; }
+            .ranking-pill { display: inline-flex; justify-content: center; align-items: center; padding: 0.36rem 0.56rem; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #ffffff; font-size: 0.83rem; font-weight: 700; }
+            .ranking-pill.edge-pos { background: rgba(0,229,168,0.12); border-color: rgba(0,229,168,0.26); color: #ccfff2; }
+            .ranking-pill.edge-neg { background: rgba(255,107,107,0.12); border-color: rgba(255,107,107,0.26); color: #ffd4d4; }
+            .ranking-provider { color: var(--muted); font-size: 0.8rem; text-align: right; }
+            .ranking-footer-note { color: var(--muted); font-size: 0.82rem; margin-top: 0.1rem; }
             .trace-grid { margin-top: 0.75rem; }
             .trace-subtitle { color: #ffffff; font-size: 0.95rem; font-weight: 700; margin: 0.9rem 0 0.45rem 0; }
 
@@ -246,6 +268,8 @@ def inyectar_estilos() -> None:
                 .hero h1 { font-size: 2rem; }
                 .summary-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
                 .odds-row, .odds-head { grid-template-columns: 1.4fr repeat(4, minmax(0, 1fr)); }
+                .ranking-top3 { grid-template-columns: 1fr; }
+                .ranking-row { grid-template-columns: minmax(0, 1.6fr) minmax(105px, 0.75fr) repeat(3, minmax(82px, 0.5fr)); gap: 0.55rem; }
             }
 
             @media (max-width: 780px) {
@@ -257,6 +281,11 @@ def inyectar_estilos() -> None:
                 .summary-band { grid-template-columns: 1fr; }
                 .signal-card, .fixture-card, .form-card, .detail-card, .h2h-card { min-height: unset; }
                 .h2h-detail-head, .form-head, .fixture-meta { flex-direction: column; align-items: flex-start; }
+                .ranking-head { align-items: flex-start; flex-direction: column; }
+                .ranking-row, .ranking-row.header { grid-template-columns: 1fr; }
+                .ranking-provider { text-align: left; }
+                .ranking-market { margin-top: 0.55rem; }
+                .ranking-edge { font-size: 1.45rem; }
             }
         </style>
         """,
@@ -704,16 +733,78 @@ def render_ranking_value_panel(ranking: list[dict], fecha_label: str) -> None:
     if not ranking:
         st.info("No hay cuotas abiertas suficientes para construir el ranking automatico en esta fecha.")
         return
-    st.caption(f"Top oportunidades detectadas para {fecha_label} en la liga seleccionada.")
-    st.markdown('<div class="ranking-card"><h3>Top edges</h3></div>', unsafe_allow_html=True)
-    for fila in ranking:
-        st.markdown(
-            f"""
-<div class="ranking-item">
-    <strong>{fila['match']} | {fila['market']}</strong>
-    <p>Prob IA {fila['prob'] * 100:.1f}% | Justa @{fila['fair_odds']:.2f} | Casa @{fila['offered_odds']:.2f}</p>
-    <p>Edge {fila['edge'] * 100:.2f}% | Fuente {fila['provider']}</p>
-</div>
-            """,
-            unsafe_allow_html=True,
-        )
+    top_items = ranking[:3]
+    rest_items = ranking[3:8]
+    badge_label = f"{len(ranking)} picks" if len(ranking) != 1 else "1 pick"
+
+    spotlight_html = ""
+    for idx, fila in enumerate(top_items, start=1):
+        edge_pct = fila["edge"] * 100
+        edge_class = "negative" if edge_pct < 0 else ""
+        spotlight_html += f"""
+        <div class="ranking-spotlight {'top-1' if idx == 1 else ''}">
+            <div class="ranking-rank">Top {idx}</div>
+            <div class="ranking-market">{fila['market']}</div>
+            <div class="ranking-match">{fila['match']}</div>
+            <div class="ranking-edge {edge_class}">{edge_pct:+.2f}%</div>
+            <div class="ranking-odds-meta">
+                <span>Prob IA {fila['prob'] * 100:.1f}%</span>
+                <span>Justa @{fila['fair_odds']:.2f}</span>
+                <span>Casa @{fila['offered_odds']:.2f}</span>
+            </div>
+        </div>
+        """
+
+    table_rows = ""
+    for fila in rest_items:
+        edge_pct = fila["edge"] * 100
+        edge_class = "edge-pos" if edge_pct >= 0 else "edge-neg"
+        table_rows += f"""
+        <div class="ranking-row">
+            <div class="ranking-cell-main">
+                <strong>{fila['match']}</strong>
+                <span>{fila['market']}</span>
+            </div>
+            <div><span class="ranking-pill {edge_class}">{edge_pct:+.2f}%</span></div>
+            <div><span class="ranking-pill">@{fila['offered_odds']:.2f}</span></div>
+            <div><span class="ranking-pill">@{fila['fair_odds']:.2f}</span></div>
+            <div class="ranking-provider">{fila['provider']}</div>
+        </div>
+        """
+
+    table_block = ""
+    if table_rows:
+        table_block = f"""
+        <div class="ranking-table">
+            <div class="ranking-row header">
+                <div>Partido y mercado</div>
+                <div>Edge</div>
+                <div>Casa</div>
+                <div>Justa</div>
+                <div>Fuente</div>
+            </div>
+            {table_rows}
+        </div>
+        """
+
+    st.markdown(
+        f"""
+        <div class="ranking-card">
+            <div class="ranking-shell">
+                <div class="ranking-head">
+                    <div class="ranking-head-copy">
+                        <h3>Top edges de {fecha_label}</h3>
+                        <p>Vista resumida de las oportunidades con mayor diferencia entre la cuota de mercado y la cuota justa del modelo.</p>
+                    </div>
+                    <div class="ranking-badge">{badge_label}</div>
+                </div>
+                <div class="ranking-top3">
+                    {spotlight_html}
+                </div>
+                {table_block}
+                <div class="ranking-footer-note">El panel prioriza claridad visual: destaca el top 3 y resume el resto para no ocupar media pantalla.</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
