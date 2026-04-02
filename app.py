@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import io
 import json
+import unicodedata
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -33,6 +35,17 @@ URLS_LIGAS = {
 VALUE_BET_THRESHOLD = 0.65
 SIMULACIONES = 50000
 FAVORITES_FILE = Path("data/favorite_picks.json")
+LOCAL_TIMEZONE = ZoneInfo("Europe/Madrid")
+ESPN_LEAGUE_IDS = {
+    "Premier League": "eng.1",
+    "LaLiga": "esp.1",
+    "Segunda Division": "esp.2",
+    "Serie A": "ita.1",
+    "Bundesliga": "ger.1",
+    "Ligue 1": "fra.1",
+    "Eredivisie": "ned.1",
+    "Portugal": "por.1",
+}
 
 
 def inyectar_estilos() -> None:
@@ -405,6 +418,125 @@ def preparar_calendario(df: pd.DataFrame) -> pd.DataFrame:
         + calendario["AwayTeam"].fillna("TBD")
     )
     return calendario
+
+
+def normalizar_nombre(texto: str) -> str:
+    texto = unicodedata.normalize("NFKD", str(texto)).encode("ascii", "ignore").decode("ascii")
+    texto = texto.lower().strip()
+    for token in [".", ",", "-", "'", '"']:
+        texto = texto.replace(token, " ")
+    texto = " ".join(texto.split())
+    return texto
+
+
+def resolver_nombre_equipo(nombre: str, equipos_csv: list[str]) -> str:
+    nombre_norm = normalizar_nombre(nombre)
+    aliases = {
+        "real sociedad ii": "Sociedad B",
+        "real sociedad b": "Sociedad B",
+        "sociedad b": "Sociedad B",
+        "leganes": "Leganes",
+        "real zaragoza": "Zaragoza",
+        "sporting gijon": "Sp Gijon",
+        "deportivo la coruna": "La Coruna",
+        "deportivo coruna": "La Coruna",
+        "malaga": "Malaga",
+        "cadiz": "Cadiz",
+        "cordoba": "Cordoba",
+        "almeria": "Almeria",
+        "mirandes": "Mirandes",
+        "castellon": "Castellon",
+    }
+    if nombre_norm in aliases:
+        return aliases[nombre_norm]
+
+    mapa_csv = {normalizar_nombre(equipo): equipo for equipo in equipos_csv}
+    if nombre_norm in mapa_csv:
+        return mapa_csv[nombre_norm]
+
+    for clave_norm, equipo_real in mapa_csv.items():
+        if nombre_norm in clave_norm or clave_norm in nombre_norm:
+            return equipo_real
+    return nombre
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def descargar_fixture_espn(league_id: str, fecha_objetivo) -> pd.DataFrame:
+    url = f"https://site.api.espn.com/apis/site/v2/sports/soccer/{league_id}/scoreboard"
+    params = {"dates": fecha_objetivo.strftime("%Y%m%d"), "limit": 100}
+
+    try:
+        respuesta = requests.get(url, params=params, headers={"User-Agent": "Mozilla/5.0"}, timeout=20)
+        respuesta.raise_for_status()
+        payload = respuesta.json()
+        eventos = payload.get("events", [])
+    except Exception:
+        return pd.DataFrame()
+
+    filas = []
+    for evento in eventos:
+        competicion = (evento.get("competitions") or [{}])[0]
+        competidores = competicion.get("competitors") or []
+        home = next((item for item in competidores if item.get("homeAway") == "home"), None)
+        away = next((item for item in competidores if item.get("homeAway") == "away"), None)
+        if not home or not away:
+            continue
+
+        fecha_evento = datetime.fromisoformat(evento["date"].replace("Z", "+00:00")).astimezone(LOCAL_TIMEZONE)
+        home_name = home.get("team", {}).get("displayName", "")
+        away_name = away.get("team", {}).get("displayName", "")
+        hora = fecha_evento.strftime("%H:%M")
+        filas.append(
+            {
+                "MatchDate": fecha_evento.date(),
+                "Time": hora,
+                "HomeTeamRaw": home_name,
+                "AwayTeamRaw": away_name,
+                "HomeTeam": home_name,
+                "AwayTeam": away_name,
+                "FixtureLabel": f"{fecha_evento.strftime('%d/%m/%Y')} {hora} | {home_name} vs {away_name}",
+                "Source": "ESPN",
+            }
+        )
+
+    return pd.DataFrame(filas)
+
+
+def fusionar_calendarios(csv_df: pd.DataFrame, espn_df: pd.DataFrame, equipos_csv: list[str]) -> pd.DataFrame:
+    frames = []
+    if not csv_df.empty:
+        csv_local = csv_df.copy()
+        csv_local["Source"] = csv_local.get("Source", "CSV")
+        csv_local["HomeTeamRaw"] = csv_local.get("HomeTeamRaw", csv_local["HomeTeam"])
+        csv_local["AwayTeamRaw"] = csv_local.get("AwayTeamRaw", csv_local["AwayTeam"])
+        frames.append(csv_local)
+
+    if not espn_df.empty:
+        espn_local = espn_df.copy()
+        espn_local["HomeTeam"] = espn_local["HomeTeamRaw"].apply(lambda nombre: resolver_nombre_equipo(nombre, equipos_csv))
+        espn_local["AwayTeam"] = espn_local["AwayTeamRaw"].apply(lambda nombre: resolver_nombre_equipo(nombre, equipos_csv))
+        frames.append(espn_local)
+
+    if not frames:
+        return pd.DataFrame()
+
+    combinado = pd.concat(frames, ignore_index=True)
+    combinado["dedupe_key"] = combinado.apply(
+        lambda fila: (
+            str(fila.get("MatchDate")),
+            normalizar_nombre(fila.get("HomeTeamRaw", fila.get("HomeTeam", ""))),
+            normalizar_nombre(fila.get("AwayTeamRaw", fila.get("AwayTeam", ""))),
+        ),
+        axis=1,
+    )
+    prioridad = {"ESPN": 0, "CSV": 1}
+    combinado["priority"] = combinado["Source"].map(prioridad).fillna(9)
+    combinado = (
+        combinado.sort_values(["priority", "Time", "FixtureLabel"])
+        .drop_duplicates(subset=["dedupe_key"], keep="first")
+        .drop(columns=["dedupe_key", "priority"])
+    )
+    return combinado
 
 
 def extraer_historico(df: pd.DataFrame) -> pd.DataFrame:
@@ -899,23 +1031,30 @@ with top_1:
     liga_seleccionada = st.selectbox("Liga", list(URLS_LIGAS.keys()))
 
 df = descargar_datos(URLS_LIGAS[liga_seleccionada]) if liga_seleccionada else None
-calendario = preparar_calendario(df) if df is not None else pd.DataFrame()
+calendario_csv = preparar_calendario(df) if df is not None else pd.DataFrame()
+equipos_csv = sorted(df["HomeTeam"].dropna().unique()) if df is not None and "HomeTeam" in df.columns else []
+league_id = ESPN_LEAGUE_IDS.get(liga_seleccionada, "")
 
-fechas_disponibles = sorted([fecha for fecha in calendario.get("MatchDate", pd.Series(dtype=object)).dropna().unique()])
+fechas_disponibles = sorted([fecha for fecha in calendario_csv.get("MatchDate", pd.Series(dtype=object)).dropna().unique()])
 hoy = datetime.now().date()
+partidos_hoy_espn = descargar_fixture_espn(league_id, hoy) if league_id else pd.DataFrame()
+hay_partidos_hoy = hoy in fechas_disponibles or not partidos_hoy_espn.empty
 fechas_futuras = [fecha for fecha in fechas_disponibles if fecha >= hoy]
-fecha_default = hoy if hoy in fechas_disponibles else (fechas_futuras[0] if fechas_futuras else (fechas_disponibles[-1] if fechas_disponibles else hoy))
+fecha_default = hoy if hay_partidos_hoy else (fechas_futuras[0] if fechas_futuras else (fechas_disponibles[-1] if fechas_disponibles else hoy))
 
 with top_2:
-    solo_hoy = st.toggle("Partidos de hoy", value=hoy in fechas_disponibles)
+    solo_hoy = st.toggle("Partidos de hoy", value=hay_partidos_hoy)
 
 with top_3:
     fecha_partido = st.date_input("Fecha", value=fecha_default, disabled=solo_hoy)
 
 fecha_objetivo = hoy if solo_hoy else fecha_partido
-partidos_filtrados = calendario[calendario["MatchDate"] == fecha_objetivo].copy() if not calendario.empty else pd.DataFrame()
-if partidos_filtrados.empty and not calendario.empty and not solo_hoy:
-    partidos_filtrados = calendario.copy()
+partidos_csv = calendario_csv[calendario_csv["MatchDate"] == fecha_objetivo].copy() if not calendario_csv.empty else pd.DataFrame()
+usar_fallback_espn = fecha_objetivo >= hoy or partidos_csv.empty
+partidos_espn = partidos_hoy_espn if fecha_objetivo == hoy else (descargar_fixture_espn(league_id, fecha_objetivo) if usar_fallback_espn and league_id else pd.DataFrame())
+partidos_filtrados = fusionar_calendarios(partidos_csv, partidos_espn, equipos_csv)
+if partidos_filtrados.empty and not calendario_csv.empty and not solo_hoy:
+    partidos_filtrados = fusionar_calendarios(calendario_csv, pd.DataFrame(), equipos_csv)
 
 with top_4:
     if partidos_filtrados.empty:
@@ -936,8 +1075,8 @@ with top_5:
     analizar = st.button("Analizar", use_container_width=True)
 
 if solo_hoy and partidos_filtrados.empty:
-    st.warning("No hay partidos cargados para hoy en esta liga. Puedes desactivar el filtro y elegir otra fecha.")
-elif partidos_filtrados.empty and not calendario.empty:
+    st.warning("No aparecen partidos para hoy ni en el CSV ni en la fuente de respaldo. Puedes desactivar el filtro y elegir otra fecha.")
+elif partidos_filtrados.empty and not calendario_csv.empty:
     st.warning("No hay partidos para esa fecha. Te muestro el selector completo de la liga como respaldo.")
 
 if analizar:
@@ -964,7 +1103,7 @@ analisis = st.session_state.get("analysis")
 
 if df is None:
     st.error("No se pudieron descargar los datos de la liga seleccionada.")
-elif calendario.empty:
+elif calendario_csv.empty and partidos_espn.empty:
     st.warning("No hay partidos disponibles en el calendario cargado.")
 elif analisis is None:
     st.info("Usa el buscador superior y pulsa Analizar para cargar el partido en esta misma pantalla.")
