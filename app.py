@@ -22,6 +22,7 @@ st.set_page_config(
 URLS_LIGAS = {
     "Premier League": "https://www.football-data.co.uk/mmz4281/2526/E0.csv",
     "LaLiga": "https://www.football-data.co.uk/mmz4281/2526/SP1.csv",
+    "Segunda Division": "https://www.football-data.co.uk/mmz4281/2526/SP2.csv",
     "Serie A": "https://www.football-data.co.uk/mmz4281/2526/I1.csv",
     "Bundesliga": "https://www.football-data.co.uk/mmz4281/2526/D1.csv",
     "Ligue 1": "https://www.football-data.co.uk/mmz4281/2526/F1.csv",
@@ -375,6 +376,44 @@ def descargar_datos(url: str) -> pd.DataFrame | None:
         return None
 
 
+def preparar_calendario(df: pd.DataFrame) -> pd.DataFrame:
+    calendario = df.copy()
+    if "Date" in calendario.columns:
+        fechas = pd.to_datetime(calendario["Date"], dayfirst=True, errors="coerce")
+        if fechas.isna().all():
+            fechas = pd.to_datetime(calendario["Date"], errors="coerce")
+        calendario["MatchDate"] = fechas.dt.date
+    else:
+        calendario["MatchDate"] = pd.NaT
+
+    if "Time" in calendario.columns:
+        horas = calendario["Time"].fillna("").astype(str).str.strip()
+        horas = horas.where(horas != "", "")
+    else:
+        horas = pd.Series([""] * len(calendario))
+
+    fecha_texto = pd.Series(
+        [valor.strftime("%d/%m/%Y") if pd.notna(valor) else "Sin fecha" for valor in calendario["MatchDate"]]
+    )
+    hora_texto = horas.apply(lambda valor: f" {valor}" if valor else "")
+    calendario["FixtureLabel"] = (
+        fecha_texto
+        + hora_texto
+        + " | "
+        + calendario["HomeTeam"].fillna("TBD")
+        + " vs "
+        + calendario["AwayTeam"].fillna("TBD")
+    )
+    return calendario
+
+
+def extraer_historico(df: pd.DataFrame) -> pd.DataFrame:
+    historico = df.copy()
+    if "FTHG" in historico.columns and "FTAG" in historico.columns:
+        historico = historico[historico["FTHG"].notna() & historico["FTAG"].notna()].copy()
+    return historico
+
+
 def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
     if scope == "home":
         partidos = df[df["HomeTeam"] == equipo].copy()
@@ -629,12 +668,13 @@ def render_expected_card(titulo: str, valor: float, subtitulo: str) -> None:
 
 def render_summary_band(analisis: dict) -> None:
     resultado = analisis["resultado"]
+    fecha_partido = analisis["match_date"].strftime("%d/%m/%Y") if analisis.get("match_date") else analisis["timestamp"]
     st.markdown(
         f"""
         <div class="summary-band">
             <div class="summary-chip">
                 <strong>{analisis['local']} vs {analisis['visitante']}</strong>
-                <span>{analisis['liga']} | {analisis['timestamp']}</span>
+                <span>{analisis['liga']} | {fecha_partido}</span>
             </div>
             <div class="summary-chip">
                 <strong>{resultado['Marcador']}</strong>
@@ -782,9 +822,10 @@ def construir_insights(analisis: dict) -> list[str]:
     return insights[:4]
 
 
-def guardar_analisis(df: pd.DataFrame, liga: str, local: str, visitante: str) -> dict | None:
-    stats_local = calcular_stats(df, local)
-    stats_visitante = calcular_stats(df, visitante)
+def guardar_analisis(df: pd.DataFrame, liga: str, local: str, visitante: str, match_date=None, match_label: str = "") -> dict | None:
+    historico = extraer_historico(df)
+    stats_local = calcular_stats(historico, local)
+    stats_visitante = calcular_stats(historico, visitante)
 
     if stats_local["overall"]["pj"] == 0 or stats_visitante["overall"]["pj"] == 0:
         return None
@@ -813,6 +854,8 @@ def guardar_analisis(df: pd.DataFrame, liga: str, local: str, visitante: str) ->
         "liga": liga,
         "local": local,
         "visitante": visitante,
+        "match_date": match_date,
+        "match_label": match_label,
         "resultado": resultado,
         "stats_local": stats_local,
         "stats_visitante": stats_visitante,
@@ -844,56 +887,76 @@ st.markdown(
     """
     <div class="search-shell">
         <h3>Buscador de partido</h3>
-        <p>Selecciona la liga, filtra equipos arriba del todo y analiza el partido sin salir de la misma pantalla.</p>
+        <p>Selecciona la liga, filtra por fecha o por hoy y elige un partido real del calendario sin salir de la misma pantalla.</p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-top_1, top_2, top_3, top_4, top_5 = st.columns([1.2, 1.1, 1.2, 1.2, 0.9])
+top_1, top_2, top_3, top_4, top_5 = st.columns([1.15, 1.05, 1.2, 1.8, 0.8])
 
 with top_1:
     liga_seleccionada = st.selectbox("Liga", list(URLS_LIGAS.keys()))
 
 df = descargar_datos(URLS_LIGAS[liga_seleccionada]) if liga_seleccionada else None
-if df is not None and "HomeTeam" in df.columns:
-    equipos = sorted(df["HomeTeam"].dropna().unique())
-else:
-    equipos = []
+calendario = preparar_calendario(df) if df is not None else pd.DataFrame()
+
+fechas_disponibles = sorted([fecha for fecha in calendario.get("MatchDate", pd.Series(dtype=object)).dropna().unique()])
+hoy = datetime.now().date()
+fechas_futuras = [fecha for fecha in fechas_disponibles if fecha >= hoy]
+fecha_default = hoy if hoy in fechas_disponibles else (fechas_futuras[0] if fechas_futuras else (fechas_disponibles[-1] if fechas_disponibles else hoy))
 
 with top_2:
-    filtro_equipos = st.text_input("Buscar equipo", placeholder="Ej: Real, City, Milan")
-
-equipos_filtrados = [equipo for equipo in equipos if filtro_equipos.lower() in equipo.lower()] if filtro_equipos else equipos
-if not equipos_filtrados:
-    equipos_filtrados = equipos
+    solo_hoy = st.toggle("Partidos de hoy", value=hoy in fechas_disponibles)
 
 with top_3:
-    local = st.selectbox("Equipo local", equipos_filtrados) if equipos_filtrados else None
+    fecha_partido = st.date_input("Fecha", value=fecha_default, disabled=solo_hoy)
 
-opciones_visitante = [equipo for equipo in equipos_filtrados if equipo != local] if local else equipos_filtrados
-if not opciones_visitante:
-    opciones_visitante = [equipo for equipo in equipos if equipo != local]
+fecha_objetivo = hoy if solo_hoy else fecha_partido
+partidos_filtrados = calendario[calendario["MatchDate"] == fecha_objetivo].copy() if not calendario.empty else pd.DataFrame()
+if partidos_filtrados.empty and not calendario.empty and not solo_hoy:
+    partidos_filtrados = calendario.copy()
 
 with top_4:
-    visitante = st.selectbox("Equipo visitante", opciones_visitante) if opciones_visitante else None
+    if partidos_filtrados.empty:
+        st.selectbox("Partido del calendario", ["Sin partidos"], disabled=True)
+        partido_idx = None
+    else:
+        partido_idx = st.selectbox(
+            "Partido del calendario",
+            partidos_filtrados.index.tolist(),
+            format_func=lambda idx: partidos_filtrados.loc[idx, "FixtureLabel"],
+        )
+
+partido_seleccionado = partidos_filtrados.loc[partido_idx] if not partidos_filtrados.empty else None
+local = partido_seleccionado["HomeTeam"] if partido_seleccionado is not None else None
+visitante = partido_seleccionado["AwayTeam"] if partido_seleccionado is not None else None
 
 with top_5:
     analizar = st.button("Analizar", use_container_width=True)
+
+if solo_hoy and partidos_filtrados.empty:
+    st.warning("No hay partidos cargados para hoy en esta liga. Puedes desactivar el filtro y elegir otra fecha.")
+elif partidos_filtrados.empty and not calendario.empty:
+    st.warning("No hay partidos para esa fecha. Te muestro el selector completo de la liga como respaldo.")
 
 if analizar:
     if df is None:
         st.session_state["analysis"] = None
         st.error("No se pudieron descargar los datos de la liga.")
-    elif not local or not visitante:
+    elif partido_seleccionado is None:
         st.session_state["analysis"] = None
-        st.error("Selecciona dos equipos validos.")
-    elif local == visitante:
-        st.session_state["analysis"] = None
-        st.error("No puedes analizar al mismo equipo contra si mismo.")
+        st.error("No hay un partido valido seleccionado en el calendario.")
     else:
         with st.spinner("Ejecutando motor Poisson y construyendo panel de trading..."):
-            st.session_state["analysis"] = guardar_analisis(df, liga_seleccionada, local, visitante)
+            st.session_state["analysis"] = guardar_analisis(
+                df,
+                liga_seleccionada,
+                local,
+                visitante,
+                match_date=partido_seleccionado["MatchDate"],
+                match_label=partido_seleccionado["FixtureLabel"],
+            )
         if st.session_state["analysis"] is None:
             st.error("No hay datos suficientes para construir el analisis de este cruce.")
 
@@ -901,13 +964,14 @@ analisis = st.session_state.get("analysis")
 
 if df is None:
     st.error("No se pudieron descargar los datos de la liga seleccionada.")
-elif not equipos:
-    st.warning("No hay equipos disponibles en la liga cargada.")
+elif calendario.empty:
+    st.warning("No hay partidos disponibles en el calendario cargado.")
 elif analisis is None:
     st.info("Usa el buscador superior y pulsa Analizar para cargar el partido en esta misma pantalla.")
 else:
-    seleccion_actual = (liga_seleccionada, local, visitante)
-    seleccion_analizada = (analisis["liga"], analisis["local"], analisis["visitante"])
+    fecha_actual_cruce = partido_seleccionado["MatchDate"] if partido_seleccionado is not None else fecha_objetivo
+    seleccion_actual = (liga_seleccionada, local, visitante, fecha_actual_cruce)
+    seleccion_analizada = (analisis["liga"], analisis["local"], analisis["visitante"], analisis.get("match_date"))
     if seleccion_actual != seleccion_analizada:
         st.warning("Has cambiado la seleccion superior. Pulsa Analizar para refrescar el tablero del partido.")
 
