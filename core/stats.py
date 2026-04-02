@@ -1,0 +1,290 @@
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+
+from data.teams import nombre_visual_equipo
+
+
+def extraer_historico(df: pd.DataFrame) -> pd.DataFrame:
+    historico = df.copy()
+    if "FTHG" in historico.columns and "FTAG" in historico.columns:
+        historico = historico[historico["FTHG"].notna() & historico["FTAG"].notna()].copy()
+    return historico
+
+
+def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
+    if scope == "home":
+        partidos = df[df["HomeTeam"] == equipo].copy()
+        goles_favor = partidos["FTHG"]
+        goles_contra = partidos["FTAG"]
+        corners_favor = partidos["HC"] if "HC" in partidos.columns else pd.Series([4.5] * len(partidos))
+        corners_contra = partidos["AC"] if "AC" in partidos.columns else pd.Series([4.5] * len(partidos))
+        victorias = partidos["FTHG"] > partidos["FTAG"]
+        empates = partidos["FTHG"] == partidos["FTAG"]
+        derrotas = partidos["FTHG"] < partidos["FTAG"]
+    elif scope == "away":
+        partidos = df[df["AwayTeam"] == equipo].copy()
+        goles_favor = partidos["FTAG"]
+        goles_contra = partidos["FTHG"]
+        corners_favor = partidos["AC"] if "AC" in partidos.columns else pd.Series([4.5] * len(partidos))
+        corners_contra = partidos["HC"] if "HC" in partidos.columns else pd.Series([4.5] * len(partidos))
+        victorias = partidos["FTAG"] > partidos["FTHG"]
+        empates = partidos["FTAG"] == partidos["FTHG"]
+        derrotas = partidos["FTAG"] < partidos["FTHG"]
+    else:
+        casa = df[df["HomeTeam"] == equipo].copy()
+        fuera = df[df["AwayTeam"] == equipo].copy()
+        partidos = pd.concat([casa, fuera], ignore_index=True)
+        if partidos.empty:
+            goles_favor = pd.Series(dtype=float)
+            goles_contra = pd.Series(dtype=float)
+            corners_favor = pd.Series(dtype=float)
+            corners_contra = pd.Series(dtype=float)
+            victorias = pd.Series(dtype=bool)
+            empates = pd.Series(dtype=bool)
+            derrotas = pd.Series(dtype=bool)
+        else:
+            goles_favor = pd.Series(
+                [fila["FTHG"] if fila["HomeTeam"] == equipo else fila["FTAG"] for _, fila in partidos.iterrows()]
+            )
+            goles_contra = pd.Series(
+                [fila["FTAG"] if fila["HomeTeam"] == equipo else fila["FTHG"] for _, fila in partidos.iterrows()]
+            )
+            if "HC" in partidos.columns and "AC" in partidos.columns:
+                corners_favor = pd.Series(
+                    [fila["HC"] if fila["HomeTeam"] == equipo else fila["AC"] for _, fila in partidos.iterrows()]
+                )
+                corners_contra = pd.Series(
+                    [fila["AC"] if fila["HomeTeam"] == equipo else fila["HC"] for _, fila in partidos.iterrows()]
+                )
+            else:
+                corners_favor = pd.Series([4.5] * len(partidos))
+                corners_contra = pd.Series([4.5] * len(partidos))
+            victorias = goles_favor > goles_contra
+            empates = goles_favor == goles_contra
+            derrotas = goles_favor < goles_contra
+
+    pj = int(len(partidos))
+    if pj == 0:
+        return {
+            "pj": 0,
+            "gf": 0.0,
+            "gc": 0.0,
+            "corners_for": 0.0,
+            "corners_against": 0.0,
+            "win_pct": 0.0,
+            "draw_pct": 0.0,
+            "loss_pct": 0.0,
+            "btts_pct": 0.0,
+            "over25_pct": 0.0,
+            "clean_sheet_pct": 0.0,
+            "fail_score_pct": 0.0,
+            "total_goals": 0.0,
+        }
+
+    total_goals = goles_favor + goles_contra
+    return {
+        "pj": pj,
+        "gf": float(goles_favor.mean()),
+        "gc": float(goles_contra.mean()),
+        "corners_for": float(corners_favor.mean()),
+        "corners_against": float(corners_contra.mean()),
+        "win_pct": float(victorias.mean()),
+        "draw_pct": float(empates.mean()),
+        "loss_pct": float(derrotas.mean()),
+        "btts_pct": float(((goles_favor > 0) & (goles_contra > 0)).mean()),
+        "over25_pct": float((total_goals > 2.5).mean()),
+        "clean_sheet_pct": float((goles_contra == 0).mean()),
+        "fail_score_pct": float((goles_favor == 0).mean()),
+        "total_goals": float(total_goals.mean()),
+    }
+
+
+def calcular_forma(df: pd.DataFrame, equipo: str, n_partidos: int = 5) -> dict:
+    partidos = df[(df["HomeTeam"] == equipo) | (df["AwayTeam"] == equipo)].copy().tail(n_partidos)
+    if partidos.empty:
+        return {
+            "matches": 0,
+            "wins": 0,
+            "draws": 0,
+            "losses": 0,
+            "points": 0,
+            "ppg": 0.0,
+            "goal_diff": 0,
+            "results": [],
+            "streak": "Sin datos",
+        }
+
+    resultados = []
+    wins = draws = losses = 0
+    goal_diff = 0
+    for _, fila in partidos.iterrows():
+        gf = fila["FTHG"] if fila["HomeTeam"] == equipo else fila["FTAG"]
+        gc = fila["FTAG"] if fila["HomeTeam"] == equipo else fila["FTHG"]
+        goal_diff += int(gf - gc)
+        if gf > gc:
+            resultados.append("W")
+            wins += 1
+        elif gf == gc:
+            resultados.append("D")
+            draws += 1
+        else:
+            resultados.append("L")
+            losses += 1
+
+    puntos = wins * 3 + draws
+    return {
+        "matches": len(partidos),
+        "wins": wins,
+        "draws": draws,
+        "losses": losses,
+        "points": puntos,
+        "ppg": puntos / len(partidos),
+        "goal_diff": goal_diff,
+        "results": resultados,
+        "streak": "-".join(resultados),
+    }
+
+
+def calcular_stats(df: pd.DataFrame, equipo: str) -> dict:
+    todos = calcular_segmento(df, equipo, "all")
+    casa = calcular_segmento(df, equipo, "home")
+    fuera = calcular_segmento(df, equipo, "away")
+    recientes = df[(df["HomeTeam"] == equipo) | (df["AwayTeam"] == equipo)].copy().tail(5)
+    pj_rec = len(recientes)
+    if pj_rec > 0:
+        gf_rec = sum(
+            fila["FTHG"] if fila["HomeTeam"] == equipo else fila["FTAG"]
+            for _, fila in recientes.iterrows()
+        ) / pj_rec
+        gc_rec = sum(
+            fila["FTAG"] if fila["HomeTeam"] == equipo else fila["FTHG"]
+            for _, fila in recientes.iterrows()
+        ) / pj_rec
+    else:
+        gf_rec = todos["gf"]
+        gc_rec = todos["gc"]
+
+    return {
+        "overall": todos,
+        "home": casa,
+        "away": fuera,
+        "gf_rec": gf_rec,
+        "gc_rec": gc_rec,
+        "form": calcular_forma(df, equipo, 5),
+    }
+
+
+def valor_partido(fila: pd.Series, columna: str) -> float | None:
+    if columna not in fila.index:
+        return None
+    valor = fila.get(columna)
+    if pd.isna(valor):
+        return None
+    try:
+        return float(valor)
+    except (TypeError, ValueError):
+        return None
+
+
+def calcular_h2h(df: pd.DataFrame, local: str, visitante: str, limite: int = 6) -> dict:
+    cruces = df[
+        ((df["HomeTeam"] == local) & (df["AwayTeam"] == visitante))
+        | ((df["HomeTeam"] == visitante) & (df["AwayTeam"] == local))
+    ].copy().tail(limite)
+
+    if cruces.empty:
+        return {
+            "matches": 0,
+            "local_wins": 0,
+            "away_wins": 0,
+            "draws": 0,
+            "local_win_pct": 0.0,
+            "away_win_pct": 0.0,
+            "avg_total_goals": 0.0,
+            "btts_pct": 0.0,
+            "over25_pct": 0.0,
+            "recent_labels": [],
+            "recent_matches": [],
+        }
+
+    local_wins = away_wins = draws = 0
+    etiquetas = []
+    total_goals = []
+    btts = []
+    over25 = []
+    partidos_detalle = []
+
+    for indice, fila in cruces.iterrows():
+        goles_local = fila["FTHG"] if fila["HomeTeam"] == local else fila["FTAG"]
+        goles_visitante = fila["FTAG"] if fila["HomeTeam"] == local else fila["FTHG"]
+        total = goles_local + goles_visitante
+        total_goals.append(total)
+        btts.append(goles_local > 0 and goles_visitante > 0)
+        over25.append(total > 2.5)
+        local_visual = nombre_visual_equipo(local)
+        visitante_visual = nombre_visual_equipo(visitante)
+        etiquetas.append(f"{local_visual} {int(goles_local)}-{int(goles_visitante)} {visitante_visual}")
+
+        fecha_partido = pd.to_datetime(fila.get("Date"), dayfirst=True, errors="coerce")
+        if pd.isna(fecha_partido):
+            fecha_partido = pd.to_datetime(fila.get("Date"), errors="coerce")
+        fecha_texto = fecha_partido.strftime("%d/%m/%Y") if pd.notna(fecha_partido) else "Sin fecha"
+
+        home_team = nombre_visual_equipo(fila["HomeTeam"])
+        away_team = nombre_visual_equipo(fila["AwayTeam"])
+        winner_raw = (
+            fila["HomeTeam"]
+            if fila["FTHG"] > fila["FTAG"]
+            else (fila["AwayTeam"] if fila["FTAG"] > fila["FTHG"] else "Empate")
+        )
+        partidos_detalle.append(
+            {
+                "id": f"h2h_{indice}_{fila['HomeTeam']}_{fila['AwayTeam']}".lower().replace(" ", "_"),
+                "date": fecha_texto,
+                "home_team": home_team,
+                "away_team": away_team,
+                "home_score": int(fila["FTHG"]),
+                "away_score": int(fila["FTAG"]),
+                "label": f"{home_team} {int(fila['FTHG'])}-{int(fila['FTAG'])} {away_team}",
+                "winner": nombre_visual_equipo(winner_raw) if winner_raw != "Empate" else "Empate",
+                "btts": bool(fila["FTHG"] > 0 and fila["FTAG"] > 0),
+                "over25": bool((fila["FTHG"] + fila["FTAG"]) > 2.5),
+                "corners_home": valor_partido(fila, "HC"),
+                "corners_away": valor_partido(fila, "AC"),
+                "shots_home": valor_partido(fila, "HS"),
+                "shots_away": valor_partido(fila, "AS"),
+                "shots_on_target_home": valor_partido(fila, "HST"),
+                "shots_on_target_away": valor_partido(fila, "AST"),
+                "yellow_home": valor_partido(fila, "HY"),
+                "yellow_away": valor_partido(fila, "AY"),
+                "red_home": valor_partido(fila, "HR"),
+                "red_away": valor_partido(fila, "AR"),
+                "odds_home": valor_partido(fila, "B365H"),
+                "odds_draw": valor_partido(fila, "B365D"),
+                "odds_away": valor_partido(fila, "B365A"),
+            }
+        )
+
+        if goles_local > goles_visitante:
+            local_wins += 1
+        elif goles_local < goles_visitante:
+            away_wins += 1
+        else:
+            draws += 1
+
+    partidos = len(cruces)
+    return {
+        "matches": partidos,
+        "local_wins": local_wins,
+        "away_wins": away_wins,
+        "draws": draws,
+        "local_win_pct": local_wins / partidos,
+        "away_win_pct": away_wins / partidos,
+        "avg_total_goals": float(np.mean(total_goals)),
+        "btts_pct": float(np.mean(btts)),
+        "over25_pct": float(np.mean(over25)),
+        "recent_labels": etiquetas[::-1],
+        "recent_matches": partidos_detalle[::-1],
+    }
