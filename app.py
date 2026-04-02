@@ -297,6 +297,89 @@ def inyectar_estilos() -> None:
                 font-size: 0.9rem;
             }
 
+            .fixture-card {
+                background: rgba(255,255,255,0.03);
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 20px;
+                padding: 1rem;
+                margin-bottom: 0.85rem;
+                min-height: 170px;
+                box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
+            }
+
+            .fixture-card.active {
+                border-color: rgba(0,229,168,0.45);
+                background: linear-gradient(180deg, rgba(0,229,168,0.10), rgba(9,16,29,0.98));
+                box-shadow: 0 0 0 1px rgba(0,229,168,0.12), 0 22px 44px rgba(0, 0, 0, 0.2);
+            }
+
+            .fixture-meta {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 0.6rem;
+                color: var(--muted);
+                font-size: 0.82rem;
+                margin-bottom: 0.7rem;
+            }
+
+            .fixture-teams {
+                color: #ffffff;
+                font-size: 1.06rem;
+                font-weight: 800;
+                line-height: 1.35;
+                margin-bottom: 0.6rem;
+            }
+
+            .fixture-sub {
+                color: var(--muted);
+                font-size: 0.88rem;
+                line-height: 1.45;
+            }
+
+            .source-pill {
+                display: inline-block;
+                padding: 0.24rem 0.58rem;
+                border-radius: 999px;
+                background: rgba(59,130,246,0.16);
+                border: 1px solid rgba(59,130,246,0.24);
+                color: #cfe3ff;
+                font-size: 0.75rem;
+                font-weight: 700;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+            }
+
+            .detail-card {
+                background: rgba(255,255,255,0.03);
+                border: 1px solid rgba(255,255,255,0.07);
+                border-radius: 18px;
+                padding: 1rem;
+                margin-bottom: 0.85rem;
+                min-height: 145px;
+            }
+
+            .detail-card h4 {
+                margin: 0 0 0.6rem 0;
+                color: #ffffff;
+            }
+
+            .detail-card p,
+            .detail-card li {
+                color: var(--muted);
+                font-size: 0.9rem;
+                margin: 0.3rem 0;
+            }
+
+            .detail-note {
+                border-radius: 16px;
+                padding: 0.9rem 1rem;
+                background: rgba(255, 209, 102, 0.10);
+                border: 1px solid rgba(255, 209, 102, 0.22);
+                color: #fff4c2;
+                margin-bottom: 0.8rem;
+            }
+
             .score-pill {
                 display: inline-block;
                 margin: 0 0.5rem 0.5rem 0;
@@ -488,6 +571,7 @@ def descargar_fixture_espn(league_id: str, fecha_objetivo) -> pd.DataFrame:
         hora = fecha_evento.strftime("%H:%M")
         filas.append(
             {
+                "EventId": str(evento.get("id", "")),
                 "MatchDate": fecha_evento.date(),
                 "Time": hora,
                 "HomeTeamRaw": home_name,
@@ -500,6 +584,21 @@ def descargar_fixture_espn(league_id: str, fecha_objetivo) -> pd.DataFrame:
         )
 
     return pd.DataFrame(filas)
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def descargar_resumen_espn(league_id: str, event_id: str) -> dict:
+    if not league_id or not event_id:
+        return {}
+
+    url = f"https://site.api.espn.com/apis/site/v2/sports/soccer/{league_id}/summary"
+    params = {"event": event_id}
+    try:
+        respuesta = requests.get(url, params=params, headers={"User-Agent": "Mozilla/5.0"}, timeout=20)
+        respuesta.raise_for_status()
+        return respuesta.json()
+    except Exception:
+        return {}
 
 
 def fusionar_calendarios(csv_df: pd.DataFrame, espn_df: pd.DataFrame, equipos_csv: list[str]) -> pd.DataFrame:
@@ -991,6 +1090,278 @@ def render_comparador_cuotas(filas: list[dict]) -> None:
         )
 
 
+def render_fixture_cards(partidos: pd.DataFrame, fecha_objetivo, hoy) -> pd.Series | None:
+    if partidos.empty:
+        return None
+
+    titulo_lista = (
+        "Tarjetas de partidos de hoy"
+        if fecha_objetivo == hoy
+        else f"Tarjetas de partidos del {fecha_objetivo.strftime('%d/%m/%Y')}"
+    )
+    st.markdown(f'<div class="section-title">{titulo_lista}</div>', unsafe_allow_html=True)
+
+    opciones_partidos = partidos["FixtureLabel"].tolist()
+    if st.session_state.get("fixture_label") not in opciones_partidos:
+        st.session_state["fixture_label"] = opciones_partidos[0]
+
+    filas_partidos = partidos.to_dict("records")
+    for inicio in range(0, len(filas_partidos), 3):
+        bloque = filas_partidos[inicio : inicio + 3]
+        cols = st.columns(3)
+        for col, partido in zip(cols, bloque):
+            seleccion_actual = st.session_state.get("fixture_label") == partido["FixtureLabel"]
+            clase = "fixture-card active" if seleccion_actual else "fixture-card"
+            with col:
+                st.markdown(
+                    f"""
+                    <div class="{clase}">
+                        <div class="fixture-meta">
+                            <span>{partido.get('MatchDate').strftime('%d/%m/%Y') if partido.get('MatchDate') else 'Sin fecha'} {partido.get('Time', '').strip()}</span>
+                            <span class="source-pill">{partido.get('Source', 'CSV')}</span>
+                        </div>
+                        <div class="fixture-teams">{partido.get('HomeTeamRaw', partido.get('HomeTeam', 'TBD'))}<br>vs<br>{partido.get('AwayTeamRaw', partido.get('AwayTeam', 'TBD'))}</div>
+                        <div class="fixture-sub">Abre este panel para ver lectura del modelo, comparativa, mercado y detalles en vivo.</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                boton = "Panel cargado" if seleccion_actual else "Ver estadisticas"
+                if st.button(
+                    boton,
+                    key=f"fixture_{safe_key(partido['FixtureLabel'])}_{inicio}",
+                    use_container_width=True,
+                    disabled=seleccion_actual,
+                ):
+                    st.session_state["fixture_label"] = partido["FixtureLabel"]
+                    st.rerun()
+    seleccion_fixture = st.session_state.get("fixture_label")
+    return partidos[partidos["FixtureLabel"] == seleccion_fixture].iloc[0]
+
+
+def american_to_decimal(valor) -> float | None:
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError):
+        return None
+    if numero == 0:
+        return None
+    if numero > 0:
+        return 1 + (numero / 100)
+    return 1 + (100 / abs(numero))
+
+
+def a_decimal_seguro(valor) -> float | None:
+    try:
+        return float(valor)
+    except (TypeError, ValueError):
+        return None
+
+
+def extraer_contexto_mercado_espn(resumen: dict) -> dict:
+    competicion = ((resumen.get("header", {}) or {}).get("competitions") or [{}])[0]
+    odds_header = competicion.get("odds") or []
+    odds_root = resumen.get("odds") or []
+    odds_data = odds_header[0] if odds_header else (odds_root[0] if odds_root else {})
+    pickcenter = resumen.get("pickcenter") or []
+
+    home_odds = odds_data.get("homeTeamOdds") or {}
+    away_odds = odds_data.get("awayTeamOdds") or {}
+    draw_odds = odds_data.get("drawOdds") or {}
+
+    return {
+        "provider": ((odds_data.get("provider") or {}).get("name")) or "Sin proveedor",
+        "details": odds_data.get("details") or "Mercado principal",
+        "over_under": a_decimal_seguro(odds_data.get("overUnder")),
+        "spread": a_decimal_seguro(odds_data.get("spread")),
+        "home_ml": home_odds.get("moneyLine"),
+        "away_ml": away_odds.get("moneyLine"),
+        "draw_ml": draw_odds.get("moneyLine"),
+        "home_decimal": american_to_decimal(home_odds.get("moneyLine")),
+        "away_decimal": american_to_decimal(away_odds.get("moneyLine")),
+        "draw_decimal": american_to_decimal(draw_odds.get("moneyLine")),
+        "pickcenter": pickcenter[:3],
+        "available": bool(odds_data),
+    }
+
+
+def extraer_detalles_forma_espn(resumen: dict) -> list[dict]:
+    boxscore = resumen.get("boxscore") or {}
+    form_entries = boxscore.get("form") or []
+    detalles = []
+    for entrada in form_entries:
+        team = entrada.get("team") or {}
+        detalles.append(
+            {
+                "team": team.get("displayName") or team.get("shortDisplayName") or "Equipo",
+                "summary": entrada.get("displayValue") or entrada.get("summary") or "Sin resumen",
+                "value": entrada.get("value"),
+            }
+        )
+    return detalles
+
+
+def extraer_head_to_head_espn(resumen: dict) -> list[str]:
+    juegos = resumen.get("headToHeadGames") or []
+    etiquetas = []
+    for juego in juegos[:4]:
+        competencia = (juego.get("competitions") or [{}])[0]
+        competidores = competencia.get("competitors") or []
+        local = next((item for item in competidores if item.get("homeAway") == "home"), {})
+        visitante = next((item for item in competidores if item.get("homeAway") == "away"), {})
+        etiquetas.append(
+            f"{(local.get('team') or {}).get('displayName', 'Local')} {local.get('score', '-')} - {visitante.get('score', '-')} {(visitante.get('team') or {}).get('displayName', 'Visitante')}"
+        )
+    return etiquetas
+
+
+def extraer_disponibilidad_espn(resumen: dict) -> dict:
+    texto = json.dumps(resumen, ensure_ascii=True).lower()
+    tiene_lineups = any(token in texto for token in ["lineup", "formation", "startingxi", "starter", "substitutes"])
+    tiene_bajas = any(token in texto for token in ["injur", "susp"])
+    tiene_xg = any(token in texto for token in ["expectedgoals", "\"xg\"", "shotmap"])
+
+    return {
+        "lineups": tiene_lineups,
+        "injuries": tiene_bajas,
+        "xg_shots": tiene_xg,
+    }
+
+
+def render_contexto_feed_espn(resumen: dict, analisis: dict) -> None:
+    if not resumen:
+        st.markdown(
+            """
+            <div class="detail-note">
+                No hay feed enriquecido disponible para este partido. El panel sigue funcionando con el modelo historico y las cuotas manuales.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        return
+
+    contexto_mercado = extraer_contexto_mercado_espn(resumen)
+    forma_espn = extraer_detalles_forma_espn(resumen)
+    h2h_espn = extraer_head_to_head_espn(resumen)
+    disponibilidad = extraer_disponibilidad_espn(resumen)
+
+    if not all(disponibilidad.values()):
+        avisos = []
+        if not disponibilidad["lineups"]:
+            avisos.append("alineaciones")
+        if not disponibilidad["injuries"]:
+            avisos.append("lesiones/sanciones")
+        if not disponibilidad["xg_shots"]:
+            avisos.append("xG por disparo")
+        aviso_texto = ", ".join(avisos)
+        st.markdown(
+            f"""
+            <div class="detail-note">
+                La fuente abierta del partido no expone ahora mismo {aviso_texto}. Cuando el feed no lo trae, la app lo marca como no disponible en lugar de inventarlo.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    top_left, top_mid, top_right = st.columns(3)
+    with top_left:
+        lineas_mercado = []
+        if contexto_mercado["available"]:
+            lineas_mercado.append(f"<p>Proveedor: {contexto_mercado['provider']}</p>")
+            lineas_mercado.append(f"<p>Mercado: {contexto_mercado['details']}</p>")
+            if contexto_mercado["home_ml"] is not None:
+                texto = (
+                    f"1 local: ML {contexto_mercado['home_ml']} | Decimal @{contexto_mercado['home_decimal']:.2f}"
+                    if contexto_mercado["home_decimal"] is not None
+                    else f"1 local: ML {contexto_mercado['home_ml']}"
+                )
+                lineas_mercado.append(f"<p>{texto}</p>")
+            if contexto_mercado["draw_ml"] is not None:
+                texto = (
+                    f"X empate: ML {contexto_mercado['draw_ml']} | Decimal @{contexto_mercado['draw_decimal']:.2f}"
+                    if contexto_mercado["draw_decimal"] is not None
+                    else f"X empate: ML {contexto_mercado['draw_ml']}"
+                )
+                lineas_mercado.append(f"<p>{texto}</p>")
+            if contexto_mercado["away_ml"] is not None:
+                texto = (
+                    f"2 visitante: ML {contexto_mercado['away_ml']} | Decimal @{contexto_mercado['away_decimal']:.2f}"
+                    if contexto_mercado["away_decimal"] is not None
+                    else f"2 visitante: ML {contexto_mercado['away_ml']}"
+                )
+                lineas_mercado.append(f"<p>{texto}</p>")
+            if contexto_mercado["over_under"] is not None:
+                lineas_mercado.append(f"<p>Linea total: {contexto_mercado['over_under']:.2f}</p>")
+            if contexto_mercado["spread"] is not None:
+                lineas_mercado.append(f"<p>Spread: {contexto_mercado['spread']:.2f}</p>")
+        else:
+            lineas_mercado.append("<p>Sin cuotas abiertas en este feed.</p>")
+        st.markdown(
+            f'<div class="detail-card"><h4>Mercado en tiempo real</h4>{"".join(lineas_mercado)}</div>',
+            unsafe_allow_html=True,
+        )
+
+    with top_mid:
+        lineas_bajas = []
+        if disponibilidad["lineups"]:
+            lineas_bajas.append("<p>El feed indica que hay estructura de alineacion disponible, pero no estandarizada en todas las ligas.</p>")
+        else:
+            lineas_bajas.append("<p>Alineaciones confirmadas/probables no disponibles en la fuente abierta consultada para este partido.</p>")
+        if disponibilidad["injuries"]:
+            lineas_bajas.append("<p>Se detectaron campos de disponibilidad del jugador en el feed.</p>")
+        else:
+            lineas_bajas.append("<p>Lesiones y sanciones no publicadas por esta fuente abierta para este cruce.</p>")
+        st.markdown(
+            f'<div class="detail-card"><h4>Alineaciones y bajas</h4>{"".join(lineas_bajas)}</div>',
+            unsafe_allow_html=True,
+        )
+
+    with top_right:
+        lineas_xg = []
+        if disponibilidad["xg_shots"]:
+            lineas_xg.append("<p>El feed trae referencias a xG o shot map para este partido.</p>")
+        else:
+            lineas_xg.append("<p>No hay xG shot-by-shot en abierto para este evento.</p>")
+        lineas_xg.append(
+            f"<p>xG estimado del modelo: {analisis['local']} {analisis['xg_local']:.2f} | {analisis['visitante']} {analisis['xg_visitante']:.2f}</p>"
+        )
+        lineas_xg.append("<p>El motor prepartido sigue apoyandose en temporada, casa/fuera, forma y H2H.</p>")
+        st.markdown(
+            f'<div class="detail-card"><h4>xG por disparo</h4>{"".join(lineas_xg)}</div>',
+            unsafe_allow_html=True,
+        )
+
+    bottom_left, bottom_right = st.columns(2)
+    with bottom_left:
+        lineas_forma = []
+        if forma_espn:
+            for entrada in forma_espn:
+                lineas_forma.append(f"<p>{entrada['team']}: {entrada['summary']}</p>")
+        else:
+            lineas_forma.append("<p>Sin resumen de forma extra en la fuente abierta.</p>")
+        st.markdown(
+            f'<div class="detail-card"><h4>Lectura de forma del feed</h4>{"".join(lineas_forma)}</div>',
+            unsafe_allow_html=True,
+        )
+
+    with bottom_right:
+        lineas_h2h = []
+        if h2h_espn:
+            for item in h2h_espn:
+                lineas_h2h.append(f"<p>{item}</p>")
+        else:
+            lineas_h2h.append("<p>Sin head to head adicional en el feed abierto.</p>")
+        if contexto_mercado["pickcenter"]:
+            lineas_h2h.append("<p>Consenso del mercado:</p>")
+            for pick in contexto_mercado["pickcenter"]:
+                detalle = pick.get("details") or pick.get("summary") or "Sin detalle"
+                lineas_h2h.append(f"<p>- {detalle}</p>")
+        st.markdown(
+            f'<div class="detail-card"><h4>Head to head del feed</h4>{"".join(lineas_h2h)}</div>',
+            unsafe_allow_html=True,
+        )
+
+
 def tabla_comparativa(
     local: str,
     visitante: str,
@@ -1141,6 +1512,10 @@ if "analysis" not in st.session_state:
     st.session_state["analysis"] = None
 if "analysis_signature" not in st.session_state:
     st.session_state["analysis_signature"] = None
+if "solo_hoy_toggle" not in st.session_state:
+    st.session_state["solo_hoy_toggle"] = True
+if "last_league" not in st.session_state:
+    st.session_state["last_league"] = None
 
 st.markdown(
     """
@@ -1167,20 +1542,25 @@ top_1, top_2, top_3, top_4 = st.columns([1.15, 1.0, 1.25, 0.7])
 with top_1:
     liga_seleccionada = st.selectbox("Liga", list(URLS_LIGAS.keys()))
 
+if st.session_state.get("last_league") != liga_seleccionada:
+    st.session_state["solo_hoy_toggle"] = True
+    st.session_state["fixture_label"] = None
+    st.session_state["last_league"] = liga_seleccionada
+
 df = descargar_datos(URLS_LIGAS[liga_seleccionada]) if liga_seleccionada else None
 calendario_csv = preparar_calendario(df) if df is not None else pd.DataFrame()
 equipos_csv = sorted(df["HomeTeam"].dropna().unique()) if df is not None and "HomeTeam" in df.columns else []
 league_id = ESPN_LEAGUE_IDS.get(liga_seleccionada, "")
 
 fechas_disponibles = sorted([fecha for fecha in calendario_csv.get("MatchDate", pd.Series(dtype=object)).dropna().unique()])
-hoy = datetime.now().date()
+hoy = datetime.now(LOCAL_TIMEZONE).date()
 partidos_hoy_espn = descargar_fixture_espn(league_id, hoy) if league_id else pd.DataFrame()
 hay_partidos_hoy = hoy in fechas_disponibles or not partidos_hoy_espn.empty
 fechas_futuras = [fecha for fecha in fechas_disponibles if fecha >= hoy]
 fecha_default = hoy if hay_partidos_hoy else (fechas_futuras[0] if fechas_futuras else (fechas_disponibles[-1] if fechas_disponibles else hoy))
 
 with top_2:
-    solo_hoy = st.toggle("Partidos de hoy", value=hay_partidos_hoy)
+    solo_hoy = st.toggle("Partidos de hoy", key="solo_hoy_toggle")
 
 with top_3:
     fecha_partido = st.date_input("Fecha", value=fecha_default, disabled=solo_hoy)
@@ -1202,24 +1582,7 @@ elif partidos_filtrados.empty and not calendario_csv.empty:
     st.warning("No hay partidos para esa fecha. Te muestro el selector completo de la liga como respaldo.")
 
 if not partidos_filtrados.empty:
-    titulo_lista = (
-        "Lista de partidos de hoy"
-        if fecha_objetivo == hoy
-        else f"Lista de partidos del {fecha_objetivo.strftime('%d/%m/%Y')}"
-    )
-    if partidos_csv.empty and partidos_espn.empty and not solo_hoy:
-        titulo_lista = "Lista de partidos disponibles"
-    st.markdown(f'<div class="section-title">{titulo_lista}</div>', unsafe_allow_html=True)
-    opciones_partidos = partidos_filtrados["FixtureLabel"].tolist()
-    if st.session_state.get("fixture_label") not in opciones_partidos:
-        st.session_state["fixture_label"] = opciones_partidos[0]
-    seleccion_fixture = st.radio(
-        "Partidos disponibles",
-        opciones_partidos,
-        key="fixture_label",
-        label_visibility="collapsed",
-    )
-    partido_seleccionado = partidos_filtrados[partidos_filtrados["FixtureLabel"] == seleccion_fixture].iloc[0]
+    partido_seleccionado = render_fixture_cards(partidos_filtrados, fecha_objetivo, hoy)
 else:
     partido_seleccionado = None
 
@@ -1255,6 +1618,11 @@ else:
             st.error("No hay datos suficientes para construir el analisis de este cruce.")
 
 analisis = st.session_state.get("analysis")
+resumen_espn = {}
+if partido_seleccionado is not None and league_id:
+    event_id = str(partido_seleccionado.get("EventId", "") or "")
+    if event_id:
+        resumen_espn = descargar_resumen_espn(league_id, event_id)
 
 if df is None:
     st.error("No se pudieron descargar los datos de la liga seleccionada.")
@@ -1304,11 +1672,12 @@ else:
             "- Con esas medias se estiman goles esperados y corners esperados, y luego se lanzan 50.000 simulaciones Poisson para obtener 1X2, BTTS, Over 2.5, corners y marcador mas probable."
         )
 
-    tab_stats, tab_compare, tab_match, tab_odds = st.tabs(
+    tab_stats, tab_compare, tab_match, tab_feed, tab_odds = st.tabs(
         [
             "Estadisticas generales",
             "Comparativa equipos",
             "Posibles estadisticas del partido",
+            "Feed del partido",
             "Comparador cuota real vs cuota justa",
         ]
     )
@@ -1403,6 +1772,13 @@ else:
             for marcador, prob in [(item[0], item[1] / SIMULACIONES) for item in resultado["TopScores"]]
         )
         st.markdown(marcador_html, unsafe_allow_html=True)
+
+    with tab_feed:
+        st.markdown('<div class="section-title">Feed abierto del partido</div>', unsafe_allow_html=True)
+        st.caption(
+            "Aqui ves lo que la fuente abierta del partido expone de verdad: mercado en tiempo real, forma extra y referencias live. Si no hay alineaciones, lesiones o xG por disparo, la app lo marca como no disponible."
+        )
+        render_contexto_feed_espn(resumen_espn, analisis)
 
     with tab_odds:
         st.markdown('<div class="section-title">Comparador de cuotas, Kelly y favoritos</div>', unsafe_allow_html=True)
