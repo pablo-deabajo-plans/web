@@ -242,9 +242,9 @@ def inyectar_estilos() -> None:
             .ranking-edge.negative { color: #ff8f8f; }
             .ranking-odds-meta { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
             .ranking-odds-meta span { padding: 0.28rem 0.56rem; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); color: var(--muted); font-size: 0.78rem; }
-            .ranking-table { display: grid; gap: 0.55rem; }
-            .ranking-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(120px, 0.8fr) repeat(3, minmax(90px, 0.6fr)); gap: 0.7rem; align-items: center; border-radius: 16px; padding: 0.78rem 0.9rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); }
-            .ranking-row.header { background: rgba(59,130,246,0.10); border-color: rgba(96,165,250,0.20); color: #dcebff; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+            .ranking-subtable { margin-top: 0.35rem; }
+            .ranking-subhead { display: grid; grid-template-columns: minmax(0, 2.2fr) repeat(4, minmax(0, 1fr)); gap: 0.7rem; padding: 0 0.2rem 0.35rem 0.2rem; color: #dcebff; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+            .ranking-row-card { border-radius: 16px; padding: 0.85rem 0.95rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); margin-bottom: 0.55rem; }
             .ranking-cell-main strong { display: block; color: #ffffff; font-size: 0.95rem; line-height: 1.3; }
             .ranking-cell-main span { display: block; color: var(--muted); font-size: 0.82rem; margin-top: 0.14rem; }
             .ranking-pill { display: inline-flex; justify-content: center; align-items: center; padding: 0.36rem 0.56rem; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #ffffff; font-size: 0.83rem; font-weight: 700; }
@@ -269,7 +269,7 @@ def inyectar_estilos() -> None:
                 .summary-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
                 .odds-row, .odds-head { grid-template-columns: 1.4fr repeat(4, minmax(0, 1fr)); }
                 .ranking-top3 { grid-template-columns: 1fr; }
-                .ranking-row { grid-template-columns: minmax(0, 1.6fr) minmax(105px, 0.75fr) repeat(3, minmax(82px, 0.5fr)); gap: 0.55rem; }
+                .ranking-subhead { grid-template-columns: minmax(0, 1.8fr) repeat(4, minmax(0, 1fr)); gap: 0.55rem; }
             }
 
             @media (max-width: 780px) {
@@ -282,7 +282,7 @@ def inyectar_estilos() -> None:
                 .signal-card, .fixture-card, .form-card, .detail-card, .h2h-card { min-height: unset; }
                 .h2h-detail-head, .form-head, .fixture-meta { flex-direction: column; align-items: flex-start; }
                 .ranking-head { align-items: flex-start; flex-direction: column; }
-                .ranking-row, .ranking-row.header { grid-template-columns: 1fr; }
+                .ranking-subhead { display: none; }
                 .ranking-provider { text-align: left; }
                 .ranking-market { margin-top: 0.55rem; }
                 .ranking-edge { font-size: 1.45rem; }
@@ -755,38 +755,6 @@ def render_ranking_value_panel(ranking: list[dict], fecha_label: str) -> None:
         </div>
         """
 
-    table_rows = ""
-    for fila in rest_items:
-        edge_pct = fila["edge"] * 100
-        edge_class = "edge-pos" if edge_pct >= 0 else "edge-neg"
-        table_rows += f"""
-        <div class="ranking-row">
-            <div class="ranking-cell-main">
-                <strong>{fila['match']}</strong>
-                <span>{fila['market']}</span>
-            </div>
-            <div><span class="ranking-pill {edge_class}">{edge_pct:+.2f}%</span></div>
-            <div><span class="ranking-pill">@{fila['offered_odds']:.2f}</span></div>
-            <div><span class="ranking-pill">@{fila['fair_odds']:.2f}</span></div>
-            <div class="ranking-provider">{fila['provider']}</div>
-        </div>
-        """
-
-    table_block = ""
-    if table_rows:
-        table_block = f"""
-        <div class="ranking-table">
-            <div class="ranking-row header">
-                <div>Partido y mercado</div>
-                <div>Edge</div>
-                <div>Casa</div>
-                <div>Justa</div>
-                <div>Fuente</div>
-            </div>
-            {table_rows}
-        </div>
-        """
-
     st.markdown(
         f"""
         <div class="ranking-card">
@@ -801,10 +769,63 @@ def render_ranking_value_panel(ranking: list[dict], fecha_label: str) -> None:
                 <div class="ranking-top3">
                     {spotlight_html}
                 </div>
-                {table_block}
-                <div class="ranking-footer-note">El panel prioriza claridad visual: destaca el top 3 y resume el resto para no ocupar media pantalla.</div>
             </div>
         </div>
         """,
+        unsafe_allow_html=True,
+    )
+
+    if rest_items:
+        st.markdown(
+            """
+            <div class="ranking-subtable">
+                <div class="ranking-subhead">
+                    <div>Partido y mercado</div>
+                    <div>Edge</div>
+                    <div>Casa</div>
+                    <div>Justa</div>
+                    <div>Fuente</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        for fila in rest_items:
+            edge_pct = fila["edge"] * 100
+            edge_class = "edge-pos" if edge_pct >= 0 else "edge-neg"
+            row_cols = st.columns([2.5, 1, 1, 1, 1], vertical_alignment="center")
+            with row_cols[0]:
+                st.markdown(
+                    f"""
+                    <div class="ranking-row-card ranking-cell-main">
+                        <strong>{fila['match']}</strong>
+                        <span>{fila['market']}</span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            with row_cols[1]:
+                st.markdown(
+                    f'<div class="ranking-row-card"><span class="ranking-pill {edge_class}">{edge_pct:+.2f}%</span></div>',
+                    unsafe_allow_html=True,
+                )
+            with row_cols[2]:
+                st.markdown(
+                    f'<div class="ranking-row-card"><span class="ranking-pill">@{fila["offered_odds"]:.2f}</span></div>',
+                    unsafe_allow_html=True,
+                )
+            with row_cols[3]:
+                st.markdown(
+                    f'<div class="ranking-row-card"><span class="ranking-pill">@{fila["fair_odds"]:.2f}</span></div>',
+                    unsafe_allow_html=True,
+                )
+            with row_cols[4]:
+                st.markdown(
+                    f'<div class="ranking-row-card"><div class="ranking-provider">{fila["provider"]}</div></div>',
+                    unsafe_allow_html=True,
+                )
+
+    st.markdown(
+        '<div class="ranking-footer-note">El panel prioriza claridad visual: destaca el top 3 y resume el resto para no ocupar media pantalla.</div>',
         unsafe_allow_html=True,
     )
