@@ -705,14 +705,15 @@ def render_ranking_value_panel(ranking: list[dict], fecha_label: str) -> None:
         st.info("No hay cuotas abiertas suficientes para construir el ranking automatico en esta fecha.")
         return
     st.caption(f"Top oportunidades detectadas para {fecha_label} en la liga seleccionada.")
-    items_html = "".join(
-        f"""
-        <div class="ranking-item">
-            <strong>{fila['match']} | {fila['market']}</strong>
-            <p>Prob IA {fila['prob'] * 100:.1f}% | Justa @{fila['fair_odds']:.2f} | Casa @{fila['offered_odds']:.2f}</p>
-            <p>Edge {fila['edge'] * 100:.2f}% | Fuente {fila['provider']}</p>
-        </div>
-        """
-        for fila in ranking
-    )
-    st.markdown(f'<div class="ranking-card"><h3>Top edges</h3><div class="ranking-list">{items_html}</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="ranking-card"><h3>Top edges</h3></div>', unsafe_allow_html=True)
+    for fila in ranking:
+        st.markdown(
+            f"""
+<div class="ranking-item">
+    <strong>{fila['match']} | {fila['market']}</strong>
+    <p>Prob IA {fila['prob'] * 100:.1f}% | Justa @{fila['fair_odds']:.2f} | Casa @{fila['offered_odds']:.2f}</p>
+    <p>Edge {fila['edge'] * 100:.2f}% | Fuente {fila['provider']}</p>
+</div>
+            """,
+            unsafe_allow_html=True,
+        )

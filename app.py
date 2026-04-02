@@ -47,7 +47,6 @@ from ui.components import (
     render_signal_card,
     render_split_panel,
     render_summary_band,
-    render_traceability_panel,
     safe_key,
     tabla_comparativa,
 )
@@ -224,16 +223,6 @@ else:
             render_signal_card(f"Victoria {analisis['visitante']}", resultado["2"])
     with overview_right:
         render_radar_panel(analisis)
-
-    with st.expander("Como calcula las probabilidades el modelo"):
-        st.write("El modelo combina estadisticas de temporada, rendimiento en casa/fuera, forma reciente y un ajuste suave por enfrentamientos directos recientes antes de simular el partido con Poisson.")
-        st.write(f"- {analisis['local']}: usa medias globales, medias como local y forma de los ultimos 5 partidos ({analisis['stats_local']['form']['streak']}).")
-        st.write(f"- {analisis['visitante']}: usa medias globales, medias como visitante y forma de los ultimos 5 partidos ({analisis['stats_visitante']['form']['streak']}).")
-        st.write(f"- H2H directo: {analisis['h2h']['matches']} cruces recientes entre ambos, con media de {analisis['h2h']['avg_total_goals']:.2f} goles.")
-        st.write("- Con esas medias se estiman goles esperados y corners esperados, y luego se lanzan 50.000 simulaciones Poisson para obtener 1X2, BTTS, Over 2.5, corners y marcador mas probable.")
-
-    with st.expander("Trazabilidad detallada del modelo"):
-        render_traceability_panel(analisis)
 
     tab_stats, tab_compare, tab_match, tab_feed, tab_odds = st.tabs(
         ["Estadisticas generales", "Comparativa equipos", "Posibles estadisticas del partido", "Feed del partido", "Comparador cuota real vs cuota justa"]
