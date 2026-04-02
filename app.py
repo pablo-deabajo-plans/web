@@ -661,6 +661,112 @@ def calcular_stats(df: pd.DataFrame, equipo: str) -> dict:
         "away": fuera,
         "gf_rec": gf_rec,
         "gc_rec": gc_rec,
+        "form": calcular_forma(df, equipo, 5),
+    }
+
+
+def calcular_forma(df: pd.DataFrame, equipo: str, n_partidos: int = 5) -> dict:
+    partidos = df[(df["HomeTeam"] == equipo) | (df["AwayTeam"] == equipo)].copy().tail(n_partidos)
+    if partidos.empty:
+        return {
+            "matches": 0,
+            "wins": 0,
+            "draws": 0,
+            "losses": 0,
+            "points": 0,
+            "ppg": 0.0,
+            "goal_diff": 0,
+            "results": [],
+            "streak": "Sin datos",
+        }
+
+    resultados = []
+    wins = draws = losses = 0
+    goal_diff = 0
+    for _, fila in partidos.iterrows():
+        gf = fila["FTHG"] if fila["HomeTeam"] == equipo else fila["FTAG"]
+        gc = fila["FTAG"] if fila["HomeTeam"] == equipo else fila["FTHG"]
+        goal_diff += int(gf - gc)
+        if gf > gc:
+            resultados.append("W")
+            wins += 1
+        elif gf == gc:
+            resultados.append("D")
+            draws += 1
+        else:
+            resultados.append("L")
+            losses += 1
+
+    puntos = wins * 3 + draws
+    streak = "-".join(resultados)
+    return {
+        "matches": len(partidos),
+        "wins": wins,
+        "draws": draws,
+        "losses": losses,
+        "points": puntos,
+        "ppg": puntos / len(partidos),
+        "goal_diff": goal_diff,
+        "results": resultados,
+        "streak": streak,
+    }
+
+
+def calcular_h2h(df: pd.DataFrame, local: str, visitante: str, limite: int = 6) -> dict:
+    cruces = df[
+        ((df["HomeTeam"] == local) & (df["AwayTeam"] == visitante))
+        | ((df["HomeTeam"] == visitante) & (df["AwayTeam"] == local))
+    ].copy()
+    cruces = cruces.tail(limite)
+
+    if cruces.empty:
+        return {
+            "matches": 0,
+            "local_wins": 0,
+            "away_wins": 0,
+            "draws": 0,
+            "local_win_pct": 0.0,
+            "away_win_pct": 0.0,
+            "avg_total_goals": 0.0,
+            "btts_pct": 0.0,
+            "over25_pct": 0.0,
+            "recent_labels": [],
+        }
+
+    local_wins = away_wins = draws = 0
+    etiquetas = []
+    total_goals = []
+    btts = []
+    over25 = []
+
+    for _, fila in cruces.iterrows():
+        goles_local = fila["FTHG"] if fila["HomeTeam"] == local else fila["FTAG"]
+        goles_visitante = fila["FTAG"] if fila["HomeTeam"] == local else fila["FTHG"]
+        total = goles_local + goles_visitante
+        total_goals.append(total)
+        btts.append(goles_local > 0 and goles_visitante > 0)
+        over25.append(total > 2.5)
+        etiquetas.append(f"{local} {int(goles_local)}-{int(goles_visitante)} {visitante}")
+
+        if goles_local > goles_visitante:
+            local_wins += 1
+        elif goles_local < goles_visitante:
+            away_wins += 1
+        else:
+            draws += 1
+
+    partidos = len(cruces)
+    return {
+        "matches": partidos,
+        "local_wins": local_wins,
+        "away_wins": away_wins,
+        "draws": draws,
+        "local_win_pct": local_wins / partidos,
+        "away_win_pct": away_wins / partidos,
+        "avg_total_goals": float(np.mean(total_goals)),
+        "btts_pct": float(np.mean(btts)),
+        "over25_pct": float(np.mean(over25)),
+        "recent_labels": etiquetas[::-1],
     }
 
 
@@ -958,26 +1064,54 @@ def guardar_analisis(df: pd.DataFrame, liga: str, local: str, visitante: str, ma
     historico = extraer_historico(df)
     stats_local = calcular_stats(historico, local)
     stats_visitante = calcular_stats(historico, visitante)
+    h2h = calcular_h2h(historico, local, visitante, 6)
 
     if stats_local["overall"]["pj"] == 0 or stats_visitante["overall"]["pj"] == 0:
         return None
 
-    xg_local = (
-        (
-            (stats_local["overall"]["gf"] * 0.4 + stats_local["gf_rec"] * 0.6)
-            + (stats_visitante["overall"]["gc"] * 0.4 + stats_visitante["gc_rec"] * 0.6)
-        )
-        / 2
-    ) * 1.12
-    xg_visitante = (
-        (
-            (stats_visitante["overall"]["gf"] * 0.4 + stats_visitante["gf_rec"] * 0.6)
-            + (stats_local["overall"]["gc"] * 0.4 + stats_local["gc_rec"] * 0.6)
-        )
-        / 2
+    ataque_local = (
+        stats_local["home"]["gf"] * 0.45
+        + stats_local["overall"]["gf"] * 0.20
+        + stats_local["gf_rec"] * 0.35
     )
-    xc_local = ((stats_local["home"]["corners_for"] + stats_visitante["away"]["corners_against"]) / 2) * 1.15
-    xc_visitante = (stats_visitante["away"]["corners_for"] + stats_local["home"]["corners_against"]) / 2
+    defensa_visitante = (
+        stats_visitante["away"]["gc"] * 0.45
+        + stats_visitante["overall"]["gc"] * 0.20
+        + stats_visitante["gc_rec"] * 0.35
+    )
+    ataque_visitante = (
+        stats_visitante["away"]["gf"] * 0.45
+        + stats_visitante["overall"]["gf"] * 0.20
+        + stats_visitante["gf_rec"] * 0.35
+    )
+    defensa_local = (
+        stats_local["home"]["gc"] * 0.45
+        + stats_local["overall"]["gc"] * 0.20
+        + stats_local["gc_rec"] * 0.35
+    )
+
+    forma_local = stats_local["form"]["ppg"]
+    forma_visitante = stats_visitante["form"]["ppg"]
+    ajuste_forma = max(-0.08, min(0.08, (forma_local - forma_visitante) * 0.04))
+    ajuste_h2h = 0.0
+    if h2h["matches"] > 0:
+        ajuste_h2h = max(-0.05, min(0.05, (h2h["local_win_pct"] - h2h["away_win_pct"]) * 0.03))
+
+    xg_local = ((ataque_local + defensa_visitante) / 2) * 1.10 * (1 + ajuste_forma + ajuste_h2h)
+    xg_visitante = ((ataque_visitante + defensa_local) / 2) * (1 - ajuste_forma - (ajuste_h2h / 2))
+    xg_local = max(0.15, xg_local)
+    xg_visitante = max(0.15, xg_visitante)
+
+    xc_local = (
+        stats_local["home"]["corners_for"] * 0.55
+        + stats_local["overall"]["corners_for"] * 0.15
+        + stats_visitante["away"]["corners_against"] * 0.30
+    ) * 1.10
+    xc_visitante = (
+        stats_visitante["away"]["corners_for"] * 0.55
+        + stats_visitante["overall"]["corners_for"] * 0.15
+        + stats_local["home"]["corners_against"] * 0.30
+    )
 
     resultado = simular_partido(xg_local, xg_visitante, xc_local, xc_visitante)
     mercados = construir_mercados(resultado, local, visitante)
@@ -991,6 +1125,7 @@ def guardar_analisis(df: pd.DataFrame, liga: str, local: str, visitante: str, ma
         "resultado": resultado,
         "stats_local": stats_local,
         "stats_visitante": stats_visitante,
+        "h2h": h2h,
         "xg_local": xg_local,
         "xg_visitante": xg_visitante,
         "xc_local": xc_local,
@@ -1004,6 +1139,8 @@ inyectar_estilos()
 
 if "analysis" not in st.session_state:
     st.session_state["analysis"] = None
+if "analysis_signature" not in st.session_state:
+    st.session_state["analysis_signature"] = None
 
 st.markdown(
     """
@@ -1019,13 +1156,13 @@ st.markdown(
     """
     <div class="search-shell">
         <h3>Buscador de partido</h3>
-        <p>Selecciona la liga, filtra por fecha o por hoy y elige un partido real del calendario sin salir de la misma pantalla.</p>
+        <p>Selecciona la liga, filtra por fecha o por hoy y pincha un partido de la lista para abrir su panel de estadisticas en la misma pantalla.</p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-top_1, top_2, top_3, top_4, top_5 = st.columns([1.15, 1.05, 1.2, 1.8, 0.8])
+top_1, top_2, top_3, top_4 = st.columns([1.15, 1.0, 1.25, 0.7])
 
 with top_1:
     liga_seleccionada = st.selectbox("Liga", list(URLS_LIGAS.keys()))
@@ -1057,36 +1194,53 @@ if partidos_filtrados.empty and not calendario_csv.empty and not solo_hoy:
     partidos_filtrados = fusionar_calendarios(calendario_csv, pd.DataFrame(), equipos_csv)
 
 with top_4:
-    if partidos_filtrados.empty:
-        st.selectbox("Partido del calendario", ["Sin partidos"], disabled=True)
-        partido_idx = None
-    else:
-        partido_idx = st.selectbox(
-            "Partido del calendario",
-            partidos_filtrados.index.tolist(),
-            format_func=lambda idx: partidos_filtrados.loc[idx, "FixtureLabel"],
-        )
-
-partido_seleccionado = partidos_filtrados.loc[partido_idx] if not partidos_filtrados.empty else None
-local = partido_seleccionado["HomeTeam"] if partido_seleccionado is not None else None
-visitante = partido_seleccionado["AwayTeam"] if partido_seleccionado is not None else None
-
-with top_5:
-    analizar = st.button("Analizar", use_container_width=True)
+    st.metric("Partidos", len(partidos_filtrados))
 
 if solo_hoy and partidos_filtrados.empty:
     st.warning("No aparecen partidos para hoy ni en el CSV ni en la fuente de respaldo. Puedes desactivar el filtro y elegir otra fecha.")
 elif partidos_filtrados.empty and not calendario_csv.empty:
     st.warning("No hay partidos para esa fecha. Te muestro el selector completo de la liga como respaldo.")
 
-if analizar:
-    if df is None:
-        st.session_state["analysis"] = None
-        st.error("No se pudieron descargar los datos de la liga.")
-    elif partido_seleccionado is None:
-        st.session_state["analysis"] = None
-        st.error("No hay un partido valido seleccionado en el calendario.")
-    else:
+if not partidos_filtrados.empty:
+    titulo_lista = (
+        "Lista de partidos de hoy"
+        if fecha_objetivo == hoy
+        else f"Lista de partidos del {fecha_objetivo.strftime('%d/%m/%Y')}"
+    )
+    if partidos_csv.empty and partidos_espn.empty and not solo_hoy:
+        titulo_lista = "Lista de partidos disponibles"
+    st.markdown(f'<div class="section-title">{titulo_lista}</div>', unsafe_allow_html=True)
+    opciones_partidos = partidos_filtrados["FixtureLabel"].tolist()
+    if st.session_state.get("fixture_label") not in opciones_partidos:
+        st.session_state["fixture_label"] = opciones_partidos[0]
+    seleccion_fixture = st.radio(
+        "Partidos disponibles",
+        opciones_partidos,
+        key="fixture_label",
+        label_visibility="collapsed",
+    )
+    partido_seleccionado = partidos_filtrados[partidos_filtrados["FixtureLabel"] == seleccion_fixture].iloc[0]
+else:
+    partido_seleccionado = None
+
+local = partido_seleccionado["HomeTeam"] if partido_seleccionado is not None else None
+visitante = partido_seleccionado["AwayTeam"] if partido_seleccionado is not None else None
+
+if df is None:
+    st.session_state["analysis"] = None
+    st.session_state["analysis_signature"] = None
+elif partido_seleccionado is None:
+    st.session_state["analysis"] = None
+    st.session_state["analysis_signature"] = None
+else:
+    firma_actual = (
+        liga_seleccionada,
+        partido_seleccionado["MatchDate"],
+        local,
+        visitante,
+        partido_seleccionado.get("Source", ""),
+    )
+    if st.session_state.get("analysis_signature") != firma_actual:
         with st.spinner("Ejecutando motor Poisson y construyendo panel de trading..."):
             st.session_state["analysis"] = guardar_analisis(
                 df,
@@ -1096,6 +1250,7 @@ if analizar:
                 match_date=partido_seleccionado["MatchDate"],
                 match_label=partido_seleccionado["FixtureLabel"],
             )
+        st.session_state["analysis_signature"] = firma_actual
         if st.session_state["analysis"] is None:
             st.error("No hay datos suficientes para construir el analisis de este cruce.")
 
@@ -1106,14 +1261,8 @@ if df is None:
 elif calendario_csv.empty and partidos_espn.empty:
     st.warning("No hay partidos disponibles en el calendario cargado.")
 elif analisis is None:
-    st.info("Usa el buscador superior y pulsa Analizar para cargar el partido en esta misma pantalla.")
+    st.info("Usa el buscador superior y selecciona un partido de la lista para cargar el analisis en esta misma pantalla.")
 else:
-    fecha_actual_cruce = partido_seleccionado["MatchDate"] if partido_seleccionado is not None else fecha_objetivo
-    seleccion_actual = (liga_seleccionada, local, visitante, fecha_actual_cruce)
-    seleccion_analizada = (analisis["liga"], analisis["local"], analisis["visitante"], analisis.get("match_date"))
-    if seleccion_actual != seleccion_analizada:
-        st.warning("Has cambiado la seleccion superior. Pulsa Analizar para refrescar el tablero del partido.")
-
     resultado = analisis["resultado"]
     mercados = analisis["mercados"]
     render_summary_band(analisis)
@@ -1137,6 +1286,23 @@ else:
         st.metric("xG visitante", f"{analisis['xg_visitante']:.2f}")
         st.metric("Corners esperados", f"{resultado['Total_Corners']:.2f}")
         st.markdown("</div>", unsafe_allow_html=True)
+
+    with st.expander("Como calcula las probabilidades el modelo"):
+        st.write(
+            "El modelo combina estadisticas de temporada, rendimiento en casa/fuera, forma reciente y un ajuste suave por enfrentamientos directos recientes antes de simular el partido con Poisson."
+        )
+        st.write(
+            f"- {analisis['local']}: usa medias globales, medias como local y forma de los ultimos 5 partidos ({analisis['stats_local']['form']['streak']})."
+        )
+        st.write(
+            f"- {analisis['visitante']}: usa medias globales, medias como visitante y forma de los ultimos 5 partidos ({analisis['stats_visitante']['form']['streak']})."
+        )
+        st.write(
+            f"- H2H directo: {analisis['h2h']['matches']} cruces recientes entre ambos, con media de {analisis['h2h']['avg_total_goals']:.2f} goles."
+        )
+        st.write(
+            "- Con esas medias se estiman goles esperados y corners esperados, y luego se lanzan 50.000 simulaciones Poisson para obtener 1X2, BTTS, Over 2.5, corners y marcador mas probable."
+        )
 
     tab_stats, tab_compare, tab_match, tab_odds = st.tabs(
         [
@@ -1187,6 +1353,26 @@ else:
             st.metric("GC visitante fuera", f"{analisis['stats_visitante']['away']['gc']:.2f}")
             st.metric("Corners local en casa", f"{analisis['stats_local']['home']['corners_for']:.2f}")
             st.metric("Corners visitante fuera", f"{analisis['stats_visitante']['away']['corners_for']:.2f}")
+
+        st.markdown("### Forma reciente y enfrentamientos directos")
+        form_left, form_right, h2h_col = st.columns(3)
+        with form_left:
+            st.metric(f"PPG ultimos 5 {analisis['local']}", f"{analisis['stats_local']['form']['ppg']:.2f}")
+            st.metric(f"Racha {analisis['local']}", analisis["stats_local"]["form"]["streak"])
+        with form_right:
+            st.metric(f"PPG ultimos 5 {analisis['visitante']}", f"{analisis['stats_visitante']['form']['ppg']:.2f}")
+            st.metric(f"Racha {analisis['visitante']}", analisis["stats_visitante"]["form"]["streak"])
+        with h2h_col:
+            st.metric("H2H local", f"{analisis['h2h']['local_wins']}")
+            st.metric("H2H visitante", f"{analisis['h2h']['away_wins']}")
+            st.metric("Empates H2H", f"{analisis['h2h']['draws']}")
+
+        if analisis["h2h"]["matches"] > 0:
+            st.caption("Ultimos cruces directos detectados")
+            for etiqueta in analisis["h2h"]["recent_labels"]:
+                st.write(f"- {etiqueta}")
+        else:
+            st.caption("No se detectaron cruces directos recientes entre ambos en la base historica cargada.")
 
     with tab_match:
         st.markdown('<div class="section-title">Posibles estadisticas del partido</div>', unsafe_allow_html=True)
