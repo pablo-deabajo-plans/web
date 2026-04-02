@@ -737,43 +737,44 @@ def render_ranking_value_panel(ranking: list[dict], fecha_label: str) -> None:
     rest_items = ranking[3:8]
     badge_label = f"{len(ranking)} picks" if len(ranking) != 1 else "1 pick"
 
-    spotlight_html = ""
-    for idx, fila in enumerate(top_items, start=1):
-        edge_pct = fila["edge"] * 100
-        edge_class = "negative" if edge_pct < 0 else ""
-        spotlight_html += f"""
-        <div class="ranking-spotlight {'top-1' if idx == 1 else ''}">
-            <div class="ranking-rank">Top {idx}</div>
-            <div class="ranking-market">{fila['market']}</div>
-            <div class="ranking-match">{fila['match']}</div>
-            <div class="ranking-edge {edge_class}">{edge_pct:+.2f}%</div>
-            <div class="ranking-odds-meta">
-                <span>Prob IA {fila['prob'] * 100:.1f}%</span>
-                <span>Justa @{fila['fair_odds']:.2f}</span>
-                <span>Casa @{fila['offered_odds']:.2f}</span>
-            </div>
-        </div>
-        """
-
     st.markdown(
         f"""
         <div class="ranking-card">
-            <div class="ranking-shell">
-                <div class="ranking-head">
-                    <div class="ranking-head-copy">
-                        <h3>Top edges de {fecha_label}</h3>
-                        <p>Vista resumida de las oportunidades con mayor diferencia entre la cuota de mercado y la cuota justa del modelo.</p>
-                    </div>
-                    <div class="ranking-badge">{badge_label}</div>
+            <div class="ranking-head">
+                <div class="ranking-head-copy">
+                    <h3>Top edges de {fecha_label}</h3>
+                    <p>Vista resumida de las oportunidades con mayor diferencia entre la cuota de mercado y la cuota justa del modelo.</p>
                 </div>
-                <div class="ranking-top3">
-                    {spotlight_html}
-                </div>
+                <div class="ranking-badge">{badge_label}</div>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+    if top_items:
+        top_cols = st.columns(len(top_items))
+        for idx, (col, fila) in enumerate(zip(top_cols, top_items), start=1):
+            edge_pct = fila["edge"] * 100
+            edge_class = "negative" if edge_pct < 0 else ""
+            extra_class = " top-1" if idx == 1 else ""
+            with col:
+                st.markdown(
+                    f"""
+                    <div class="ranking-spotlight{extra_class}">
+                        <div class="ranking-rank">Top {idx}</div>
+                        <div class="ranking-market">{fila['market']}</div>
+                        <div class="ranking-match">{fila['match']}</div>
+                        <div class="ranking-edge {edge_class}">{edge_pct:+.2f}%</div>
+                        <div class="ranking-odds-meta">
+                            <span>Prob IA {fila['prob'] * 100:.1f}%</span>
+                            <span>Justa @{fila['fair_odds']:.2f}</span>
+                            <span>Casa @{fila['offered_odds']:.2f}</span>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
     if rest_items:
         st.markdown(
