@@ -70,17 +70,20 @@ def inyectar_estilos() -> None:
             }
 
             .block-container {
-                padding-top: 1.4rem;
-                padding-bottom: 2rem;
+                max-width: 1500px;
+                padding-top: 1.1rem;
+                padding-bottom: 2.2rem;
+                padding-left: 1rem;
+                padding-right: 1rem;
             }
 
             .hero {
                 background: var(--bg-panel);
                 border: 1px solid var(--line);
                 border-radius: 24px;
-                padding: 1.6rem;
-                box-shadow: 0 20px 70px rgba(0, 0, 0, 0.28);
-                margin-bottom: 1rem;
+                padding: 1.8rem;
+                box-shadow: 0 22px 70px rgba(0, 0, 0, 0.28);
+                margin-bottom: 1.1rem;
             }
 
             .hero h1 {
@@ -117,10 +120,10 @@ def inyectar_estilos() -> None:
             }
 
             .section-title {
-                margin: 0.9rem 0 0.75rem 0;
-                font-size: 1.06rem;
+                margin: 1rem 0 0.8rem 0;
+                font-size: 1rem;
                 font-weight: 800;
-                letter-spacing: 0.04em;
+                letter-spacing: 0.08em;
                 color: #ffffff;
                 text-transform: uppercase;
             }
@@ -129,16 +132,21 @@ def inyectar_estilos() -> None:
                 background: var(--bg-card);
                 border: 1px solid var(--line);
                 border-radius: 20px;
-                padding: 1rem;
+                padding: 1.15rem;
                 height: 100%;
+                box-shadow: 0 18px 44px rgba(0, 0, 0, 0.16);
             }
 
             .signal-card {
                 background: var(--bg-card);
                 border: 1px solid var(--line);
                 border-radius: 18px;
-                padding: 1rem;
-                min-height: 155px;
+                padding: 1.05rem;
+                min-height: 168px;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                box-shadow: 0 14px 34px rgba(0, 0, 0, 0.12);
             }
 
             .signal-card.value-bet {
@@ -180,16 +188,18 @@ def inyectar_estilos() -> None:
 
             .summary-band {
                 display: grid;
-                grid-template-columns: repeat(4, minmax(0, 1fr));
-                gap: 0.8rem;
-                margin: 0.6rem 0 1rem 0;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 0.85rem;
+                margin: 0.7rem 0 1.15rem 0;
             }
 
             .summary-chip {
                 background: rgba(255,255,255,0.03);
                 border: 1px solid rgba(255,255,255,0.07);
-                border-radius: 16px;
-                padding: 0.9rem 1rem;
+                border-radius: 18px;
+                padding: 1rem 1.1rem;
+                min-height: 108px;
+                box-shadow: 0 14px 34px rgba(0, 0, 0, 0.10);
             }
 
             .summary-chip strong {
@@ -209,6 +219,7 @@ def inyectar_estilos() -> None:
                 border-radius: 18px;
                 padding: 1rem;
                 margin-bottom: 0.9rem;
+                box-shadow: 0 14px 34px rgba(0, 0, 0, 0.10);
             }
 
             .split-card h4 {
@@ -218,8 +229,8 @@ def inyectar_estilos() -> None:
 
             .split-grid {
                 display: grid;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 0.55rem;
+                grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+                gap: 0.6rem;
             }
 
             .mini-stat {
@@ -227,6 +238,7 @@ def inyectar_estilos() -> None:
                 padding: 0.75rem 0.85rem;
                 background: rgba(255,255,255,0.03);
                 border: 1px solid rgba(255,255,255,0.05);
+                min-height: 86px;
             }
 
             .mini-stat strong {
@@ -284,6 +296,7 @@ def inyectar_estilos() -> None:
                 border-radius: 18px;
                 padding: 1rem;
                 margin-bottom: 0.8rem;
+                box-shadow: 0 14px 34px rgba(0, 0, 0, 0.12);
             }
 
             .favorite-card strong {
@@ -303,7 +316,7 @@ def inyectar_estilos() -> None:
                 border-radius: 20px;
                 padding: 1rem;
                 margin-bottom: 0.85rem;
-                min-height: 170px;
+                min-height: 188px;
                 box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
             }
 
@@ -356,7 +369,8 @@ def inyectar_estilos() -> None:
                 border-radius: 18px;
                 padding: 1rem;
                 margin-bottom: 0.85rem;
-                min-height: 145px;
+                min-height: 170px;
+                box-shadow: 0 16px 38px rgba(0, 0, 0, 0.12);
             }
 
             .detail-card h4 {
@@ -380,6 +394,268 @@ def inyectar_estilos() -> None:
                 margin-bottom: 0.8rem;
             }
 
+            .radar-card {
+                background: var(--bg-card);
+                border: 1px solid var(--line);
+                border-radius: 22px;
+                padding: 1.15rem;
+                height: 100%;
+                box-shadow: 0 18px 42px rgba(0, 0, 0, 0.15);
+            }
+
+            .radar-card h3 {
+                margin: 0 0 0.85rem 0;
+                color: #ffffff;
+                font-size: 1.05rem;
+            }
+
+            .radar-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+                gap: 0.65rem;
+            }
+
+            .radar-stat {
+                border-radius: 16px;
+                padding: 0.85rem 0.9rem;
+                background: rgba(255,255,255,0.03);
+                border: 1px solid rgba(255,255,255,0.07);
+            }
+
+            .radar-stat span {
+                display: block;
+                color: var(--muted);
+                font-size: 0.78rem;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                margin-bottom: 0.25rem;
+            }
+
+            .radar-stat strong {
+                color: #ffffff;
+                font-size: 1.15rem;
+                line-height: 1.3;
+            }
+
+            .insight-box {
+                border-radius: 22px;
+                padding: 1.15rem;
+                background: linear-gradient(135deg, rgba(59,130,246,0.13), rgba(0,229,168,0.08));
+                border: 1px solid rgba(96, 165, 250, 0.2);
+                box-shadow: 0 18px 42px rgba(0, 0, 0, 0.14);
+                height: 100%;
+            }
+
+            .insight-box h3 {
+                margin: 0 0 0.7rem 0;
+                color: #ffffff;
+                font-size: 1.05rem;
+            }
+
+            .insight-list {
+                margin: 0;
+                padding-left: 1rem;
+                color: #d7e5fb;
+            }
+
+            .insight-list li {
+                margin: 0 0 0.55rem 0;
+                line-height: 1.45;
+            }
+
+            .form-card {
+                background: rgba(255,255,255,0.03);
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 20px;
+                padding: 1rem;
+                min-height: 180px;
+                box-shadow: 0 16px 38px rgba(0, 0, 0, 0.12);
+            }
+
+            .form-head {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+
+            .form-head h4 {
+                margin: 0.2rem 0 0 0;
+                color: #ffffff;
+                font-size: 1.1rem;
+            }
+
+            .form-ppg {
+                min-width: 84px;
+                text-align: right;
+                color: #ffffff;
+                font-size: 1.45rem;
+                font-weight: 800;
+            }
+
+            .form-ppg span {
+                display: block;
+                color: var(--muted);
+                font-size: 0.72rem;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+            }
+
+            .pill-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.45rem;
+                margin: 0.9rem 0 0.8rem 0;
+            }
+
+            .result-chip {
+                min-width: 34px;
+                text-align: center;
+                border-radius: 999px;
+                padding: 0.3rem 0.6rem;
+                font-size: 0.8rem;
+                font-weight: 800;
+                border: 1px solid rgba(255,255,255,0.1);
+                background: rgba(255,255,255,0.04);
+                color: #ffffff;
+            }
+
+            .result-chip.win {
+                background: rgba(0,229,168,0.14);
+                border-color: rgba(0,229,168,0.32);
+                color: #ccfff1;
+            }
+
+            .result-chip.draw {
+                background: rgba(255,209,102,0.16);
+                border-color: rgba(255,209,102,0.34);
+                color: #fff4c2;
+            }
+
+            .result-chip.loss {
+                background: rgba(255,107,107,0.14);
+                border-color: rgba(255,107,107,0.30);
+                color: #ffd9d9;
+            }
+
+            .form-meta {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.55rem;
+                color: var(--muted);
+                font-size: 0.84rem;
+            }
+
+            .form-meta span {
+                padding: 0.25rem 0.55rem;
+                border-radius: 999px;
+                background: rgba(255,255,255,0.03);
+                border: 1px solid rgba(255,255,255,0.06);
+            }
+
+            .h2h-card {
+                background: rgba(255,255,255,0.03);
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 20px;
+                padding: 1rem;
+                margin-bottom: 0.8rem;
+                min-height: 190px;
+                box-shadow: 0 16px 38px rgba(0, 0, 0, 0.12);
+            }
+
+            .h2h-card.active {
+                border-color: rgba(59,130,246,0.46);
+                background: linear-gradient(180deg, rgba(59,130,246,0.12), rgba(9,16,29,0.98));
+                box-shadow: 0 0 0 1px rgba(59,130,246,0.12), 0 18px 40px rgba(0, 0, 0, 0.18);
+            }
+
+            .h2h-meta {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 0.5rem;
+                color: var(--muted);
+                font-size: 0.8rem;
+                margin-bottom: 0.65rem;
+            }
+
+            .h2h-score {
+                color: #ffffff;
+                font-size: 1.2rem;
+                font-weight: 800;
+                line-height: 1.35;
+                margin-bottom: 0.75rem;
+            }
+
+            .tag-pill {
+                display: inline-block;
+                margin-right: 0.4rem;
+                margin-bottom: 0.4rem;
+                padding: 0.26rem 0.58rem;
+                border-radius: 999px;
+                font-size: 0.76rem;
+                font-weight: 700;
+                background: rgba(255,255,255,0.04);
+                border: 1px solid rgba(255,255,255,0.08);
+                color: #d8e7ff;
+            }
+
+            .h2h-detail-card {
+                background: var(--bg-card);
+                border: 1px solid var(--line);
+                border-radius: 22px;
+                padding: 1.15rem;
+                box-shadow: 0 18px 42px rgba(0, 0, 0, 0.16);
+            }
+
+            .h2h-detail-head {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 0.8rem;
+                margin-bottom: 0.95rem;
+            }
+
+            .h2h-detail-head h4 {
+                margin: 0;
+                color: #ffffff;
+                font-size: 1.15rem;
+            }
+
+            .h2h-detail-head p {
+                margin: 0.2rem 0 0 0;
+                color: var(--muted);
+                font-size: 0.9rem;
+            }
+
+            .h2h-detail-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 0.65rem;
+            }
+
+            .h2h-kpi {
+                border-radius: 16px;
+                padding: 0.85rem 0.9rem;
+                background: rgba(255,255,255,0.03);
+                border: 1px solid rgba(255,255,255,0.07);
+            }
+
+            .h2h-kpi span {
+                display: block;
+                color: var(--muted);
+                font-size: 0.76rem;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                margin-bottom: 0.2rem;
+            }
+
+            .h2h-kpi strong {
+                color: #ffffff;
+                font-size: 1rem;
+                line-height: 1.35;
+            }
+
             .score-pill {
                 display: inline-block;
                 margin: 0 0.5rem 0.5rem 0;
@@ -390,13 +666,6 @@ def inyectar_estilos() -> None:
                 color: #e7f0ff;
                 font-size: 0.86rem;
                 font-weight: 700;
-            }
-
-            .insight-box {
-                border-radius: 18px;
-                padding: 1rem;
-                background: linear-gradient(135deg, rgba(59,130,246,0.13), rgba(0,229,168,0.08));
-                border: 1px solid rgba(96, 165, 250, 0.2);
             }
 
             .kelly-box {
@@ -420,6 +689,7 @@ def inyectar_estilos() -> None:
 
             .stTabs [data-baseweb="tab-list"] {
                 gap: 0.4rem;
+                flex-wrap: wrap;
             }
 
             .stTabs [data-baseweb="tab"] {
@@ -439,6 +709,22 @@ def inyectar_estilos() -> None:
                 border: 1px solid rgba(255,255,255,0.07);
                 border-radius: 16px;
                 padding: 0.8rem;
+                min-height: 110px;
+                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.10);
+            }
+
+            div[data-baseweb="select"] > div,
+            div[data-testid="stDateInput"] input,
+            div[data-testid="stNumberInput"] input {
+                background: rgba(255,255,255,0.04);
+                border: 1px solid rgba(255,255,255,0.10);
+                border-radius: 16px;
+            }
+
+            div[data-testid="stDataFrame"] {
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 18px;
+                overflow: hidden;
             }
 
             .stButton > button {
@@ -448,6 +734,68 @@ def inyectar_estilos() -> None:
                 color: #03111d;
                 font-weight: 800;
                 min-height: 3rem;
+            }
+
+            @media (max-width: 1100px) {
+                .hero h1 {
+                    font-size: 2rem;
+                }
+
+                .summary-band {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+
+                .odds-row,
+                .odds-head {
+                    grid-template-columns: 1.4fr repeat(4, minmax(0, 1fr));
+                }
+            }
+
+            @media (max-width: 780px) {
+                .block-container {
+                    padding-left: 0.7rem;
+                    padding-right: 0.7rem;
+                }
+
+                div[data-testid="stHorizontalBlock"] {
+                    gap: 0.7rem;
+                }
+
+                div[data-testid="column"] {
+                    width: 100% !important;
+                    flex: 1 1 100% !important;
+                }
+
+                .hero,
+                .search-shell,
+                .h2h-detail-card,
+                .radar-card,
+                .panel {
+                    padding: 1rem;
+                }
+
+                .hero h1 {
+                    font-size: 1.7rem;
+                }
+
+                .summary-band {
+                    grid-template-columns: 1fr;
+                }
+
+                .signal-card,
+                .fixture-card,
+                .form-card,
+                .detail-card,
+                .h2h-card {
+                    min-height: unset;
+                }
+
+                .h2h-detail-head,
+                .form-head,
+                .fixture-meta {
+                    flex-direction: column;
+                    align-items: flex-start;
+                }
             }
         </style>
         """,
@@ -811,6 +1159,18 @@ def calcular_forma(df: pd.DataFrame, equipo: str, n_partidos: int = 5) -> dict:
     }
 
 
+def valor_partido(fila: pd.Series, columna: str) -> float | None:
+    if columna not in fila.index:
+        return None
+    valor = fila.get(columna)
+    if pd.isna(valor):
+        return None
+    try:
+        return float(valor)
+    except (TypeError, ValueError):
+        return None
+
+
 def calcular_h2h(df: pd.DataFrame, local: str, visitante: str, limite: int = 6) -> dict:
     cruces = df[
         ((df["HomeTeam"] == local) & (df["AwayTeam"] == visitante))
@@ -830,6 +1190,7 @@ def calcular_h2h(df: pd.DataFrame, local: str, visitante: str, limite: int = 6) 
             "btts_pct": 0.0,
             "over25_pct": 0.0,
             "recent_labels": [],
+            "recent_matches": [],
         }
 
     local_wins = away_wins = draws = 0
@@ -837,8 +1198,9 @@ def calcular_h2h(df: pd.DataFrame, local: str, visitante: str, limite: int = 6) 
     total_goals = []
     btts = []
     over25 = []
+    partidos_detalle = []
 
-    for _, fila in cruces.iterrows():
+    for indice, fila in cruces.iterrows():
         goles_local = fila["FTHG"] if fila["HomeTeam"] == local else fila["FTAG"]
         goles_visitante = fila["FTAG"] if fila["HomeTeam"] == local else fila["FTHG"]
         total = goles_local + goles_visitante
@@ -846,6 +1208,43 @@ def calcular_h2h(df: pd.DataFrame, local: str, visitante: str, limite: int = 6) 
         btts.append(goles_local > 0 and goles_visitante > 0)
         over25.append(total > 2.5)
         etiquetas.append(f"{local} {int(goles_local)}-{int(goles_visitante)} {visitante}")
+
+        fecha_partido = pd.to_datetime(fila.get("Date"), dayfirst=True, errors="coerce")
+        if pd.isna(fecha_partido):
+            fecha_partido = pd.to_datetime(fila.get("Date"), errors="coerce")
+        fecha_texto = fecha_partido.strftime("%d/%m/%Y") if pd.notna(fecha_partido) else "Sin fecha"
+
+        partidos_detalle.append(
+            {
+                "id": f"h2h_{indice}_{safe_key(fila['HomeTeam'])}_{safe_key(fila['AwayTeam'])}",
+                "date": fecha_texto,
+                "home_team": fila["HomeTeam"],
+                "away_team": fila["AwayTeam"],
+                "home_score": int(fila["FTHG"]),
+                "away_score": int(fila["FTAG"]),
+                "label": f"{fila['HomeTeam']} {int(fila['FTHG'])}-{int(fila['FTAG'])} {fila['AwayTeam']}",
+                "winner": (
+                    fila["HomeTeam"]
+                    if fila["FTHG"] > fila["FTAG"]
+                    else (fila["AwayTeam"] if fila["FTAG"] > fila["FTHG"] else "Empate")
+                ),
+                "btts": bool(fila["FTHG"] > 0 and fila["FTAG"] > 0),
+                "over25": bool((fila["FTHG"] + fila["FTAG"]) > 2.5),
+                "corners_home": valor_partido(fila, "HC"),
+                "corners_away": valor_partido(fila, "AC"),
+                "shots_home": valor_partido(fila, "HS"),
+                "shots_away": valor_partido(fila, "AS"),
+                "shots_on_target_home": valor_partido(fila, "HST"),
+                "shots_on_target_away": valor_partido(fila, "AST"),
+                "yellow_home": valor_partido(fila, "HY"),
+                "yellow_away": valor_partido(fila, "AY"),
+                "red_home": valor_partido(fila, "HR"),
+                "red_away": valor_partido(fila, "AR"),
+                "odds_home": valor_partido(fila, "B365H"),
+                "odds_draw": valor_partido(fila, "B365D"),
+                "odds_away": valor_partido(fila, "B365A"),
+            }
+        )
 
         if goles_local > goles_visitante:
             local_wins += 1
@@ -866,6 +1265,7 @@ def calcular_h2h(df: pd.DataFrame, local: str, visitante: str, limite: int = 6) 
         "btts_pct": float(np.mean(btts)),
         "over25_pct": float(np.mean(over25)),
         "recent_labels": etiquetas[::-1],
+        "recent_matches": partidos_detalle[::-1],
     }
 
 
@@ -1031,6 +1431,36 @@ def render_summary_band(analisis: dict) -> None:
     )
 
 
+def render_radar_panel(analisis: dict) -> None:
+    resultado = analisis["resultado"]
+    st.markdown(
+        f"""
+        <div class="radar-card">
+            <h3>Radar instantaneo</h3>
+            <div class="radar-grid">
+                <div class="radar-stat">
+                    <span>Marcador probable</span>
+                    <strong>{resultado['Marcador']}</strong>
+                </div>
+                <div class="radar-stat">
+                    <span>xG local</span>
+                    <strong>{analisis['xg_local']:.2f}</strong>
+                </div>
+                <div class="radar-stat">
+                    <span>xG visitante</span>
+                    <strong>{analisis['xg_visitante']:.2f}</strong>
+                </div>
+                <div class="radar-stat">
+                    <span>Corners esperados</span>
+                    <strong>{resultado['Total_Corners']:.2f}</strong>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_split_panel(titulo: str, stats: dict) -> None:
     st.markdown(
         f"""
@@ -1048,6 +1478,19 @@ def render_split_panel(titulo: str, stats: dict) -> None:
                 <div class="mini-stat"><strong>{stats['btts_pct'] * 100:.1f}%</strong><span>BTTS</span></div>
                 <div class="mini-stat"><strong>{stats['over25_pct'] * 100:.1f}%</strong><span>Over 2.5</span></div>
             </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_insight_panel(insights: list[str]) -> None:
+    items_html = "".join(f"<li>{insight}</li>" for insight in insights)
+    st.markdown(
+        f"""
+        <div class="insight-box">
+            <h3>Lectura tactica del cruce</h3>
+            <ul class="insight-list">{items_html}</ul>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1362,6 +1805,178 @@ def render_contexto_feed_espn(resumen: dict, analisis: dict) -> None:
         )
 
 
+def render_form_card(team: str, form: dict) -> None:
+    resultado_clase = {"W": "win", "D": "draw", "L": "loss"}
+    resultados = form.get("results") or ["-"]
+    resultados_html = "".join(
+        f"<span class='result-chip {resultado_clase.get(resultado, '')}'>{resultado}</span>"
+        for resultado in resultados
+    )
+    st.markdown(
+        f"""
+        <div class="form-card">
+            <div class="form-head">
+                <div>
+                    <div class="signal-label">Forma reciente</div>
+                    <h4>{team}</h4>
+                </div>
+                <div class="form-ppg">
+                    {form['ppg']:.2f}
+                    <span>PPG</span>
+                </div>
+            </div>
+            <div class="pill-row">{resultados_html}</div>
+            <div class="form-meta">
+                <span>{form['wins']}V {form['draws']}E {form['losses']}D</span>
+                <span>{form['points']} pts</span>
+                <span>DG {form['goal_diff']:+d}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def formatear_duelo(home_valor: float | None, away_valor: float | None, decimales: int = 0) -> str | None:
+    if home_valor is None and away_valor is None:
+        return None
+
+    def _fmt(valor: float | None) -> str:
+        if valor is None:
+            return "-"
+        if decimales == 0:
+            return str(int(round(valor)))
+        return f"{valor:.{decimales}f}"
+
+    return f"{_fmt(home_valor)} | {_fmt(away_valor)}"
+
+
+def render_h2h_summary_card(h2h: dict, local: str, visitante: str) -> None:
+    st.markdown(
+        f"""
+        <div class="form-card">
+            <div class="form-head">
+                <div>
+                    <div class="signal-label">Resumen H2H</div>
+                    <h4>{local} vs {visitante}</h4>
+                </div>
+                <div class="form-ppg">
+                    {h2h['matches']}
+                    <span>Partidos</span>
+                </div>
+            </div>
+            <div class="pill-row">
+                <span class="tag-pill">{local}: {h2h['local_wins']}</span>
+                <span class="tag-pill">Empates: {h2h['draws']}</span>
+                <span class="tag-pill">{visitante}: {h2h['away_wins']}</span>
+            </div>
+            <div class="form-meta">
+                <span>Media goles {h2h['avg_total_goals']:.2f}</span>
+                <span>BTTS {h2h['btts_pct'] * 100:.1f}%</span>
+                <span>Over 2.5 {h2h['over25_pct'] * 100:.1f}%</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_h2h_explorer(h2h: dict) -> None:
+    partidos = h2h.get("recent_matches", [])
+    if not partidos:
+        st.caption("No se detectaron cruces directos recientes entre ambos en la base historica cargada.")
+        return
+
+    ids = [partido["id"] for partido in partidos]
+    if st.session_state.get("selected_h2h_match") not in ids:
+        st.session_state["selected_h2h_match"] = ids[0]
+
+    st.markdown("### Ultimos enfrentamientos")
+    st.caption("Pincha cualquier cruce para abrir sus estadisticas historicas debajo.")
+
+    for inicio in range(0, len(partidos), 2):
+        bloque = partidos[inicio : inicio + 2]
+        cols = st.columns(2)
+        for col, partido in zip(cols, bloque):
+            activo = st.session_state.get("selected_h2h_match") == partido["id"]
+            clase = "h2h-card active" if activo else "h2h-card"
+            etiquetas = [
+                "BTTS" if partido["btts"] else "No BTTS",
+                "Over 2.5" if partido["over25"] else "Under 2.5",
+            ]
+            tags_html = "".join(f"<span class='tag-pill'>{etiqueta}</span>" for etiqueta in etiquetas)
+            with col:
+                st.markdown(
+                    f"""
+                    <div class="{clase}">
+                        <div class="h2h-meta">
+                            <span>{partido['date']}</span>
+                            <span>{partido['winner']}</span>
+                        </div>
+                        <div class="h2h-score">{partido['home_team']} {partido['home_score']} - {partido['away_score']} {partido['away_team']}</div>
+                        <div>{tags_html}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                boton = "Partido abierto" if activo else "Ver estadisticas"
+                if st.button(
+                    boton,
+                    key=f"open_h2h_{partido['id']}",
+                    use_container_width=True,
+                    disabled=activo,
+                ):
+                    st.session_state["selected_h2h_match"] = partido["id"]
+                    st.rerun()
+
+    seleccionado = next(
+        partido for partido in partidos if partido["id"] == st.session_state.get("selected_h2h_match")
+    )
+
+    tarjetas = [
+        ("Marcador", f"{seleccionado['home_score']} - {seleccionado['away_score']}"),
+        ("Corners", formatear_duelo(seleccionado["corners_home"], seleccionado["corners_away"])),
+        ("Tiros", formatear_duelo(seleccionado["shots_home"], seleccionado["shots_away"])),
+        (
+            "Tiros a puerta",
+            formatear_duelo(seleccionado["shots_on_target_home"], seleccionado["shots_on_target_away"]),
+        ),
+        ("Amarillas", formatear_duelo(seleccionado["yellow_home"], seleccionado["yellow_away"])),
+        ("Rojas", formatear_duelo(seleccionado["red_home"], seleccionado["red_away"])),
+        ("Bet365 1", None if seleccionado["odds_home"] is None else f"@{seleccionado['odds_home']:.2f}"),
+        ("Bet365 X", None if seleccionado["odds_draw"] is None else f"@{seleccionado['odds_draw']:.2f}"),
+        ("Bet365 2", None if seleccionado["odds_away"] is None else f"@{seleccionado['odds_away']:.2f}"),
+    ]
+    tarjetas_html = "".join(
+        f"""
+        <div class="h2h-kpi">
+            <span>{titulo}</span>
+            <strong>{valor}</strong>
+        </div>
+        """
+        for titulo, valor in tarjetas
+        if valor is not None
+    )
+
+    st.markdown(
+        f"""
+        <div class="h2h-detail-card">
+            <div class="h2h-detail-head">
+                <div>
+                    <h4>{seleccionado['home_team']} vs {seleccionado['away_team']}</h4>
+                    <p>{seleccionado['date']} | Ganador: {seleccionado['winner']}</p>
+                </div>
+                <div class="signal-tag">H2H Explorer</div>
+            </div>
+            <div class="h2h-detail-grid">
+                {tarjetas_html}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def tabla_comparativa(
     local: str,
     visitante: str,
@@ -1647,13 +2262,7 @@ else:
             render_signal_card(f"Victoria {analisis['visitante']}", resultado["2"])
 
     with overview_right:
-        st.markdown('<div class="panel">', unsafe_allow_html=True)
-        st.markdown("### Radar instantaneo")
-        st.metric("Marcador mas probable", resultado["Marcador"])
-        st.metric("xG local", f"{analisis['xg_local']:.2f}")
-        st.metric("xG visitante", f"{analisis['xg_visitante']:.2f}")
-        st.metric("Corners esperados", f"{resultado['Total_Corners']:.2f}")
-        st.markdown("</div>", unsafe_allow_html=True)
+        render_radar_panel(analisis)
 
     with st.expander("Como calcula las probabilidades el modelo"):
         st.write(
@@ -1700,6 +2309,7 @@ else:
 
     with tab_compare:
         st.markdown('<div class="section-title">Local en casa vs visitante fuera</div>', unsafe_allow_html=True)
+        st.caption("Primero tienes la comparativa del escenario actual; debajo, la forma reciente y el explorador visual de sus duelos directos.")
         comparativa_df = tabla_comparativa(
             analisis["local"],
             analisis["visitante"],
@@ -1712,36 +2322,18 @@ else:
 
         insight_left, insight_right = st.columns([1.3, 1])
         with insight_left:
-            st.markdown('<div class="insight-box">', unsafe_allow_html=True)
-            st.markdown("### Lectura tactica del cruce")
-            for insight in construir_insights(analisis):
-                st.write(f"- {insight}")
-            st.markdown("</div>", unsafe_allow_html=True)
+            render_insight_panel(construir_insights(analisis))
         with insight_right:
-            st.metric("GF local en casa", f"{analisis['stats_local']['home']['gf']:.2f}")
-            st.metric("GC visitante fuera", f"{analisis['stats_visitante']['away']['gc']:.2f}")
-            st.metric("Corners local en casa", f"{analisis['stats_local']['home']['corners_for']:.2f}")
-            st.metric("Corners visitante fuera", f"{analisis['stats_visitante']['away']['corners_for']:.2f}")
+            render_h2h_summary_card(analisis["h2h"], analisis["local"], analisis["visitante"])
 
-        st.markdown("### Forma reciente y enfrentamientos directos")
-        form_left, form_right, h2h_col = st.columns(3)
+        st.markdown("### Forma reciente")
+        form_left, form_right = st.columns(2)
         with form_left:
-            st.metric(f"PPG ultimos 5 {analisis['local']}", f"{analisis['stats_local']['form']['ppg']:.2f}")
-            st.metric(f"Racha {analisis['local']}", analisis["stats_local"]["form"]["streak"])
+            render_form_card(analisis["local"], analisis["stats_local"]["form"])
         with form_right:
-            st.metric(f"PPG ultimos 5 {analisis['visitante']}", f"{analisis['stats_visitante']['form']['ppg']:.2f}")
-            st.metric(f"Racha {analisis['visitante']}", analisis["stats_visitante"]["form"]["streak"])
-        with h2h_col:
-            st.metric("H2H local", f"{analisis['h2h']['local_wins']}")
-            st.metric("H2H visitante", f"{analisis['h2h']['away_wins']}")
-            st.metric("Empates H2H", f"{analisis['h2h']['draws']}")
+            render_form_card(analisis["visitante"], analisis["stats_visitante"]["form"])
 
-        if analisis["h2h"]["matches"] > 0:
-            st.caption("Ultimos cruces directos detectados")
-            for etiqueta in analisis["h2h"]["recent_labels"]:
-                st.write(f"- {etiqueta}")
-        else:
-            st.caption("No se detectaron cruces directos recientes entre ambos en la base historica cargada.")
+        render_h2h_explorer(analisis["h2h"])
 
     with tab_match:
         st.markdown('<div class="section-title">Posibles estadisticas del partido</div>', unsafe_allow_html=True)
