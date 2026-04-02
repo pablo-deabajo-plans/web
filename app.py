@@ -891,6 +891,17 @@ def resolver_nombre_equipo(nombre: str, equipos_csv: list[str]) -> str:
     return nombre
 
 
+def nombre_visual_equipo(nombre: str) -> str:
+    mapa_visual = {
+        "Sociedad B": "Real Sociedad B",
+        "Sp Gijon": "Sporting Gijon",
+        "La Coruna": "Deportivo La Coruna",
+        "Leganes": "Leganes",
+        "Zaragoza": "Real Zaragoza",
+    }
+    return mapa_visual.get(nombre, nombre)
+
+
 @st.cache_data(ttl=1800, show_spinner=False)
 def descargar_fixture_espn(league_id: str, fecha_objetivo) -> pd.DataFrame:
     url = f"https://site.api.espn.com/apis/site/v2/sports/soccer/{league_id}/scoreboard"
@@ -1563,7 +1574,7 @@ def render_fixture_cards(partidos: pd.DataFrame, fecha_objetivo, hoy) -> pd.Seri
                             <span>{partido.get('MatchDate').strftime('%d/%m/%Y') if partido.get('MatchDate') else 'Sin fecha'} {partido.get('Time', '').strip()}</span>
                             <span class="source-pill">{partido.get('Source', 'CSV')}</span>
                         </div>
-                        <div class="fixture-teams">{partido.get('HomeTeamRaw', partido.get('HomeTeam', 'TBD'))}<br>vs<br>{partido.get('AwayTeamRaw', partido.get('AwayTeam', 'TBD'))}</div>
+                        <div class="fixture-teams">{nombre_visual_equipo(partido.get('HomeTeam', 'TBD'))}<br>vs<br>{nombre_visual_equipo(partido.get('AwayTeam', 'TBD'))}</div>
                         <div class="fixture-sub">Abre este panel para ver lectura del modelo, comparativa, mercado y detalles en vivo.</div>
                     </div>
                     """,
@@ -1947,16 +1958,6 @@ def render_h2h_explorer(h2h: dict) -> None:
         ("Bet365 X", None if seleccionado["odds_draw"] is None else f"@{seleccionado['odds_draw']:.2f}"),
         ("Bet365 2", None if seleccionado["odds_away"] is None else f"@{seleccionado['odds_away']:.2f}"),
     ]
-    tarjetas_html = "".join(
-        f"""
-        <div class="h2h-kpi">
-            <span>{titulo}</span>
-            <strong>{valor}</strong>
-        </div>
-        """
-        for titulo, valor in tarjetas
-        if valor is not None
-    )
 
     st.markdown(
         f"""
@@ -1968,13 +1969,26 @@ def render_h2h_explorer(h2h: dict) -> None:
                 </div>
                 <div class="signal-tag">H2H Explorer</div>
             </div>
-            <div class="h2h-detail-grid">
-                {tarjetas_html}
-            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+    tarjetas_visibles = [(titulo, valor) for titulo, valor in tarjetas if valor is not None]
+    for inicio in range(0, len(tarjetas_visibles), 4):
+        bloque = tarjetas_visibles[inicio : inicio + 4]
+        cols = st.columns(len(bloque))
+        for col, (titulo, valor) in zip(cols, bloque):
+            with col:
+                st.markdown(
+                    f"""
+                    <div class="h2h-kpi">
+                        <span>{titulo}</span>
+                        <strong>{valor}</strong>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
 
 def tabla_comparativa(
