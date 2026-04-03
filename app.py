@@ -94,25 +94,25 @@ st.markdown(
     <div class="masthead">
         <div class="masthead-grid">
             <div class="masthead-copy">
-                <div class="masthead-kicker">Trading Desk</div>
+                <div class="masthead-kicker">Match Intelligence</div>
                 <h1>Gordon BetScanner Pro</h1>
-                <p>Nuevo look editorial para comparar sensaciones: menos glassmorphism, mas lectura rapida, tarjetas tipo informe y una direccion visual totalmente distinta para el mismo motor.</p>
+                <p>Lectura prepartido en una sola pantalla, con foco en claridad visual, contraste alto y una jerarquia mas limpia para revisar partidos, mercado y stake sin pelearte con la interfaz.</p>
                 <div class="chip-row">
-                    <span class="masthead-chip">Lectura prepartido</span>
-                    <span class="masthead-chip">Odds + Kelly</span>
-                    <span class="masthead-chip">Radar de mercado</span>
+                    <span class="masthead-chip">Modelo + mercado</span>
+                    <span class="masthead-chip">Scouting rapido</span>
+                    <span class="masthead-chip">Kelly operativo</span>
                 </div>
             </div>
             <div class="masthead-rail">
                 <div class="masthead-panel">
                     <h3>Enfoque</h3>
-                    <strong>Scouting mas calmado y mas limpio</strong>
-                    <p>La interfaz empuja primero contexto, composicion y legibilidad antes que brillo visual.</p>
+                    <strong>Contraste fuerte y lectura directa</strong>
+                    <p>Fondos, textos y acentos ahora trabajan juntos para que cada bloque se entienda mejor.</p>
                 </div>
                 <div class="masthead-panel">
-                    <h3>Objetivo</h3>
-                    <strong>Comparar dos identidades de producto</strong>
-                    <p>Esta version rehace colores, jerarquia y sensacion general sin tocar el flujo principal.</p>
+                    <h3>Uso</h3>
+                    <strong>Elegir, abrir y decidir sin ruido</strong>
+                    <p>Se mantiene el flujo de una sola pantalla, pero con una composicion mas sobria y profesional.</p>
                 </div>
             </div>
         </div>
@@ -124,8 +124,8 @@ st.markdown(
 st.markdown(
     """
     <div class="control-deck">
-        <h3>Control Deck</h3>
-        <p>Elige liga, fecha y partido desde este bloque superior. Mantengo la misma mecanica de una sola pantalla, pero con una entrada visual y una composicion nuevas para que puedas comparar mejor.</p>
+        <h3>Buscador Principal</h3>
+        <p>Elige liga, fecha y partido desde este bloque superior. La entrada se ha simplificado para que el analisis empiece arriba y todo lo importante se lea mejor.</p>
     </div>
     """,
     unsafe_allow_html=True,
