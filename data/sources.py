@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import io
 import json
+import re
 from datetime import datetime
+from html import unescape
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -11,36 +13,112 @@ import streamlit as st
 
 from data.teams import nombre_visual_equipo, normalizar_nombre, resolver_nombre_equipo
 
+LOCAL_TIMEZONE = ZoneInfo("Europe/Madrid")
+HTTP_HEADERS = {"User-Agent": "Mozilla/5.0"}
+
+
+LEAGUE_CONFIGS = {
+    "Premier League": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/E0.csv"},
+        "espn_id": "eng.1",
+    },
+    "LaLiga": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SP1.csv"},
+        "espn_id": "esp.1",
+    },
+    "Segunda Division": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SP2.csv"},
+        "espn_id": "esp.2",
+    },
+    "Serie A": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/I1.csv"},
+        "espn_id": "ita.1",
+    },
+    "Bundesliga": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/D1.csv"},
+        "espn_id": "ger.1",
+    },
+    "Ligue 1": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/F1.csv"},
+        "espn_id": "fra.1",
+    },
+    "Holanda": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/N1.csv"},
+        "espn_id": "ned.1",
+    },
+    "Liga de Portugal": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/P1.csv"},
+        "espn_id": "por.1",
+    },
+    "Turquia": {
+        "history": {"type": "espn_scoreboard", "league_id": "tur.1", "season": "european"},
+        "espn_id": "tur.1",
+    },
+    "Segunda Inglesa": {
+        "history": {"type": "espn_scoreboard", "league_id": "eng.2", "season": "european"},
+        "espn_id": "eng.2",
+    },
+    "Arabia Saudi": {
+        "history": {"type": "espn_scoreboard", "league_id": "ksa.1", "season": "european"},
+        "espn_id": "ksa.1",
+    },
+    "Australia": {
+        "history": {"type": "espn_scoreboard", "league_id": "aus.1", "season": "australia"},
+        "espn_id": "aus.1",
+    },
+    "Internacionales": {
+        "history": {"type": "espn_scoreboard", "league_id": "fifa.friendly", "season": "calendar"},
+        "espn_id": "fifa.friendly",
+    },
+    "Segunda Alemana": {
+        "history": {"type": "espn_scoreboard", "league_id": "ger.2", "season": "european"},
+        "espn_id": "ger.2",
+    },
+    "Chile": {
+        "history": {"type": "espn_scoreboard", "league_id": "chi.1", "season": "calendar"},
+        "espn_id": "chi.1",
+    },
+    "MLS": {
+        "history": {"type": "espn_scoreboard", "league_id": "usa.1", "season": "calendar"},
+        "espn_id": "usa.1",
+    },
+    "Brasil": {
+        "history": {"type": "espn_scoreboard", "league_id": "bra.1", "season": "calendar"},
+        "espn_id": "bra.1",
+    },
+    "WSL Femenina": {
+        "history": {"type": "espn_scoreboard", "league_id": "eng.w.1", "season": "european"},
+        "espn_id": "eng.w.1",
+    },
+    "Liga F": {
+        "history": {"type": "espn_scoreboard", "league_id": "esp.w.1", "season": "european"},
+        "espn_id": "esp.w.1",
+    },
+    "Premiere Ligue Femenina": {
+        "history": {"type": "espn_scoreboard", "league_id": "fra.w.1", "season": "european"},
+        "espn_id": "fra.w.1",
+    },
+    "Frauen-Bundesliga": {
+        "history": {"type": "footystats_fixtures", "url": "https://footystats.org/germany/frauen-bundesliga/fixtures"},
+        "espn_id": "",
+    },
+    "Serie A Femenina": {
+        "history": {"type": "footystats_fixtures", "url": "https://footystats.org/italy/serie-a-women/fixtures"},
+        "espn_id": "",
+    },
+}
 
 URLS_LIGAS = {
-    "Premier League": "https://www.football-data.co.uk/mmz4281/2526/E0.csv",
-    "LaLiga": "https://www.football-data.co.uk/mmz4281/2526/SP1.csv",
-    "Segunda Division": "https://www.football-data.co.uk/mmz4281/2526/SP2.csv",
-    "Serie A": "https://www.football-data.co.uk/mmz4281/2526/I1.csv",
-    "Bundesliga": "https://www.football-data.co.uk/mmz4281/2526/D1.csv",
-    "Ligue 1": "https://www.football-data.co.uk/mmz4281/2526/F1.csv",
-    "Eredivisie": "https://www.football-data.co.uk/mmz4281/2526/N1.csv",
-    "Portugal": "https://www.football-data.co.uk/mmz4281/2526/P1.csv",
+    liga: config["history"].get("url", config["history"].get("league_id", ""))
+    for liga, config in LEAGUE_CONFIGS.items()
 }
-
-ESPN_LEAGUE_IDS = {
-    "Premier League": "eng.1",
-    "LaLiga": "esp.1",
-    "Segunda Division": "esp.2",
-    "Serie A": "ita.1",
-    "Bundesliga": "ger.1",
-    "Ligue 1": "fra.1",
-    "Eredivisie": "ned.1",
-    "Portugal": "por.1",
-}
-
-LOCAL_TIMEZONE = ZoneInfo("Europe/Madrid")
+ESPN_LEAGUE_IDS = {liga: config.get("espn_id", "") for liga, config in LEAGUE_CONFIGS.items()}
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def descargar_datos(url: str) -> pd.DataFrame | None:
     try:
-        respuesta = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=20)
+        respuesta = requests.get(url, headers=HTTP_HEADERS, timeout=20)
         respuesta.raise_for_status()
         df = pd.read_csv(io.StringIO(respuesta.content.decode("utf-8", errors="ignore")))
         if "Home" in df.columns and "HomeTeam" not in df.columns:
@@ -52,6 +130,158 @@ def descargar_datos(url: str) -> pd.DataFrame | None:
         return df
     except Exception:
         return None
+
+
+def rango_temporada(tipo: str) -> tuple[str, str]:
+    hoy = datetime.now(LOCAL_TIMEZONE).date()
+    if tipo == "european":
+        temporada_inicio = hoy.year if hoy.month >= 7 else hoy.year - 1
+        inicio = datetime(temporada_inicio, 7, 1).date()
+        fin = datetime(temporada_inicio + 1, 6, 30).date()
+    elif tipo == "australia":
+        temporada_inicio = hoy.year if hoy.month >= 7 else hoy.year - 1
+        inicio = datetime(temporada_inicio, 7, 1).date()
+        fin = datetime(temporada_inicio + 1, 5, 31).date()
+    else:
+        inicio = datetime(hoy.year, 1, 1).date()
+        fin = datetime(hoy.year, 12, 31).date()
+    return inicio.strftime("%Y%m%d"), fin.strftime("%Y%m%d")
+
+
+def _fila_espn_evento(evento: dict, source: str) -> dict | None:
+    competicion = (evento.get("competitions") or [{}])[0]
+    competidores = competicion.get("competitors") or []
+    home = next((item for item in competidores if item.get("homeAway") == "home"), None)
+    away = next((item for item in competidores if item.get("homeAway") == "away"), None)
+    if not home or not away:
+        return None
+
+    fecha_evento = datetime.fromisoformat(evento["date"].replace("Z", "+00:00")).astimezone(LOCAL_TIMEZONE)
+    home_name = (home.get("team") or {}).get("displayName", "")
+    away_name = (away.get("team") or {}).get("displayName", "")
+    home_score = home.get("score")
+    away_score = away.get("score")
+
+    try:
+        fthg = int(home_score) if str(home_score).strip() != "" else None
+    except (TypeError, ValueError):
+        fthg = None
+    try:
+        ftag = int(away_score) if str(away_score).strip() != "" else None
+    except (TypeError, ValueError):
+        ftag = None
+
+    return {
+        "EventId": str(evento.get("id", "")),
+        "Date": fecha_evento.strftime("%d/%m/%Y"),
+        "MatchDate": fecha_evento.date(),
+        "Time": fecha_evento.strftime("%H:%M"),
+        "HomeTeamRaw": home_name,
+        "AwayTeamRaw": away_name,
+        "HomeTeam": home_name,
+        "AwayTeam": away_name,
+        "FTHG": fthg,
+        "FTAG": ftag,
+        "FixtureLabel": f"{fecha_evento.strftime('%d/%m/%Y %H:%M')} | {home_name} vs {away_name}",
+        "Source": source,
+    }
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def descargar_historial_espn(league_id: str, season_type: str) -> pd.DataFrame | None:
+    inicio, fin = rango_temporada(season_type)
+    url = f"https://site.api.espn.com/apis/site/v2/sports/soccer/{league_id}/scoreboard"
+    params = {"dates": f"{inicio}-{fin}", "limit": 1000}
+
+    try:
+        respuesta = requests.get(url, params=params, headers=HTTP_HEADERS, timeout=25)
+        respuesta.raise_for_status()
+        payload = respuesta.json()
+    except Exception:
+        return None
+
+    filas = []
+    for evento in payload.get("events", []):
+        fila = _fila_espn_evento(evento, "HISTORY")
+        if fila:
+            filas.append(fila)
+
+    if not filas:
+        return pd.DataFrame()
+
+    return pd.DataFrame(filas).sort_values(["MatchDate", "Time", "HomeTeam", "AwayTeam"]).reset_index(drop=True)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def descargar_fixture_footystats(url: str) -> pd.DataFrame | None:
+    try:
+        respuesta = requests.get(url, headers=HTTP_HEADERS, timeout=25)
+        respuesta.raise_for_status()
+        html = respuesta.text
+    except Exception:
+        return None
+
+    bloques = re.findall(r"<ul class='match row cf [^']*'[^>]*>(.*?)</ul>", html, flags=re.S)
+    filas = []
+    for bloque in bloques:
+        timestamp = re.search(r"data-time='(\d+)'", bloque)
+        equipos = re.findall(
+            r"class='team (home|away) fl'.*?<span[^>]*data-comp-id='[^']+'[^>]*>\s*([^<]+?)\s*</span>",
+            bloque,
+            flags=re.S,
+        )
+        if not timestamp or len(equipos) < 2:
+            continue
+
+        marcador = re.search(r"<span class='bold ft-score'>([^<]*)</span>", bloque)
+        fecha_evento = datetime.fromtimestamp(int(timestamp.group(1)), tz=ZoneInfo("UTC")).astimezone(LOCAL_TIMEZONE)
+        home_team = unescape(next((nombre for lado, nombre in equipos if lado == "home"), "").strip())
+        away_team = unescape(next((nombre for lado, nombre in equipos if lado == "away"), "").strip())
+        score_text = unescape(marcador.group(1).strip()) if marcador else ""
+        score_match = re.match(r"(\d+)\s*-\s*(\d+)", score_text)
+        fthg = int(score_match.group(1)) if score_match else None
+        ftag = int(score_match.group(2)) if score_match else None
+
+        filas.append(
+            {
+                "Date": fecha_evento.strftime("%d/%m/%Y"),
+                "MatchDate": fecha_evento.date(),
+                "Time": fecha_evento.strftime("%H:%M"),
+                "HomeTeamRaw": home_team,
+                "AwayTeamRaw": away_team,
+                "HomeTeam": home_team,
+                "AwayTeam": away_team,
+                "FTHG": fthg,
+                "FTAG": ftag,
+                "FixtureLabel": f"{fecha_evento.strftime('%d/%m/%Y %H:%M')} | {home_team} vs {away_team}",
+                "Source": "HISTORY",
+            }
+        )
+
+    if not filas:
+        return pd.DataFrame()
+
+    return (
+        pd.DataFrame(filas)
+        .drop_duplicates(subset=["MatchDate", "Time", "HomeTeam", "AwayTeam"], keep="first")
+        .sort_values(["MatchDate", "Time", "HomeTeam", "AwayTeam"])
+        .reset_index(drop=True)
+    )
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def descargar_datos_liga(liga: str) -> pd.DataFrame | None:
+    config = LEAGUE_CONFIGS.get(liga, {})
+    history = config.get("history", {})
+    source_type = history.get("type")
+
+    if source_type == "football_data":
+        return descargar_datos(history["url"])
+    if source_type == "espn_scoreboard":
+        return descargar_historial_espn(history["league_id"], history.get("season", "calendar"))
+    if source_type == "footystats_fixtures":
+        return descargar_fixture_footystats(history["url"])
+    return None
 
 
 def preparar_calendario(df: pd.DataFrame) -> pd.DataFrame:
@@ -91,39 +321,17 @@ def descargar_fixture_espn(league_id: str, fecha_objetivo) -> pd.DataFrame:
     params = {"dates": fecha_objetivo.strftime("%Y%m%d"), "limit": 100}
 
     try:
-        respuesta = requests.get(url, params=params, headers={"User-Agent": "Mozilla/5.0"}, timeout=20)
+        respuesta = requests.get(url, params=params, headers=HTTP_HEADERS, timeout=20)
         respuesta.raise_for_status()
         payload = respuesta.json()
-        eventos = payload.get("events", [])
     except Exception:
         return pd.DataFrame()
 
     filas = []
-    for evento in eventos:
-        competicion = (evento.get("competitions") or [{}])[0]
-        competidores = competicion.get("competitors") or []
-        home = next((item for item in competidores if item.get("homeAway") == "home"), None)
-        away = next((item for item in competidores if item.get("homeAway") == "away"), None)
-        if not home or not away:
-            continue
-
-        fecha_evento = datetime.fromisoformat(evento["date"].replace("Z", "+00:00")).astimezone(LOCAL_TIMEZONE)
-        home_name = home.get("team", {}).get("displayName", "")
-        away_name = away.get("team", {}).get("displayName", "")
-        hora = fecha_evento.strftime("%H:%M")
-        filas.append(
-            {
-                "EventId": str(evento.get("id", "")),
-                "MatchDate": fecha_evento.date(),
-                "Time": hora,
-                "HomeTeamRaw": home_name,
-                "AwayTeamRaw": away_name,
-                "HomeTeam": home_name,
-                "AwayTeam": away_name,
-                "FixtureLabel": f"{fecha_evento.strftime('%d/%m/%Y')} {hora} | {home_name} vs {away_name}",
-                "Source": "ESPN",
-            }
-        )
+    for evento in payload.get("events", []):
+        fila = _fila_espn_evento(evento, "ESPN")
+        if fila:
+            filas.append(fila)
     return pd.DataFrame(filas)
 
 
@@ -134,7 +342,7 @@ def descargar_resumen_espn(league_id: str, event_id: str) -> dict:
     url = f"https://site.api.espn.com/apis/site/v2/sports/soccer/{league_id}/summary"
     params = {"event": event_id}
     try:
-        respuesta = requests.get(url, params=params, headers={"User-Agent": "Mozilla/5.0"}, timeout=20)
+        respuesta = requests.get(url, params=params, headers=HTTP_HEADERS, timeout=20)
         respuesta.raise_for_status()
         return respuesta.json()
     except Exception:
@@ -168,7 +376,7 @@ def fusionar_calendarios(csv_df: pd.DataFrame, espn_df: pd.DataFrame, equipos_cs
         ),
         axis=1,
     )
-    prioridad = {"ESPN": 0, "CSV": 1}
+    prioridad = {"ESPN": 0, "HISTORY": 1, "CSV": 2}
     combinado["priority"] = combinado["Source"].map(prioridad).fillna(9)
     return (
         combinado.sort_values(["priority", "Time", "FixtureLabel"])

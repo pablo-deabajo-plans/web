@@ -16,10 +16,10 @@ from core.model import (
 )
 from data.sources import (
     ESPN_LEAGUE_IDS,
+    LEAGUE_CONFIGS,
     LOCAL_TIMEZONE,
-    URLS_LIGAS,
     construir_cuotas_automaticas,
-    descargar_datos,
+    descargar_datos_liga,
     descargar_fixture_espn,
     descargar_resumen_espn,
     extraer_contexto_mercado_espn,
@@ -91,9 +91,31 @@ for key, default in {
 
 st.markdown(
     """
-    <div class="hero">
-        <h1>Gordon BetScanner Pro</h1>
-        <p>Buscador superior, analisis en una sola pantalla y pestanas operativas para scouting, comparativa y trading.</p>
+    <div class="masthead">
+        <div class="masthead-grid">
+            <div class="masthead-copy">
+                <div class="masthead-kicker">Trading Desk</div>
+                <h1>Gordon BetScanner Pro</h1>
+                <p>Nuevo look editorial para comparar sensaciones: menos glassmorphism, mas lectura rapida, tarjetas tipo informe y una direccion visual totalmente distinta para el mismo motor.</p>
+                <div class="chip-row">
+                    <span class="masthead-chip">Lectura prepartido</span>
+                    <span class="masthead-chip">Odds + Kelly</span>
+                    <span class="masthead-chip">Radar de mercado</span>
+                </div>
+            </div>
+            <div class="masthead-rail">
+                <div class="masthead-panel">
+                    <h3>Enfoque</h3>
+                    <strong>Scouting mas calmado y mas limpio</strong>
+                    <p>La interfaz empuja primero contexto, composicion y legibilidad antes que brillo visual.</p>
+                </div>
+                <div class="masthead-panel">
+                    <h3>Objetivo</h3>
+                    <strong>Comparar dos identidades de producto</strong>
+                    <p>Esta version rehace colores, jerarquia y sensacion general sin tocar el flujo principal.</p>
+                </div>
+            </div>
+        </div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -101,9 +123,9 @@ st.markdown(
 
 st.markdown(
     """
-    <div class="search-shell">
-        <h3>Buscador de partido</h3>
-        <p>Selecciona la liga, filtra por fecha o por hoy y pincha un partido de la lista para abrir su panel de estadisticas en la misma pantalla.</p>
+    <div class="control-deck">
+        <h3>Control Deck</h3>
+        <p>Elige liga, fecha y partido desde este bloque superior. Mantengo la misma mecanica de una sola pantalla, pero con una entrada visual y una composicion nuevas para que puedas comparar mejor.</p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -111,14 +133,14 @@ st.markdown(
 
 top_1, top_2, top_3, top_4 = st.columns([1.15, 1.0, 1.25, 0.7])
 with top_1:
-    liga_seleccionada = st.selectbox("Liga", list(URLS_LIGAS.keys()))
+    liga_seleccionada = st.selectbox("Liga", list(LEAGUE_CONFIGS.keys()))
 
 if st.session_state.get("last_league") != liga_seleccionada:
     st.session_state["solo_hoy_toggle"] = True
     st.session_state["fixture_label"] = None
     st.session_state["last_league"] = liga_seleccionada
 
-df = descargar_datos(URLS_LIGAS[liga_seleccionada]) if liga_seleccionada else None
+df = descargar_datos_liga(liga_seleccionada) if liga_seleccionada else None
 calendario_csv = preparar_calendario(df) if df is not None else pd.DataFrame()
 equipos_csv = sorted(df["HomeTeam"].dropna().unique()) if df is not None and "HomeTeam" in df.columns else []
 league_id = ESPN_LEAGUE_IDS.get(liga_seleccionada, "")
