@@ -1239,10 +1239,8 @@ def render_fixture_cards(partidos: pd.DataFrame, fecha_objetivo, hoy) -> pd.Seri
                     <div class="{clase}">
                         <div class="fixture-meta">
                             <span>{partido.get('MatchDate').strftime('%d/%m/%Y') if partido.get('MatchDate') else 'Sin fecha'} {partido.get('Time', '').strip()}</span>
-                            <span class="source-pill">{partido.get('Source', 'CSV')}</span>
                         </div>
                         <div class="fixture-teams">{nombre_visual_equipo(partido.get('HomeTeam', 'TBD'))}<br>vs<br>{nombre_visual_equipo(partido.get('AwayTeam', 'TBD'))}</div>
-                        <div class="fixture-sub">Abre este panel para ver lectura del modelo, comparativa, mercado y detalles en vivo.</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -1560,7 +1558,6 @@ def render_ranking_value_panel(ranking: list[dict], fecha_label: str) -> None:
                     <div>Edge</div>
                     <div>Casa</div>
                     <div>Justa</div>
-                    <div>Fuente</div>
                 </div>
             </div>
             """,
@@ -1569,7 +1566,7 @@ def render_ranking_value_panel(ranking: list[dict], fecha_label: str) -> None:
         for fila in rest_items:
             edge_pct = fila["edge"] * 100
             edge_class = "edge-pos" if edge_pct >= 0 else "edge-neg"
-            row_cols = st.columns([2.5, 1, 1, 1, 1], vertical_alignment="center")
+            row_cols = st.columns([2.8, 1, 1, 1], vertical_alignment="center")
             with row_cols[0]:
                 st.markdown(
                     f"""
@@ -1595,13 +1592,3 @@ def render_ranking_value_panel(ranking: list[dict], fecha_label: str) -> None:
                     f'<div class="ranking-row-card"><span class="ranking-pill">@{fila["fair_odds"]:.2f}</span></div>',
                     unsafe_allow_html=True,
                 )
-            with row_cols[4]:
-                st.markdown(
-                    f'<div class="ranking-row-card"><div class="ranking-provider">{fila["provider"]}</div></div>',
-                    unsafe_allow_html=True,
-                )
-
-    st.markdown(
-        '<div class="ranking-footer-note">El panel prioriza claridad visual: destaca el top 3 y resume el resto para no ocupar media pantalla.</div>',
-        unsafe_allow_html=True,
-    )

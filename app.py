@@ -35,7 +35,6 @@ from storage.favorites import (
 from ui.components import (
     inyectar_estilos,
     render_comparador_cuotas,
-    render_contexto_feed_espn,
     render_expected_card,
     render_fixture_cards,
     render_form_card,
@@ -52,7 +51,7 @@ from ui.components import (
 )
 
 
-st.set_page_config(page_title="Gordon BetScanner Pro", layout="wide")
+st.set_page_config(page_title="Gordon BetScanner", layout="wide")
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -92,18 +91,8 @@ for key, default in {
 st.markdown(
     """
     <div class="masthead">
-        <div class="masthead-grid">
-            <div class="masthead-copy">
-                <h1>Gordon BetScanner Pro</h1>
-            </div>
-            <div class="masthead-rail">
-                <div class="masthead-panel">
-                    <h3>Enfoque</h3>
-                </div>
-                <div class="masthead-panel">
-                    <h3>Uso</h3>
-                </div>
-            </div>
+        <div class="masthead-copy">
+            <h1>Gordon BetScanner</h1>
         </div>
     </div>
     """,
@@ -220,8 +209,8 @@ if analisis is not None:
     with overview_right:
         render_radar_panel(analisis)
 
-    tab_stats, tab_compare, tab_match, tab_feed, tab_odds = st.tabs(
-        ["Estadisticas generales", "Comparativa equipos", "Posibles estadisticas del partido", "Feed del partido", "Comparador cuota real vs cuota justa"]
+    tab_stats, tab_compare, tab_match, tab_odds = st.tabs(
+        ["Estadisticas generales", "Comparativa equipos", "Posibles estadisticas del partido", "Comparador cuota real vs cuota justa"]
     )
 
     with tab_stats:
@@ -291,10 +280,6 @@ if analisis is not None:
             for marcador, prob in [(item[0], item[1] / SIMULACIONES) for item in resultado["TopScores"]]
         )
         st.markdown(marcador_html, unsafe_allow_html=True)
-
-    with tab_feed:
-        st.markdown('<div class="section-title">Feed abierto del partido</div>', unsafe_allow_html=True)
-        render_contexto_feed_espn(resumen_espn, analisis)
 
     with tab_odds:
         st.markdown('<div class="section-title">Comparador de cuotas, Kelly y favoritos</div>', unsafe_allow_html=True)
