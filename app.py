@@ -94,25 +94,14 @@ st.markdown(
     <div class="masthead">
         <div class="masthead-grid">
             <div class="masthead-copy">
-                <div class="masthead-kicker">Match Intelligence</div>
                 <h1>Gordon BetScanner Pro</h1>
-                <p>Lectura prepartido en una sola pantalla, con foco en claridad visual, contraste alto y una jerarquia mas limpia para revisar partidos, mercado y stake sin pelearte con la interfaz.</p>
-                <div class="chip-row">
-                    <span class="masthead-chip">Modelo + mercado</span>
-                    <span class="masthead-chip">Scouting rapido</span>
-                    <span class="masthead-chip">Kelly operativo</span>
-                </div>
             </div>
             <div class="masthead-rail">
                 <div class="masthead-panel">
                     <h3>Enfoque</h3>
-                    <strong>Contraste fuerte y lectura directa</strong>
-                    <p>Fondos, textos y acentos ahora trabajan juntos para que cada bloque se entienda mejor.</p>
                 </div>
                 <div class="masthead-panel">
                     <h3>Uso</h3>
-                    <strong>Elegir, abrir y decidir sin ruido</strong>
-                    <p>Se mantiene el flujo de una sola pantalla, pero con una composicion mas sobria y profesional.</p>
                 </div>
             </div>
         </div>
@@ -125,7 +114,6 @@ st.markdown(
     """
     <div class="control-deck">
         <h3>Buscador Principal</h3>
-        <p>Elige liga, fecha y partido desde este bloque superior. La entrada se ha simplificado para que el analisis empiece arriba y todo lo importante se lea mejor.</p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -170,11 +158,6 @@ if not partidos_filtrados.empty and "EventId" not in partidos_filtrados.columns:
 with top_4:
     st.metric("Partidos", len(partidos_filtrados))
 
-if solo_hoy and partidos_filtrados.empty:
-    st.warning("No aparecen partidos para hoy ni en el CSV ni en la fuente de respaldo. Puedes desactivar el filtro y elegir otra fecha.")
-elif partidos_filtrados.empty and not calendario_csv.empty:
-    st.warning("No hay partidos para esa fecha. Te muestro el selector completo de la liga como respaldo.")
-
 partido_seleccionado = render_fixture_cards(partidos_filtrados, fecha_objetivo, hoy) if not partidos_filtrados.empty else None
 local = partido_seleccionado["HomeTeam"] if partido_seleccionado is not None else None
 visitante = partido_seleccionado["AwayTeam"] if partido_seleccionado is not None else None
@@ -204,7 +187,7 @@ else:
         partido_seleccionado.get("Source", ""),
     )
     if st.session_state.get("analysis_signature") != firma_actual:
-        with st.spinner("Ejecutando motor Poisson y construyendo panel de trading..."):
+        with st.spinner("Cargando..."):
             st.session_state["analysis"] = guardar_analisis(
                 df,
                 liga_seleccionada,
@@ -214,21 +197,12 @@ else:
                 match_label=partido_seleccionado["FixtureLabel"],
             )
         st.session_state["analysis_signature"] = firma_actual
-        if st.session_state["analysis"] is None:
-            st.error("No hay datos suficientes para construir el analisis de este cruce.")
-
 analisis = st.session_state.get("analysis")
 resumen_espn = {}
 if partido_seleccionado is not None and league_id and partido_seleccionado.get("EventId"):
     resumen_espn = descargar_resumen_espn(league_id, str(partido_seleccionado["EventId"]))
 
-if df is None:
-    st.error("No se pudieron descargar los datos de la liga seleccionada.")
-elif calendario_csv.empty and partidos_espn.empty:
-    st.warning("No hay partidos disponibles en el calendario cargado.")
-elif analisis is None:
-    st.info("Usa el buscador superior y selecciona un partido de la lista para cargar el analisis en esta misma pantalla.")
-else:
+if analisis is not None:
     resultado = analisis["resultado"]
     mercados = analisis["mercados"]
     render_summary_band(analisis)
@@ -266,7 +240,6 @@ else:
 
     with tab_compare:
         st.markdown('<div class="section-title">Local en casa vs visitante fuera</div>', unsafe_allow_html=True)
-        st.caption("Primero tienes la comparativa del escenario actual; debajo, la forma reciente, la lectura tactica y el explorador visual de sus duelos directos.")
         st.dataframe(
             tabla_comparativa(
                 analisis["local"],
@@ -321,18 +294,12 @@ else:
 
     with tab_feed:
         st.markdown('<div class="section-title">Feed abierto del partido</div>', unsafe_allow_html=True)
-        st.caption("Aqui ves lo que la fuente abierta del partido expone de verdad: mercado en tiempo real, forma extra y referencias live. Si no hay alineaciones, lesiones o xG por disparo, la app lo marca como no disponible.")
         render_contexto_feed_espn(resumen_espn, analisis)
 
     with tab_odds:
         st.markdown('<div class="section-title">Comparador de cuotas, Kelly y favoritos</div>', unsafe_allow_html=True)
         contexto_mercado = extraer_contexto_mercado_espn(resumen_espn) if resumen_espn else {}
         auto_odds = construir_cuotas_automaticas(contexto_mercado, analisis["local"], analisis["visitante"])
-        if auto_odds:
-            proveedores = sorted({dato["provider"] for dato in auto_odds.values()})
-            st.info(f"Se han autocompletado cuotas abiertas para 1X2 desde {', '.join(proveedores)}. Puedes editarlas manualmente.")
-        else:
-            st.caption("Introduce las cuotas reales y el panel colorea si la casa te esta regalando valor o te esta cobrando caro.")
 
         odds_cols = st.columns(3)
         cuotas_usuario: dict[str, float] = {}
@@ -359,12 +326,6 @@ else:
             edge = (mercado["prob"] * cuota_real) - 1
             filas_comparador.append({"market": mercado["nombre"], "prob": mercado["prob"], "fair_odds": cuota_fair, "offered_odds": cuota_real, "edge": edge})
         render_comparador_cuotas(filas_comparador)
-
-        mejor_oportunidad = max(filas_comparador, key=lambda fila: fila["edge"])
-        if mejor_oportunidad["edge"] > 0:
-            st.success(f"Mejor value actual: {mejor_oportunidad['market']} con edge {mejor_oportunidad['edge'] * 100:.2f}%.")
-        else:
-            st.warning("No hay ventaja positiva clara con las cuotas cargadas ahora mismo.")
 
         st.markdown("### Stake con Kelly")
         nombres_mercado = [mercado["nombre"] for mercado in mercados]
@@ -398,7 +359,6 @@ else:
         r1.metric("% bankroll a invertir", f"{porcentaje_kelly * 100:.2f}%")
         r2.metric("Stake recomendado", f"{stake_recomendado:.2f} u")
         r3.metric("Edge esperado", f"{edge_kelly * 100:.2f}%")
-        st.caption("Formula Kelly: f = ((cuota - 1) * p - (1 - p)) / (cuota - 1). Half Kelly y Quarter Kelly reducen volatilidad.")
 
         st.markdown("### Picks favoritos")
         acciones_fav = st.columns([1, 1.2, 2])
@@ -422,17 +382,13 @@ else:
                     "stake_units": round(stake_recomendado, 2),
                 }
             )
-            st.success("Pick guardado en favoritos.")
             st.rerun()
         if limpiar_picks:
             vaciar_favoritos()
-            st.warning("Favoritos eliminados.")
             st.rerun()
 
         favoritos = cargar_favoritos()
-        if not favoritos:
-            st.info("Todavia no has guardado picks favoritos.")
-        else:
+        if favoritos:
             for favorito in favoritos:
                 cols = st.columns([5, 1])
                 with cols[0]:

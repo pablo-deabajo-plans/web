@@ -1079,14 +1079,11 @@ def inyectar_estilos() -> None:
 def render_signal_card(titulo: str, probabilidad: float) -> None:
     es_value = probabilidad >= VALUE_BET_THRESHOLD
     clase = "signal-card value-bet" if es_value else "signal-card"
-    tag = '<div class="signal-tag">VALUE BET</div>' if es_value else ""
     st.markdown(
         f"""
         <div class="{clase}">
             <div class="signal-label">{titulo}</div>
             <div class="signal-value">{probabilidad * 100:.1f}%</div>
-            <div class="signal-quote">Cuota justa @{cuota_justa(probabilidad):.2f}</div>
-            {tag}
         </div>
         """,
         unsafe_allow_html=True,
@@ -1099,7 +1096,6 @@ def render_expected_card(titulo: str, valor: float, subtitulo: str) -> None:
         <div class="signal-card">
             <div class="signal-label">{titulo}</div>
             <div class="signal-value">{valor:.2f}</div>
-            <div class="signal-quote">{subtitulo}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1405,13 +1401,11 @@ def render_h2h_summary_card(h2h: dict, local: str, visitante: str) -> None:
 def render_h2h_explorer(h2h: dict) -> None:
     partidos = h2h.get("recent_matches", [])
     if not partidos:
-        st.caption("No se detectaron cruces directos recientes entre ambos en la base historica cargada.")
         return
     ids = [partido["id"] for partido in partidos]
     if st.session_state.get("selected_h2h_match") not in ids:
         st.session_state["selected_h2h_match"] = ids[0]
     st.markdown("### Ultimos enfrentamientos")
-    st.caption("Pincha cualquier cruce para abrir sus estadisticas historicas debajo.")
     for inicio in range(0, len(partidos), 2):
         bloque = partidos[inicio : inicio + 2]
         cols = st.columns(2)
@@ -1487,7 +1481,7 @@ def tabla_comparativa(local: str, visitante: str, local_home: dict, visitante_aw
 
 def render_traceability_panel(analisis: dict) -> None:
     trace = analisis["trace"]
-    st.markdown('<div class="trace-card"><h3>Trazabilidad del modelo</h3><p>La proyeccion no sale de una caja negra: aqui ves los inputs ponderados que empujan el xG de cada lado.</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="trace-card"><h3>Trazabilidad del modelo</h3></div>', unsafe_allow_html=True)
     for bloque_titulo, datos in [("xG local", trace["local_xg"]), ("xG visitante", trace["visitante_xg"])]:
         st.markdown(f'<div class="trace-subtitle">{bloque_titulo}</div>', unsafe_allow_html=True)
         filas = "".join(
@@ -1514,7 +1508,6 @@ def render_traceability_panel(analisis: dict) -> None:
 def render_ranking_value_panel(ranking: list[dict], fecha_label: str) -> None:
     st.markdown('<div class="section-title">Ranking de Value Bets del dia</div>', unsafe_allow_html=True)
     if not ranking:
-        st.info("No hay cuotas abiertas suficientes para construir el ranking automatico en esta fecha.")
         return
     top_items = ranking[:3]
     rest_items = ranking[3:8]
@@ -1526,7 +1519,6 @@ def render_ranking_value_panel(ranking: list[dict], fecha_label: str) -> None:
             <div class="ranking-head">
                 <div class="ranking-head-copy">
                     <h3>Top edges de {fecha_label}</h3>
-                    <p>Vista resumida de las oportunidades con mayor diferencia entre la cuota de mercado y la cuota justa del modelo.</p>
                 </div>
                 <div class="ranking-badge">{badge_label}</div>
             </div>
