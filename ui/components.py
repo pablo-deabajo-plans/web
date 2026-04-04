@@ -934,6 +934,11 @@ def inyectar_estilos() -> None:
                 color: var(--muted);
             }
 
+            .fixture-sub,
+            .source-pill {
+                display: none !important;
+            }
+
             .chip-row,
             .pill-row,
             .ranking-odds-meta,
