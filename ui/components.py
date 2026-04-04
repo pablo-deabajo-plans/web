@@ -757,6 +757,325 @@ def inyectar_estilos() -> None:
     )
 
 
+def inyectar_estilos() -> None:
+    st.markdown(
+        """
+        <style>
+            :root {
+                --bg: #ffffff;
+                --surface: #ffffff;
+                --surface-alt: #f5f5f5;
+                --ink: #000000;
+                --muted: #444444;
+                --line: #d9d9d9;
+            }
+
+            .stApp,
+            .stApp [data-testid="stAppViewContainer"],
+            .stApp [data-testid="stHeader"] {
+                background: var(--bg);
+                color: var(--ink);
+            }
+
+            .block-container {
+                max-width: 1480px;
+                padding-top: 1.15rem;
+                padding-bottom: 2rem;
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+
+            .masthead,
+            .control-deck,
+            .panel,
+            .radar-card,
+            .h2h-detail-card,
+            .ranking-card,
+            .trace-card,
+            .signal-card,
+            .summary-chip,
+            .split-card,
+            .favorite-card,
+            .fixture-card,
+            .detail-card,
+            .form-card,
+            .h2h-card,
+            .h2h-kpi,
+            .ranking-spotlight,
+            .ranking-row-card,
+            .insight-box,
+            .kelly-box,
+            .mini-stat,
+            .radar-stat,
+            .trace-kpi,
+            .ranking-item,
+            div[data-testid="stMetric"] {
+                background: var(--surface);
+                color: var(--ink);
+                border: 1px solid var(--line);
+                border-radius: 0;
+                box-shadow: none;
+            }
+
+            .masthead,
+            .control-deck,
+            .panel,
+            .radar-card,
+            .h2h-detail-card,
+            .ranking-card,
+            .trace-card,
+            .signal-card,
+            .summary-chip,
+            .split-card,
+            .favorite-card,
+            .fixture-card,
+            .detail-card,
+            .form-card,
+            .h2h-card,
+            .insight-box,
+            .kelly-box {
+                padding: 1rem;
+            }
+
+            .masthead-grid,
+            .split-grid,
+            .radar-grid,
+            .h2h-detail-grid,
+            .trace-grid,
+            .summary-band,
+            .ranking-top3 {
+                display: grid;
+                gap: 0.75rem;
+            }
+
+            .masthead-grid {
+                grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
+                align-items: stretch;
+            }
+
+            .masthead-copy,
+            .masthead-panel {
+                background: var(--surface);
+                border: 1px solid var(--line);
+                border-radius: 0;
+                padding: 1rem;
+            }
+
+            .masthead-kicker,
+            .masthead-chip,
+            .source-pill,
+            .tag-pill,
+            .score-pill,
+            .signal-tag,
+            .trace-tag,
+            .ranking-badge,
+            .ranking-rank,
+            .ranking-pill,
+            .result-chip,
+            .form-meta span,
+            .ranking-odds-meta span {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0.3rem 0.6rem;
+                border: 1px solid #000000;
+                border-radius: 0;
+                background: #ffffff;
+                color: #000000;
+                font-weight: 800;
+            }
+
+            .masthead-copy h1,
+            .masthead-panel strong,
+            .control-deck h3,
+            .detail-card h4,
+            .radar-card h3,
+            .insight-box h3,
+            .ranking-card h3,
+            .trace-card h3,
+            .fixture-teams,
+            .h2h-score,
+            .signal-value,
+            .kelly-main,
+            .ranking-market,
+            .summary-chip strong,
+            .ranking-cell-main strong,
+            .mini-stat strong,
+            .radar-stat strong,
+            .h2h-kpi strong,
+            .trace-kpi strong {
+                color: var(--ink);
+            }
+
+            .masthead-copy p,
+            .masthead-panel h3,
+            .masthead-panel p,
+            .control-deck p,
+            .signal-label,
+            .signal-quote,
+            .summary-chip span,
+            .mini-stat span,
+            .detail-card p,
+            .detail-card li,
+            .fixture-meta,
+            .fixture-sub,
+            .h2h-meta,
+            .h2h-detail-head p,
+            .form-meta,
+            .ranking-head-copy p,
+            .ranking-match,
+            .ranking-provider,
+            .ranking-footer-note,
+            .trace-subtitle,
+            .odds-head,
+            .radar-stat span,
+            .h2h-kpi span,
+            .trace-kpi span {
+                color: var(--muted);
+            }
+
+            .chip-row,
+            .pill-row,
+            .ranking-odds-meta,
+            .form-meta {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.45rem;
+            }
+
+            .section-title {
+                margin: 1rem 0 0.8rem 0;
+                padding-left: 0.75rem;
+                border-left: 4px solid #000000;
+                color: var(--ink);
+                font-size: 0.92rem;
+                font-weight: 900;
+                text-transform: uppercase;
+            }
+
+            .summary-band {
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                margin: 0.7rem 0 1rem 0;
+            }
+
+            .split-grid,
+            .radar-grid,
+            .h2h-detail-grid,
+            .trace-grid {
+                grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+            }
+
+            .odds-row,
+            .odds-head,
+            .ranking-subhead {
+                display: grid;
+                grid-template-columns: 1.6fr 0.8fr 0.8fr 0.8fr 0.8fr;
+                gap: 0.75rem;
+                align-items: center;
+            }
+
+            .odds-row,
+            .ranking-row-card,
+            .ranking-spotlight {
+                background: var(--surface);
+                border: 1px solid var(--line);
+            }
+
+            .signal-card.value-bet,
+            .fixture-card.active,
+            .h2h-card.active,
+            .odds-row.value,
+            .odds-row.flat,
+            .odds-row.bad,
+            .ranking-spotlight.top-1,
+            .ranking-pill.edge-pos,
+            .ranking-pill.edge-neg,
+            .result-chip.win,
+            .result-chip.draw,
+            .result-chip.loss,
+            .detail-note {
+                background: var(--surface-alt);
+                border-color: #000000;
+                color: var(--ink);
+            }
+
+            .stTabs [data-baseweb="tab-list"] {
+                gap: 0.45rem;
+                flex-wrap: wrap;
+            }
+
+            .stTabs [data-baseweb="tab"] {
+                background: #ffffff;
+                border: 1px solid var(--line);
+                border-radius: 0;
+                color: var(--ink);
+                padding: 0.5rem 0.9rem;
+            }
+
+            .stTabs [aria-selected="true"] {
+                border-color: #000000;
+                background: var(--surface-alt);
+                color: var(--ink);
+            }
+
+            div[data-baseweb="select"] > div,
+            div[data-testid="stDateInput"] input,
+            div[data-testid="stNumberInput"] input {
+                background: #ffffff;
+                border: 1px solid var(--line);
+                border-radius: 0;
+                color: #000000;
+            }
+
+            div[data-testid="stDataFrame"] {
+                border: 1px solid var(--line);
+                border-radius: 0;
+                overflow: hidden;
+            }
+
+            .stButton > button {
+                min-height: 3rem;
+                border: 1px solid #000000;
+                border-radius: 0;
+                background: #ffffff;
+                color: #000000;
+                box-shadow: none;
+                font-weight: 800;
+            }
+
+            .stButton > button:hover {
+                background: #f2f2f2;
+                color: #000000;
+                border-color: #000000;
+            }
+
+            @media (max-width: 1100px) {
+                .masthead-grid { grid-template-columns: 1fr; }
+                .summary-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                .ranking-top3 { grid-template-columns: 1fr; }
+            }
+
+            @media (max-width: 780px) {
+                .block-container { padding-left: 0.7rem; padding-right: 0.7rem; }
+                div[data-testid="stHorizontalBlock"] { gap: 0.7rem; }
+                div[data-testid="column"] { width: 100% !important; flex: 1 1 100% !important; }
+                .summary-band { grid-template-columns: 1fr; }
+                .h2h-detail-head,
+                .form-head,
+                .fixture-meta,
+                .ranking-head {
+                    flex-direction: column;
+                    align-items: flex-start;
+                }
+                .ranking-subhead { display: none; }
+                .ranking-provider { text-align: left; }
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_signal_card(titulo: str, probabilidad: float) -> None:
     es_value = probabilidad >= VALUE_BET_THRESHOLD
     clase = "signal-card value-bet" if es_value else "signal-card"
