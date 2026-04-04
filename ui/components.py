@@ -1081,6 +1081,374 @@ def inyectar_estilos() -> None:
     )
 
 
+def inyectar_estilos() -> None:
+    st.markdown(
+        """
+        <style>
+            :root {
+                --bg: #0B1220;
+                --bg-2: #111827;
+                --card: #1F2937;
+                --hover: #374151;
+                --green: #22C55E;
+                --green-light: #4ADE80;
+                --green-dark: #16A34A;
+                --blue: #3B82F6;
+                --blue-light: #60A5FA;
+                --blue-dark: #2563EB;
+                --warning: #F59E0B;
+                --danger: #EF4444;
+                --info: #06B6D4;
+                --title: #F9FAFB;
+                --subtitle: #D1D5DB;
+                --body: #9CA3AF;
+                --muted: #6B7280;
+                --inverse: #111827;
+                --border: #374151;
+                --divider: #1F2937;
+            }
+
+            .stApp,
+            .stApp [data-testid="stAppViewContainer"],
+            .stApp [data-testid="stHeader"] {
+                background:
+                    radial-gradient(circle at top right, rgba(59,130,246,0.16), transparent 28%),
+                    radial-gradient(circle at top left, rgba(34,197,94,0.12), transparent 24%),
+                    linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+                color: var(--title);
+            }
+
+            .block-container {
+                max-width: 1520px;
+                padding-top: 1rem;
+                padding-bottom: 2.2rem;
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+
+            .titlebar,
+            .panel,
+            .radar-card,
+            .h2h-detail-card,
+            .ranking-card,
+            .trace-card,
+            .signal-card,
+            .summary-chip,
+            .split-card,
+            .favorite-card,
+            .fixture-card,
+            .fixture-table-head,
+            .fixture-table-row,
+            .detail-card,
+            .form-card,
+            .h2h-card,
+            .h2h-kpi,
+            .ranking-spotlight,
+            .ranking-row-card,
+            .insight-box,
+            .kelly-box,
+            .mini-stat,
+            .radar-stat,
+            .trace-kpi,
+            .ranking-item,
+            div[data-testid="stMetric"] {
+                background: rgba(31, 41, 55, 0.92);
+                border: 1px solid var(--border);
+                border-radius: 18px;
+                box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+                color: var(--title);
+            }
+
+            .titlebar {
+                padding: 1.1rem 1.25rem;
+                margin-bottom: 0.85rem;
+                background: linear-gradient(135deg, rgba(17,24,39,0.98), rgba(31,41,55,0.96));
+            }
+
+            .titlebar-copy h1 {
+                margin: 0;
+                color: var(--title);
+                font-size: 2.65rem;
+                line-height: 1;
+                letter-spacing: -0.04em;
+            }
+
+            .layout-divider {
+                height: 1px;
+                background: linear-gradient(90deg, transparent, rgba(55,65,81,0.85), transparent);
+                margin: 0.25rem 0 1rem 0;
+            }
+
+            .summary-band,
+            .split-grid,
+            .radar-grid,
+            .h2h-detail-grid,
+            .trace-grid,
+            .ranking-top3 {
+                display: grid;
+                gap: 0.75rem;
+            }
+
+            .summary-band {
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                margin: 0 0 1rem 0;
+            }
+
+            .split-grid,
+            .radar-grid,
+            .h2h-detail-grid,
+            .trace-grid {
+                grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+            }
+
+            .signal-card,
+            .summary-chip,
+            .split-card,
+            .favorite-card,
+            .fixture-card,
+            .detail-card,
+            .form-card,
+            .h2h-card,
+            .h2h-detail-card,
+            .radar-card,
+            .ranking-card,
+            .trace-card,
+            .insight-box,
+            .kelly-box {
+                padding: 1rem;
+            }
+
+            .section-title {
+                margin: 0 0 0.8rem 0;
+                padding-left: 0.85rem;
+                border-left: 4px solid var(--green);
+                color: var(--title);
+                font-size: 0.92rem;
+                font-weight: 900;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+            }
+
+            .signal-label,
+            .summary-chip span,
+            .mini-stat span,
+            .detail-card p,
+            .detail-card li,
+            .fixture-meta,
+            .h2h-meta,
+            .h2h-detail-head p,
+            .form-meta,
+            .ranking-head-copy p,
+            .ranking-match,
+            .ranking-provider,
+            .trace-subtitle,
+            .odds-head,
+            .radar-stat span,
+            .h2h-kpi span,
+            .trace-kpi span,
+            .fixture-table-cell,
+            .fixture-table-match span {
+                color: var(--body);
+            }
+
+            .masthead-kicker,
+            .tag-pill,
+            .score-pill,
+            .signal-tag,
+            .trace-tag,
+            .ranking-badge,
+            .ranking-rank,
+            .ranking-pill,
+            .result-chip,
+            .form-meta span,
+            .ranking-odds-meta span {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0.32rem 0.62rem;
+                border-radius: 999px;
+                border: 1px solid rgba(74, 222, 128, 0.22);
+                background: rgba(34, 197, 94, 0.12);
+                color: var(--title);
+                font-weight: 800;
+            }
+
+            .signal-value,
+            .kelly-main,
+            .ranking-market,
+            .summary-chip strong,
+            .ranking-cell-main strong,
+            .mini-stat strong,
+            .radar-stat strong,
+            .h2h-kpi strong,
+            .trace-kpi strong,
+            .fixture-teams,
+            .h2h-score,
+            .detail-card h4,
+            .radar-card h3,
+            .insight-box h3,
+            .ranking-card h3,
+            .trace-card h3 {
+                color: var(--title);
+            }
+
+            .fixture-card,
+            .ranking-spotlight,
+            .ranking-row-card,
+            .odds-row,
+            .fixture-table-row {
+                background: rgba(17, 24, 39, 0.74);
+            }
+
+            .fixture-table-block {
+                background: rgba(17, 24, 39, 0.74);
+                border: 1px solid var(--border);
+                border-radius: 14px;
+                padding: 0.8rem 0.95rem;
+                min-height: 72px;
+            }
+
+            .fixture-card.active,
+            .h2h-card.active,
+            .ranking-spotlight.top-1,
+            .signal-card.value-bet,
+            .fixture-table-row.active {
+                border-color: rgba(34, 197, 94, 0.9);
+                background: linear-gradient(135deg, rgba(34,197,94,0.16), rgba(31,41,55,0.92));
+            }
+
+            .fixture-table-block.active {
+                border-color: rgba(34, 197, 94, 0.9);
+                background: linear-gradient(135deg, rgba(34,197,94,0.16), rgba(31,41,55,0.92));
+            }
+
+            .fixture-card { min-height: 170px; }
+            .fixture-teams { font-size: 1.08rem; font-weight: 800; line-height: 1.45; }
+
+            .fixture-table-head,
+            .fixture-table-row {
+                display: grid;
+                grid-template-columns: minmax(120px, 0.9fr) minmax(0, 2.2fr) minmax(150px, 0.8fr);
+                gap: 0.75rem;
+                align-items: center;
+                padding: 0.8rem 0.95rem;
+                margin-bottom: 0.45rem;
+            }
+
+            .fixture-table-head {
+                background: rgba(17, 24, 39, 0.64);
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                font-size: 0.76rem;
+                color: var(--subtitle);
+            }
+
+            .fixture-table-match strong {
+                display: block;
+                color: var(--title);
+                font-size: 0.96rem;
+                line-height: 1.35;
+            }
+
+            .odds-head {
+                display: grid;
+                grid-template-columns: 1.6fr 0.8fr 0.8fr 0.8fr 0.8fr;
+                gap: 0.75rem;
+                align-items: center;
+            }
+
+            .ranking-subhead {
+                display: grid;
+                grid-template-columns: 1.8fr 0.8fr 0.8fr 0.8fr;
+                gap: 0.75rem;
+                align-items: center;
+            }
+
+            .stTabs [data-baseweb="tab-list"] {
+                gap: 0.5rem;
+                flex-wrap: wrap;
+                margin-bottom: 0.3rem;
+            }
+
+            .stTabs [data-baseweb="tab"] {
+                background: rgba(17, 24, 39, 0.86);
+                border: 1px solid var(--border);
+                border-radius: 999px;
+                color: var(--body);
+                padding: 0.52rem 0.95rem;
+            }
+
+            .stTabs [aria-selected="true"] {
+                background: rgba(59,130,246,0.18);
+                border-color: var(--blue);
+                color: var(--title);
+            }
+
+            div[data-baseweb="select"] > div,
+            div[data-testid="stDateInput"] input,
+            div[data-testid="stNumberInput"] input {
+                background: rgba(17, 24, 39, 0.92);
+                border: 1px solid var(--border);
+                border-radius: 14px;
+                color: var(--title);
+            }
+
+            div[data-testid="stMetric"] {
+                min-height: 108px;
+                padding: 0.8rem 0.9rem;
+            }
+
+            div[data-testid="stDataFrame"] {
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                overflow: hidden;
+            }
+
+            .stButton > button {
+                min-height: 2.9rem;
+                border-radius: 14px;
+                border: 1px solid var(--green-dark);
+                background: linear-gradient(90deg, var(--green-dark), var(--green));
+                color: var(--title);
+                box-shadow: none;
+                font-weight: 800;
+            }
+
+            .stButton > button:hover {
+                background: linear-gradient(90deg, var(--green), var(--green-light));
+                border-color: var(--green-light);
+                color: var(--title);
+            }
+
+            @media (max-width: 1100px) {
+                .summary-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                .ranking-top3 { grid-template-columns: 1fr; }
+            }
+
+            @media (max-width: 780px) {
+                .block-container { padding-left: 0.7rem; padding-right: 0.7rem; }
+                div[data-testid="stHorizontalBlock"] { gap: 0.7rem; }
+                div[data-testid="column"] { width: 100% !important; flex: 1 1 100% !important; }
+                .summary-band { grid-template-columns: 1fr; }
+                .fixture-table-head,
+                .fixture-table-row {
+                    grid-template-columns: 1fr;
+                }
+                .h2h-detail-head,
+                .form-head,
+                .fixture-meta,
+                .ranking-head {
+                    flex-direction: column;
+                    align-items: flex-start;
+                }
+                .ranking-subhead { display: none; }
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_signal_card(titulo: str, probabilidad: float) -> None:
     es_value = probabilidad >= VALUE_BET_THRESHOLD
     clase = "signal-card value-bet" if es_value else "signal-card"
@@ -1226,38 +1594,83 @@ def render_comparador_cuotas(filas: list[dict]) -> None:
 def render_fixture_cards(partidos: pd.DataFrame, fecha_objetivo, hoy) -> pd.Series | None:
     if partidos.empty:
         return None
-    titulo_lista = "Tarjetas de partidos de hoy" if fecha_objetivo == hoy else f"Tarjetas de partidos del {fecha_objetivo.strftime('%d/%m/%Y')}"
+    titulo_lista = "Partidos de hoy" if fecha_objetivo == hoy else f"Partidos del {fecha_objetivo.strftime('%d/%m/%Y')}"
     st.markdown(f'<div class="section-title">{titulo_lista}</div>', unsafe_allow_html=True)
     opciones_partidos = partidos["FixtureLabel"].tolist()
     if st.session_state.get("fixture_label") not in opciones_partidos:
         st.session_state["fixture_label"] = opciones_partidos[0]
     filas_partidos = partidos.to_dict("records")
-    for inicio in range(0, len(filas_partidos), 3):
-        bloque = filas_partidos[inicio : inicio + 3]
-        cols = st.columns(3)
-        for col, partido in zip(cols, bloque):
+    if len(filas_partidos) > 6:
+        st.markdown(
+            """
+            <div class="fixture-table-head">
+                <div>Hora</div>
+                <div>Partido</div>
+                <div>Panel</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        for indice, partido in enumerate(filas_partidos):
             seleccion_actual = st.session_state.get("fixture_label") == partido["FixtureLabel"]
-            clase = "fixture-card active" if seleccion_actual else "fixture-card"
-            with col:
+            clase = "fixture-table-block active" if seleccion_actual else "fixture-table-block"
+            row_cols = st.columns([1.0, 2.4, 1.0], vertical_alignment="center")
+            with row_cols[0]:
                 st.markdown(
                     f"""
                     <div class="{clase}">
-                        <div class="fixture-meta">
-                            <span>{partido.get('MatchDate').strftime('%d/%m/%Y') if partido.get('MatchDate') else 'Sin fecha'} {partido.get('Time', '').strip()}</span>
-                        </div>
-                        <div class="fixture-teams">{nombre_visual_equipo(partido.get('HomeTeam', 'TBD'))}<br>vs<br>{nombre_visual_equipo(partido.get('AwayTeam', 'TBD'))}</div>
+                        <div class="fixture-table-cell">{partido.get('MatchDate').strftime('%d/%m/%Y') if partido.get('MatchDate') else 'Sin fecha'} {partido.get('Time', '').strip()}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
                 )
+            with row_cols[1]:
+                st.markdown(
+                    f"""
+                    <div class="{clase}">
+                        <div class="fixture-table-match">
+                            <strong>{nombre_visual_equipo(partido.get('HomeTeam', 'TBD'))} vs {nombre_visual_equipo(partido.get('AwayTeam', 'TBD'))}</strong>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            with row_cols[2]:
                 if st.button(
-                    "Panel cargado" if seleccion_actual else "Ver estadisticas",
-                    key=f"fixture_{safe_key(partido['FixtureLabel'])}_{inicio}",
+                    "Abierto" if seleccion_actual else "Ver",
+                    key=f"fixture_table_{safe_key(partido['FixtureLabel'])}_{indice}",
                     use_container_width=True,
                     disabled=seleccion_actual,
                 ):
                     st.session_state["fixture_label"] = partido["FixtureLabel"]
                     st.rerun()
+    else:
+        for inicio in range(0, len(filas_partidos), 2):
+            bloque = filas_partidos[inicio : inicio + 2]
+            cols = st.columns(2)
+            for col, partido in zip(cols, bloque):
+                seleccion_actual = st.session_state.get("fixture_label") == partido["FixtureLabel"]
+                clase = "fixture-card active" if seleccion_actual else "fixture-card"
+                with col:
+                    st.markdown(
+                        f"""
+                        <div class="{clase}">
+                            <div class="fixture-meta">
+                                <span>{partido.get('MatchDate').strftime('%d/%m/%Y') if partido.get('MatchDate') else 'Sin fecha'} {partido.get('Time', '').strip()}</span>
+                            </div>
+                            <div class="fixture-teams">{nombre_visual_equipo(partido.get('HomeTeam', 'TBD'))}<br>vs<br>{nombre_visual_equipo(partido.get('AwayTeam', 'TBD'))}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                    if st.button(
+                        "Abierto" if seleccion_actual else "Ver estadisticas",
+                        key=f"fixture_{safe_key(partido['FixtureLabel'])}_{inicio}",
+                        use_container_width=True,
+                        disabled=seleccion_actual,
+                    ):
+                        st.session_state["fixture_label"] = partido["FixtureLabel"]
+                        st.rerun()
     seleccion_fixture = st.session_state.get("fixture_label")
     return partidos[partidos["FixtureLabel"] == seleccion_fixture].iloc[0]
 
