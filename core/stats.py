@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from data.teams import nombre_visual_equipo
+from data.teams import clave_equipo, nombre_visual_equipo
 
 
 VENTANA_RECIENTE_GENERAL = 10
@@ -18,7 +18,10 @@ def extraer_historico(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def obtener_partidos_equipo(df: pd.DataFrame, equipo: str, n_partidos: int | None = None) -> pd.DataFrame:
-    partidos = df[(df["HomeTeam"] == equipo) | (df["AwayTeam"] == equipo)].copy()
+    clave = clave_equipo(equipo)
+    home_keys = df["HomeTeam"].map(clave_equipo) if "HomeTeam" in df.columns else pd.Series(dtype=str)
+    away_keys = df["AwayTeam"].map(clave_equipo) if "AwayTeam" in df.columns else pd.Series(dtype=str)
+    partidos = df[(home_keys == clave) | (away_keys == clave)].copy()
     if n_partidos is not None:
         partidos = partidos.tail(n_partidos)
     return partidos
@@ -41,13 +44,14 @@ def resumir_serie_numerica(serie: pd.Series) -> tuple[float, bool]:
 
 
 def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
+    equipo_clave = clave_equipo(equipo)
     tiene_corners = columnas_disponibles(df, ["HC", "AC"])
     tiene_shots = columnas_disponibles(df, ["HS", "AS"])
     tiene_shots_puerta = columnas_disponibles(df, ["HST", "AST"])
     tiene_tarjetas = any(columna in df.columns for columna in ["HY", "AY", "HR", "AR"])
 
     if scope == "home":
-        partidos = df[df["HomeTeam"] == equipo].copy()
+        partidos = df[df["HomeTeam"].map(clave_equipo) == equipo_clave].copy()
         goles_favor = partidos["FTHG"]
         goles_contra = partidos["FTAG"]
         corners_favor = partidos["HC"] if tiene_corners else serie_nan(len(partidos), partidos.index)
@@ -72,7 +76,7 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
         empates = partidos["FTHG"] == partidos["FTAG"]
         derrotas = partidos["FTHG"] < partidos["FTAG"]
     elif scope == "away":
-        partidos = df[df["AwayTeam"] == equipo].copy()
+        partidos = df[df["AwayTeam"].map(clave_equipo) == equipo_clave].copy()
         goles_favor = partidos["FTAG"]
         goles_contra = partidos["FTHG"]
         corners_favor = partidos["AC"] if tiene_corners else serie_nan(len(partidos), partidos.index)
@@ -97,8 +101,8 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
         empates = partidos["FTAG"] == partidos["FTHG"]
         derrotas = partidos["FTAG"] < partidos["FTHG"]
     else:
-        casa = df[df["HomeTeam"] == equipo].copy()
-        fuera = df[df["AwayTeam"] == equipo].copy()
+        casa = df[df["HomeTeam"].map(clave_equipo) == equipo_clave].copy()
+        fuera = df[df["AwayTeam"].map(clave_equipo) == equipo_clave].copy()
         partidos = pd.concat([casa, fuera], ignore_index=True)
         if partidos.empty:
             goles_favor = pd.Series(dtype=float)
@@ -116,37 +120,37 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
             derrotas = pd.Series(dtype=bool)
         else:
             goles_favor = pd.Series(
-                [fila["FTHG"] if fila["HomeTeam"] == equipo else fila["FTAG"] for _, fila in partidos.iterrows()]
+                [fila["FTHG"] if clave_equipo(fila["HomeTeam"]) == equipo_clave else fila["FTAG"] for _, fila in partidos.iterrows()]
             )
             goles_contra = pd.Series(
-                [fila["FTAG"] if fila["HomeTeam"] == equipo else fila["FTHG"] for _, fila in partidos.iterrows()]
+                [fila["FTAG"] if clave_equipo(fila["HomeTeam"]) == equipo_clave else fila["FTHG"] for _, fila in partidos.iterrows()]
             )
             if tiene_corners:
                 corners_favor = pd.Series(
-                    [fila["HC"] if fila["HomeTeam"] == equipo else fila["AC"] for _, fila in partidos.iterrows()]
+                    [fila["HC"] if clave_equipo(fila["HomeTeam"]) == equipo_clave else fila["AC"] for _, fila in partidos.iterrows()]
                 )
                 corners_contra = pd.Series(
-                    [fila["AC"] if fila["HomeTeam"] == equipo else fila["HC"] for _, fila in partidos.iterrows()]
+                    [fila["AC"] if clave_equipo(fila["HomeTeam"]) == equipo_clave else fila["HC"] for _, fila in partidos.iterrows()]
                 )
             else:
                 corners_favor = serie_nan(len(partidos))
                 corners_contra = serie_nan(len(partidos))
             if tiene_shots:
                 shots_favor = pd.Series(
-                    [fila["HS"] if fila["HomeTeam"] == equipo else fila["AS"] for _, fila in partidos.iterrows()]
+                    [fila["HS"] if clave_equipo(fila["HomeTeam"]) == equipo_clave else fila["AS"] for _, fila in partidos.iterrows()]
                 )
                 shots_contra = pd.Series(
-                    [fila["AS"] if fila["HomeTeam"] == equipo else fila["HS"] for _, fila in partidos.iterrows()]
+                    [fila["AS"] if clave_equipo(fila["HomeTeam"]) == equipo_clave else fila["HS"] for _, fila in partidos.iterrows()]
                 )
             else:
                 shots_favor = serie_nan(len(partidos))
                 shots_contra = serie_nan(len(partidos))
             if tiene_shots_puerta:
                 shots_on_target_favor = pd.Series(
-                    [fila["HST"] if fila["HomeTeam"] == equipo else fila["AST"] for _, fila in partidos.iterrows()]
+                    [fila["HST"] if clave_equipo(fila["HomeTeam"]) == equipo_clave else fila["AST"] for _, fila in partidos.iterrows()]
                 )
                 shots_on_target_contra = pd.Series(
-                    [fila["AST"] if fila["HomeTeam"] == equipo else fila["HST"] for _, fila in partidos.iterrows()]
+                    [fila["AST"] if clave_equipo(fila["HomeTeam"]) == equipo_clave else fila["HST"] for _, fila in partidos.iterrows()]
                 )
             else:
                 shots_on_target_favor = serie_nan(len(partidos))
@@ -154,13 +158,13 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
             if tiene_tarjetas:
                 cards_favor = pd.Series(
                     [
-                        (fila.get("HY", 0.0) + fila.get("HR", 0.0)) if fila["HomeTeam"] == equipo else (fila.get("AY", 0.0) + fila.get("AR", 0.0))
+                        (fila.get("HY", 0.0) + fila.get("HR", 0.0)) if clave_equipo(fila["HomeTeam"]) == equipo_clave else (fila.get("AY", 0.0) + fila.get("AR", 0.0))
                         for _, fila in partidos.iterrows()
                     ]
                 )
                 cards_contra = pd.Series(
                     [
-                        (fila.get("AY", 0.0) + fila.get("AR", 0.0)) if fila["HomeTeam"] == equipo else (fila.get("HY", 0.0) + fila.get("HR", 0.0))
+                        (fila.get("AY", 0.0) + fila.get("AR", 0.0)) if clave_equipo(fila["HomeTeam"]) == equipo_clave else (fila.get("HY", 0.0) + fila.get("HR", 0.0))
                         for _, fila in partidos.iterrows()
                     ]
                 )
@@ -242,6 +246,7 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
 
 
 def calcular_forma(df: pd.DataFrame, equipo: str, n_partidos: int = 8) -> dict:
+    equipo_clave = clave_equipo(equipo)
     partidos = obtener_partidos_equipo(df, equipo, n_partidos)
     if partidos.empty:
         return {
@@ -260,8 +265,9 @@ def calcular_forma(df: pd.DataFrame, equipo: str, n_partidos: int = 8) -> dict:
     wins = draws = losses = 0
     goal_diff = 0
     for _, fila in partidos.iterrows():
-        gf = fila["FTHG"] if fila["HomeTeam"] == equipo else fila["FTAG"]
-        gc = fila["FTAG"] if fila["HomeTeam"] == equipo else fila["FTHG"]
+        es_local = clave_equipo(fila["HomeTeam"]) == equipo_clave
+        gf = fila["FTHG"] if es_local else fila["FTAG"]
+        gc = fila["FTAG"] if es_local else fila["FTHG"]
         goal_diff += int(gf - gc)
         if gf > gc:
             resultados.append("W")
@@ -334,9 +340,11 @@ def valor_partido(fila: pd.Series, columna: str) -> float | None:
 
 
 def calcular_h2h(df: pd.DataFrame, local: str, visitante: str, limite: int = 6) -> dict:
+    local_clave = clave_equipo(local)
+    visitante_clave = clave_equipo(visitante)
     cruces = df[
-        ((df["HomeTeam"] == local) & (df["AwayTeam"] == visitante))
-        | ((df["HomeTeam"] == visitante) & (df["AwayTeam"] == local))
+        ((df["HomeTeam"].map(clave_equipo) == local_clave) & (df["AwayTeam"].map(clave_equipo) == visitante_clave))
+        | ((df["HomeTeam"].map(clave_equipo) == visitante_clave) & (df["AwayTeam"].map(clave_equipo) == local_clave))
     ].copy().tail(limite)
 
     if cruces.empty:
@@ -362,8 +370,9 @@ def calcular_h2h(df: pd.DataFrame, local: str, visitante: str, limite: int = 6) 
     partidos_detalle = []
 
     for indice, fila in cruces.iterrows():
-        goles_local = fila["FTHG"] if fila["HomeTeam"] == local else fila["FTAG"]
-        goles_visitante = fila["FTAG"] if fila["HomeTeam"] == local else fila["FTHG"]
+        h2h_local = clave_equipo(fila["HomeTeam"]) == local_clave
+        goles_local = fila["FTHG"] if h2h_local else fila["FTAG"]
+        goles_visitante = fila["FTAG"] if h2h_local else fila["FTHG"]
         total = goles_local + goles_visitante
         total_goals.append(total)
         btts.append(goles_local > 0 and goles_visitante > 0)

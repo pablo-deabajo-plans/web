@@ -295,5 +295,12 @@ def nombre_visual_equipo(nombre: str) -> str:
     return TEAM_VISUAL_NAMES_NORMALIZED.get(normalizar_nombre(nombre), nombre)
 
 
+def clave_equipo(nombre: str) -> str:
+    nombre_norm = normalizar_nombre(nombre)
+    if nombre_norm in TEAM_ALIASES:
+        return normalizar_nombre(TEAM_ALIASES[nombre_norm])
+    return nombre_norm
+
+
 def partido_visual(local: str, visitante: str) -> str:
     return f"{nombre_visual_equipo(local)} vs {nombre_visual_equipo(visitante)}"

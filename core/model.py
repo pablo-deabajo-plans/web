@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from core.stats import calcular_h2h, calcular_stats, extraer_historico
-from data.teams import nombre_visual_equipo
+from data.teams import clave_equipo, nombre_visual_equipo
 
 
 VALUE_BET_THRESHOLD = 0.65
@@ -268,9 +268,11 @@ def construir_trazabilidad(
 
 
 def construir_fallback_h2h(historico: pd.DataFrame, local: str, visitante: str) -> tuple[dict, dict, dict]:
+    local_clave = clave_equipo(local)
+    visitante_clave = clave_equipo(visitante)
     historico_h2h = historico[
-        ((historico["HomeTeam"] == local) & (historico["AwayTeam"] == visitante))
-        | ((historico["HomeTeam"] == visitante) & (historico["AwayTeam"] == local))
+        ((historico["HomeTeam"].map(clave_equipo) == local_clave) & (historico["AwayTeam"].map(clave_equipo) == visitante_clave))
+        | ((historico["HomeTeam"].map(clave_equipo) == visitante_clave) & (historico["AwayTeam"].map(clave_equipo) == local_clave))
     ].copy()
     if historico_h2h.empty:
         return calcular_stats(historico, local), calcular_stats(historico, visitante), calcular_h2h(historico, local, visitante, 8)
