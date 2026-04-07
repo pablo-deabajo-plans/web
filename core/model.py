@@ -19,6 +19,17 @@ LIGAS_FASE_ELIMINATORIA = {
     "Copa del Rey",
 }
 
+DEFAULT_CORNERS_FOR = 4.5
+DEFAULT_CORNERS_AGAINST = 4.5
+DEFAULT_CARDS_FOR = 2.1
+DEFAULT_CARDS_AGAINST = 2.1
+
+
+def valor_modelo(stats: dict, clave: str, flag: str, default: float) -> float:
+    if stats.get(flag):
+        return float(stats.get(clave, 0.0))
+    return default
+
 
 def simular_partido(
     xg_local: float,
@@ -287,24 +298,24 @@ def guardar_analisis(df: pd.DataFrame, liga: str, local: str, visitante: str, ma
     xg_visitante = max(0.15, xg_visitante)
 
     xc_local = (
-        stats_local["home"]["corners_for"] * 0.55
-        + stats_local["overall"]["corners_for"] * 0.15
-        + stats_visitante["away"]["corners_against"] * 0.30
+        valor_modelo(stats_local["home"], "corners_for", "has_corners", DEFAULT_CORNERS_FOR) * 0.55
+        + valor_modelo(stats_local["overall"], "corners_for", "has_corners", DEFAULT_CORNERS_FOR) * 0.15
+        + valor_modelo(stats_visitante["away"], "corners_against", "has_corners", DEFAULT_CORNERS_AGAINST) * 0.30
     ) * 1.10
     xc_visitante = (
-        stats_visitante["away"]["corners_for"] * 0.55
-        + stats_visitante["overall"]["corners_for"] * 0.15
-        + stats_local["home"]["corners_against"] * 0.30
+        valor_modelo(stats_visitante["away"], "corners_for", "has_corners", DEFAULT_CORNERS_FOR) * 0.55
+        + valor_modelo(stats_visitante["overall"], "corners_for", "has_corners", DEFAULT_CORNERS_FOR) * 0.15
+        + valor_modelo(stats_local["home"], "corners_against", "has_corners", DEFAULT_CORNERS_AGAINST) * 0.30
     )
     xt_local = (
-        stats_local["home"]["cards_for"] * 0.50
-        + stats_local["overall"]["cards_for"] * 0.15
-        + stats_visitante["away"]["cards_against"] * 0.35
+        valor_modelo(stats_local["home"], "cards_for", "has_cards", DEFAULT_CARDS_FOR) * 0.50
+        + valor_modelo(stats_local["overall"], "cards_for", "has_cards", DEFAULT_CARDS_FOR) * 0.15
+        + valor_modelo(stats_visitante["away"], "cards_against", "has_cards", DEFAULT_CARDS_AGAINST) * 0.35
     )
     xt_visitante = (
-        stats_visitante["away"]["cards_for"] * 0.50
-        + stats_visitante["overall"]["cards_for"] * 0.15
-        + stats_local["home"]["cards_against"] * 0.35
+        valor_modelo(stats_visitante["away"], "cards_for", "has_cards", DEFAULT_CARDS_FOR) * 0.50
+        + valor_modelo(stats_visitante["overall"], "cards_for", "has_cards", DEFAULT_CARDS_FOR) * 0.15
+        + valor_modelo(stats_local["home"], "cards_against", "has_cards", DEFAULT_CARDS_AGAINST) * 0.35
     )
 
     local_display = nombre_visual_equipo(local)

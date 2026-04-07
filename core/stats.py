@@ -32,12 +32,12 @@ def serie_nan(longitud: int, index=None) -> pd.Series:
     return pd.Series([np.nan] * longitud, index=index, dtype=float)
 
 
-def rellenar_serie_fallback(serie: pd.Series, longitud: int, valor_default: float) -> tuple[pd.Series, bool]:
+def resumir_serie_numerica(serie: pd.Series) -> tuple[float, bool]:
     serie_numerica = pd.to_numeric(serie, errors="coerce")
     disponible = bool(serie_numerica.notna().any())
     if disponible:
-        return serie_numerica, True
-    return pd.Series([valor_default] * longitud, index=serie.index if len(serie.index) == longitud else None, dtype=float), False
+        return float(serie_numerica.mean()), True
+    return 0.0, False
 
 
 def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
@@ -199,14 +199,14 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
             "has_cards": False,
         }
 
-    corners_favor, has_corners_for = rellenar_serie_fallback(corners_favor, pj, 4.5)
-    corners_contra, has_corners_against = rellenar_serie_fallback(corners_contra, pj, 4.5)
-    shots_favor, has_shots_for = rellenar_serie_fallback(shots_favor, pj, 11.0)
-    shots_contra, has_shots_against = rellenar_serie_fallback(shots_contra, pj, 11.0)
-    shots_on_target_favor, has_shots_target_for = rellenar_serie_fallback(shots_on_target_favor, pj, 4.0)
-    shots_on_target_contra, has_shots_target_against = rellenar_serie_fallback(shots_on_target_contra, pj, 4.0)
-    cards_favor, has_cards_for = rellenar_serie_fallback(cards_favor, pj, 2.1)
-    cards_contra, has_cards_against = rellenar_serie_fallback(cards_contra, pj, 2.1)
+    corners_for_value, has_corners_for = resumir_serie_numerica(corners_favor)
+    corners_against_value, has_corners_against = resumir_serie_numerica(corners_contra)
+    shots_for_value, has_shots_for = resumir_serie_numerica(shots_favor)
+    shots_against_value, has_shots_against = resumir_serie_numerica(shots_contra)
+    shots_target_for_value, has_shots_target_for = resumir_serie_numerica(shots_on_target_favor)
+    shots_target_against_value, has_shots_target_against = resumir_serie_numerica(shots_on_target_contra)
+    cards_for_value, has_cards_for = resumir_serie_numerica(cards_favor)
+    cards_against_value, has_cards_against = resumir_serie_numerica(cards_contra)
 
     has_corners_data = has_corners_for or has_corners_against
     has_shots_data = has_shots_for or has_shots_against
@@ -218,14 +218,14 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
         "pj": pj,
         "gf": float(goles_favor.mean()),
         "gc": float(goles_contra.mean()),
-        "corners_for": float(corners_favor.mean()),
-        "corners_against": float(corners_contra.mean()),
-        "shots_for": float(shots_favor.mean()),
-        "shots_against": float(shots_contra.mean()),
-        "shots_on_target_for": float(shots_on_target_favor.mean()),
-        "shots_on_target_against": float(shots_on_target_contra.mean()),
-        "cards_for": float(cards_favor.mean()),
-        "cards_against": float(cards_contra.mean()),
+        "corners_for": corners_for_value,
+        "corners_against": corners_against_value,
+        "shots_for": shots_for_value,
+        "shots_against": shots_against_value,
+        "shots_on_target_for": shots_target_for_value,
+        "shots_on_target_against": shots_target_against_value,
+        "cards_for": cards_for_value,
+        "cards_against": cards_against_value,
         "win_pct": float(victorias.mean()),
         "draw_pct": float(empates.mean()),
         "loss_pct": float(derrotas.mean()),
