@@ -12,13 +12,28 @@ from data.teams import nombre_visual_equipo
 
 VALUE_BET_THRESHOLD = 0.65
 SIMULACIONES = 50000
+LIGAS_FASE_ELIMINATORIA = {
+    "Champions League",
+    "Europa League",
+    "Conference League",
+    "Copa del Rey",
+}
 
 
-def simular_partido(xg_local: float, xg_visitante: float, xc_local: float, xc_visitante: float) -> dict:
+def simular_partido(
+    xg_local: float,
+    xg_visitante: float,
+    xc_local: float,
+    xc_visitante: float,
+    xt_local: float,
+    xt_visitante: float,
+) -> dict:
     goles_local = np.random.poisson(xg_local, SIMULACIONES)
     goles_visitante = np.random.poisson(xg_visitante, SIMULACIONES)
     corners_local = np.random.poisson(xc_local, SIMULACIONES)
     corners_visitante = np.random.poisson(xc_visitante, SIMULACIONES)
+    cards_local = np.random.poisson(xt_local, SIMULACIONES)
+    cards_visitante = np.random.poisson(xt_visitante, SIMULACIONES)
     marcadores = [f"{x}-{y}" for x, y in zip(goles_local, goles_visitante)]
     top_scores = Counter(marcadores).most_common(3)
     return {
@@ -35,6 +50,9 @@ def simular_partido(xg_local: float, xg_visitante: float, xc_local: float, xc_vi
         "Corn_Home": float(np.mean(corners_local)),
         "Corn_Away": float(np.mean(corners_visitante)),
         "Over9.5_Corn": float(np.mean((corners_local + corners_visitante) > 9.5)),
+        "Cards_Home": float(np.mean(cards_local)),
+        "Cards_Away": float(np.mean(cards_visitante)),
+        "Total_Cards": float(np.mean(cards_local + cards_visitante)),
         "Total_Goals": float(np.mean(goles_local + goles_visitante)),
         "Total_Corners": float(np.mean(corners_local + corners_visitante)),
         "TopScores": top_scores,
@@ -66,6 +84,27 @@ def construir_mercados(resultado: dict, local: str, visitante: str) -> list[dict
         {"nombre": "Over 2.5 goles", "prob": resultado["O25"]},
         {"nombre": "Over 9.5 corners", "prob": resultado["Over9.5_Corn"]},
     ]
+
+
+def es_fase_eliminatoria_casa(liga: str, match_date) -> bool:
+    if liga not in LIGAS_FASE_ELIMINATORIA:
+        return False
+    if liga == "Copa del Rey":
+        return True
+    if match_date is None:
+        return True
+    return getattr(match_date, "month", 1) >= 2
+
+
+def calcular_bonus_eliminatoria_casa(stats_local: dict, stats_visitante: dict) -> tuple[float, float]:
+    diferencial_ppg = max(0.0, stats_local["form"]["ppg"] - stats_visitante["form"]["ppg"])
+    diferencial_win = max(0.0, stats_local["home"]["win_pct"] - stats_visitante["away"]["win_pct"])
+    diferencial_gf = max(0.0, stats_local["home"]["gf"] - stats_visitante["away"]["gf"])
+    diferencial_solidez = max(0.0, stats_local["home"]["clean_sheet_pct"] - stats_visitante["away"]["clean_sheet_pct"])
+
+    bonus_local = 1 + min(0.22, (diferencial_ppg * 0.04) + (diferencial_win * 0.12) + (diferencial_gf * 0.03))
+    penalizacion_visitante = min(0.14, (diferencial_win * 0.08) + (diferencial_solidez * 0.06))
+    return bonus_local, penalizacion_visitante
 
 
 def construir_insights(analisis: dict) -> list[str]:
@@ -189,6 +228,12 @@ def guardar_analisis(df: pd.DataFrame, liga: str, local: str, visitante: str, ma
 
     xg_local = ((ataque_local + defensa_visitante) / 2) * 1.10 * (1 + ajuste_forma + ajuste_h2h)
     xg_visitante = ((ataque_visitante + defensa_local) / 2) * (1 - ajuste_forma - (ajuste_h2h / 2))
+    bonus_eliminatoria_local = 1.0
+    penalizacion_eliminatoria_visitante = 0.0
+    if es_fase_eliminatoria_casa(liga, match_date):
+        bonus_eliminatoria_local, penalizacion_eliminatoria_visitante = calcular_bonus_eliminatoria_casa(stats_local, stats_visitante)
+        xg_local *= bonus_eliminatoria_local
+        xg_visitante *= 1 - penalizacion_eliminatoria_visitante
     xg_local = max(0.15, xg_local)
     xg_visitante = max(0.15, xg_visitante)
 
@@ -202,10 +247,20 @@ def guardar_analisis(df: pd.DataFrame, liga: str, local: str, visitante: str, ma
         + stats_visitante["overall"]["corners_for"] * 0.15
         + stats_local["home"]["corners_against"] * 0.30
     )
+    xt_local = (
+        stats_local["home"]["cards_for"] * 0.50
+        + stats_local["overall"]["cards_for"] * 0.15
+        + stats_visitante["away"]["cards_against"] * 0.35
+    )
+    xt_visitante = (
+        stats_visitante["away"]["cards_for"] * 0.50
+        + stats_visitante["overall"]["cards_for"] * 0.15
+        + stats_local["home"]["cards_against"] * 0.35
+    )
 
     local_display = nombre_visual_equipo(local)
     visitante_display = nombre_visual_equipo(visitante)
-    resultado = simular_partido(xg_local, xg_visitante, xc_local, xc_visitante)
+    resultado = simular_partido(xg_local, xg_visitante, xc_local, xc_visitante, xt_local, xt_visitante)
     mercados = construir_mercados(resultado, local_display, visitante_display)
 
     return {
@@ -224,6 +279,10 @@ def guardar_analisis(df: pd.DataFrame, liga: str, local: str, visitante: str, ma
         "xg_visitante": xg_visitante,
         "xc_local": xc_local,
         "xc_visitante": xc_visitante,
+        "xt_local": xt_local,
+        "xt_visitante": xt_visitante,
+        "bonus_eliminatoria_local": bonus_eliminatoria_local,
+        "penalizacion_eliminatoria_visitante": penalizacion_eliminatoria_visitante,
         "mercados": mercados,
         "trace": construir_trazabilidad(
             stats_local,

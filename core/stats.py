@@ -20,6 +20,14 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
         goles_contra = partidos["FTAG"]
         corners_favor = partidos["HC"] if "HC" in partidos.columns else pd.Series([4.5] * len(partidos))
         corners_contra = partidos["AC"] if "AC" in partidos.columns else pd.Series([4.5] * len(partidos))
+        cards_favor = (
+            partidos.get("HY", pd.Series([2.0] * len(partidos), index=partidos.index)).fillna(0)
+            + partidos.get("HR", pd.Series([0.1] * len(partidos), index=partidos.index)).fillna(0)
+        )
+        cards_contra = (
+            partidos.get("AY", pd.Series([2.0] * len(partidos), index=partidos.index)).fillna(0)
+            + partidos.get("AR", pd.Series([0.1] * len(partidos), index=partidos.index)).fillna(0)
+        )
         victorias = partidos["FTHG"] > partidos["FTAG"]
         empates = partidos["FTHG"] == partidos["FTAG"]
         derrotas = partidos["FTHG"] < partidos["FTAG"]
@@ -29,6 +37,14 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
         goles_contra = partidos["FTHG"]
         corners_favor = partidos["AC"] if "AC" in partidos.columns else pd.Series([4.5] * len(partidos))
         corners_contra = partidos["HC"] if "HC" in partidos.columns else pd.Series([4.5] * len(partidos))
+        cards_favor = (
+            partidos.get("AY", pd.Series([2.0] * len(partidos), index=partidos.index)).fillna(0)
+            + partidos.get("AR", pd.Series([0.1] * len(partidos), index=partidos.index)).fillna(0)
+        )
+        cards_contra = (
+            partidos.get("HY", pd.Series([2.0] * len(partidos), index=partidos.index)).fillna(0)
+            + partidos.get("HR", pd.Series([0.1] * len(partidos), index=partidos.index)).fillna(0)
+        )
         victorias = partidos["FTAG"] > partidos["FTHG"]
         empates = partidos["FTAG"] == partidos["FTHG"]
         derrotas = partidos["FTAG"] < partidos["FTHG"]
@@ -41,6 +57,8 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
             goles_contra = pd.Series(dtype=float)
             corners_favor = pd.Series(dtype=float)
             corners_contra = pd.Series(dtype=float)
+            cards_favor = pd.Series(dtype=float)
+            cards_contra = pd.Series(dtype=float)
             victorias = pd.Series(dtype=bool)
             empates = pd.Series(dtype=bool)
             derrotas = pd.Series(dtype=bool)
@@ -61,6 +79,18 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
             else:
                 corners_favor = pd.Series([4.5] * len(partidos))
                 corners_contra = pd.Series([4.5] * len(partidos))
+            cards_favor = pd.Series(
+                [
+                    (fila.get("HY", 2.0) + fila.get("HR", 0.1)) if fila["HomeTeam"] == equipo else (fila.get("AY", 2.0) + fila.get("AR", 0.1))
+                    for _, fila in partidos.iterrows()
+                ]
+            )
+            cards_contra = pd.Series(
+                [
+                    (fila.get("AY", 2.0) + fila.get("AR", 0.1)) if fila["HomeTeam"] == equipo else (fila.get("HY", 2.0) + fila.get("HR", 0.1))
+                    for _, fila in partidos.iterrows()
+                ]
+            )
             victorias = goles_favor > goles_contra
             empates = goles_favor == goles_contra
             derrotas = goles_favor < goles_contra
@@ -73,6 +103,8 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
             "gc": 0.0,
             "corners_for": 0.0,
             "corners_against": 0.0,
+            "cards_for": 0.0,
+            "cards_against": 0.0,
             "win_pct": 0.0,
             "draw_pct": 0.0,
             "loss_pct": 0.0,
@@ -90,6 +122,8 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
         "gc": float(goles_contra.mean()),
         "corners_for": float(corners_favor.mean()),
         "corners_against": float(corners_contra.mean()),
+        "cards_for": float(cards_favor.mean()),
+        "cards_against": float(cards_contra.mean()),
         "win_pct": float(victorias.mean()),
         "draw_pct": float(empates.mean()),
         "loss_pct": float(derrotas.mean()),

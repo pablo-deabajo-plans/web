@@ -1532,6 +1532,8 @@ def render_split_panel(titulo: str, stats: dict) -> None:
                 <div class="mini-stat"><strong>{stats['gc']:.2f}</strong><span>Goles en contra</span></div>
                 <div class="mini-stat"><strong>{stats['corners_for']:.2f}</strong><span>Corners for</span></div>
                 <div class="mini-stat"><strong>{stats['corners_against']:.2f}</strong><span>Corners against</span></div>
+                <div class="mini-stat"><strong>{stats['cards_for']:.2f}</strong><span>Tarjetas a favor</span></div>
+                <div class="mini-stat"><strong>{stats['cards_against']:.2f}</strong><span>Tarjetas en contra</span></div>
                 <div class="mini-stat"><strong>{stats['win_pct'] * 100:.1f}%</strong><span>Victorias</span></div>
                 <div class="mini-stat"><strong>{stats['draw_pct'] * 100:.1f}%</strong><span>Empates</span></div>
                 <div class="mini-stat"><strong>{stats['loss_pct'] * 100:.1f}%</strong><span>Derrotas</span></div>

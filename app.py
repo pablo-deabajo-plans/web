@@ -274,6 +274,10 @@ with layout_right:
             c_a.metric(f"Corners {analisis['local']}", f"{resultado['Corn_Home']:.2f}")
             c_b.metric("Corners totales", f"{resultado['Total_Corners']:.2f}")
             c_c.metric(f"Corners {analisis['visitante']}", f"{resultado['Corn_Away']:.2f}")
+            t_a, t_b, t_c = st.columns(3)
+            t_a.metric(f"Tarjetas {analisis['local']}", f"{resultado['Cards_Home']:.2f}")
+            t_b.metric("Tarjetas totales", f"{resultado['Total_Cards']:.2f}")
+            t_c.metric(f"Tarjetas {analisis['visitante']}", f"{resultado['Cards_Away']:.2f}")
             st.markdown("### Marcadores mas probables")
             marcador_html = "".join(
                 f"<span class='score-pill'>{marcador} - {prob * 100:.2f}%</span>"

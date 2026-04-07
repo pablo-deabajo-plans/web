@@ -50,6 +50,22 @@ LEAGUE_CONFIGS = {
         "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/P1.csv"},
         "espn_id": "por.1",
     },
+    "Champions League": {
+        "history": {"type": "espn_scoreboard", "league_id": "uefa.champions", "season": "european"},
+        "espn_id": "uefa.champions",
+    },
+    "Europa League": {
+        "history": {"type": "espn_scoreboard", "league_id": "uefa.europa", "season": "european"},
+        "espn_id": "uefa.europa",
+    },
+    "Conference League": {
+        "history": {"type": "espn_scoreboard", "league_id": "uefa.europa.conf", "season": "european"},
+        "espn_id": "uefa.europa.conf",
+    },
+    "Copa del Rey": {
+        "history": {"type": "espn_scoreboard", "league_id": "esp.copa_del_rey", "season": "european"},
+        "espn_id": "esp.copa_del_rey",
+    },
     "Turquia": {
         "history": {"type": "espn_scoreboard", "league_id": "tur.1", "season": "european"},
         "espn_id": "tur.1",
