@@ -1539,14 +1539,6 @@ def render_split_panel(titulo: str, stats: dict) -> None:
                 <div class="mini-stat"><strong>{stats['pj']}</strong><span>Partidos</span></div>
                 <div class="mini-stat"><strong>{stats['gf']:.2f}</strong><span>Goles a favor</span></div>
                 <div class="mini-stat"><strong>{stats['gc']:.2f}</strong><span>Goles en contra</span></div>
-                <div class="mini-stat"><strong>{fmt_num(stats['corners_for'], stats.get('has_corners', False))}</strong><span>Corners for</span></div>
-                <div class="mini-stat"><strong>{fmt_num(stats['corners_against'], stats.get('has_corners', False))}</strong><span>Corners against</span></div>
-                <div class="mini-stat"><strong>{fmt_num(stats['shots_for'], stats.get('has_shots', False))}</strong><span>Remates</span></div>
-                <div class="mini-stat"><strong>{fmt_num(stats['shots_against'], stats.get('has_shots', False))}</strong><span>Remates rivales</span></div>
-                <div class="mini-stat"><strong>{fmt_num(stats['shots_on_target_for'], stats.get('has_shots_on_target', False))}</strong><span>Remates a puerta</span></div>
-                <div class="mini-stat"><strong>{fmt_num(stats['shots_on_target_against'], stats.get('has_shots_on_target', False))}</strong><span>A puerta rival</span></div>
-                <div class="mini-stat"><strong>{fmt_num(stats['cards_for'], stats.get('has_cards', False))}</strong><span>Tarjetas a favor</span></div>
-                <div class="mini-stat"><strong>{fmt_num(stats['cards_against'], stats.get('has_cards', False))}</strong><span>Tarjetas en contra</span></div>
                 <div class="mini-stat"><strong>{fmt_num(stats['win_pct'], porcentaje=True)}</strong><span>Victorias</span></div>
                 <div class="mini-stat"><strong>{fmt_num(stats['draw_pct'], porcentaje=True)}</strong><span>Empates</span></div>
                 <div class="mini-stat"><strong>{fmt_num(stats['loss_pct'], porcentaje=True)}</strong><span>Derrotas</span></div>
@@ -1984,58 +1976,6 @@ def tabla_comparativa(local: str, visitante: str, stats_local: dict, stats_visit
             "Lectura": _leer_ventaja(local, visitante, local_home["gc"], visitante_away["gc"], invertido=True),
         },
         {
-            "Metric": "Corners escenario casa/fuera",
-            f"{local}": _fmt_comparativa_condicional(local_home["corners_for"], local_home.get("has_corners", False)),
-            f"{visitante}": _fmt_comparativa_condicional(visitante_away["corners_for"], visitante_away.get("has_corners", False)),
-            "Lectura": _leer_ventaja_si_hay_datos(
-                local,
-                visitante,
-                local_home["corners_for"],
-                visitante_away["corners_for"],
-                local_home.get("has_corners", False),
-                visitante_away.get("has_corners", False),
-            ),
-        },
-        {
-            "Metric": "Remates escenario casa/fuera",
-            f"{local}": _fmt_comparativa_condicional(local_home["shots_for"], local_home.get("has_shots", False)),
-            f"{visitante}": _fmt_comparativa_condicional(visitante_away["shots_for"], visitante_away.get("has_shots", False)),
-            "Lectura": _leer_ventaja_si_hay_datos(
-                local,
-                visitante,
-                local_home["shots_for"],
-                visitante_away["shots_for"],
-                local_home.get("has_shots", False),
-                visitante_away.get("has_shots", False),
-            ),
-        },
-        {
-            "Metric": "Remates a puerta escenario",
-            f"{local}": _fmt_comparativa_condicional(local_home["shots_on_target_for"], local_home.get("has_shots_on_target", False)),
-            f"{visitante}": _fmt_comparativa_condicional(visitante_away["shots_on_target_for"], visitante_away.get("has_shots_on_target", False)),
-            "Lectura": _leer_ventaja_si_hay_datos(
-                local,
-                visitante,
-                local_home["shots_on_target_for"],
-                visitante_away["shots_on_target_for"],
-                local_home.get("has_shots_on_target", False),
-                visitante_away.get("has_shots_on_target", False),
-            ),
-        },
-        {
-            "Metric": "Tarjetas escenario casa/fuera",
-            f"{local}": _fmt_comparativa_condicional(local_home["cards_for"], local_home.get("has_cards", False)),
-            f"{visitante}": _fmt_comparativa_condicional(visitante_away["cards_for"], visitante_away.get("has_cards", False)),
-            "Lectura": _leer_ventaja_si_hay_datos(
-                local,
-                visitante,
-                local_home["cards_for"],
-                visitante_away["cards_for"],
-                local_home.get("has_cards", False),
-                visitante_away.get("has_cards", False),
-            ),
-        },
-        {
             "Metric": "GF global temporada",
             f"{local}": _fmt_comparativa(local_overall["gf"]),
             f"{visitante}": _fmt_comparativa(visitante_overall["gf"]),
@@ -2058,58 +1998,6 @@ def tabla_comparativa(local: str, visitante: str, stats_local: dict, stats_visit
             f"{local}": _fmt_comparativa(local_recent["gc"]),
             f"{visitante}": _fmt_comparativa(visitante_recent["gc"]),
             "Lectura": _leer_ventaja(local, visitante, local_recent["gc"], visitante_recent["gc"], invertido=True),
-        },
-        {
-            "Metric": f"Corners ultimos {recent_window}",
-            f"{local}": _fmt_comparativa_condicional(local_recent["corners_for"], local_recent.get("has_corners", False)),
-            f"{visitante}": _fmt_comparativa_condicional(visitante_recent["corners_for"], visitante_recent.get("has_corners", False)),
-            "Lectura": _leer_ventaja_si_hay_datos(
-                local,
-                visitante,
-                local_recent["corners_for"],
-                visitante_recent["corners_for"],
-                local_recent.get("has_corners", False),
-                visitante_recent.get("has_corners", False),
-            ),
-        },
-        {
-            "Metric": f"Remates ultimos {recent_window}",
-            f"{local}": _fmt_comparativa_condicional(local_recent["shots_for"], local_recent.get("has_shots", False)),
-            f"{visitante}": _fmt_comparativa_condicional(visitante_recent["shots_for"], visitante_recent.get("has_shots", False)),
-            "Lectura": _leer_ventaja_si_hay_datos(
-                local,
-                visitante,
-                local_recent["shots_for"],
-                visitante_recent["shots_for"],
-                local_recent.get("has_shots", False),
-                visitante_recent.get("has_shots", False),
-            ),
-        },
-        {
-            "Metric": f"Remates a puerta ultimos {recent_window}",
-            f"{local}": _fmt_comparativa_condicional(local_recent["shots_on_target_for"], local_recent.get("has_shots_on_target", False)),
-            f"{visitante}": _fmt_comparativa_condicional(visitante_recent["shots_on_target_for"], visitante_recent.get("has_shots_on_target", False)),
-            "Lectura": _leer_ventaja_si_hay_datos(
-                local,
-                visitante,
-                local_recent["shots_on_target_for"],
-                visitante_recent["shots_on_target_for"],
-                local_recent.get("has_shots_on_target", False),
-                visitante_recent.get("has_shots_on_target", False),
-            ),
-        },
-        {
-            "Metric": f"Tarjetas ultimos {recent_window}",
-            f"{local}": _fmt_comparativa_condicional(local_recent["cards_for"], local_recent.get("has_cards", False)),
-            f"{visitante}": _fmt_comparativa_condicional(visitante_recent["cards_for"], visitante_recent.get("has_cards", False)),
-            "Lectura": _leer_ventaja_si_hay_datos(
-                local,
-                visitante,
-                local_recent["cards_for"],
-                visitante_recent["cards_for"],
-                local_recent.get("has_cards", False),
-                visitante_recent.get("has_cards", False),
-            ),
         },
         {
             "Metric": f"BTTS ultimos {recent_window}",
