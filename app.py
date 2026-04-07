@@ -221,19 +221,11 @@ with layout_right:
                 render_split_panel("Global", analisis["stats_local"]["overall"])
                 render_split_panel("En casa", analisis["stats_local"]["home"])
                 render_split_panel("Fuera", analisis["stats_local"]["away"])
-                render_split_panel(
-                    f"Ultimos {analisis['stats_local']['recent_window']}",
-                    analisis["stats_local"]["recent_overall"],
-                )
             with eq_2:
                 st.markdown(f"### {analisis['visitante']}")
                 render_split_panel("Global", analisis["stats_visitante"]["overall"])
                 render_split_panel("En casa", analisis["stats_visitante"]["home"])
                 render_split_panel("Fuera", analisis["stats_visitante"]["away"])
-                render_split_panel(
-                    f"Ultimos {analisis['stats_visitante']['recent_window']}",
-                    analisis["stats_visitante"]["recent_overall"],
-                )
 
         with tab_compare:
             st.markdown('<div class="section-title">Escenario + forma reciente + H2H</div>', unsafe_allow_html=True)

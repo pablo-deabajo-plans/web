@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import textwrap
+
 import pandas as pd
 import streamlit as st
 
@@ -1522,6 +1524,13 @@ def render_radar_panel(analisis: dict) -> None:
 
 
 def render_split_panel(titulo: str, stats: dict) -> None:
+    def fmt_num(valor: float, disponible: bool = True, porcentaje: bool = False) -> str:
+        if not disponible:
+            return "-"
+        if porcentaje:
+            return f"{valor * 100:.1f}%"
+        return f"{valor:.2f}"
+
     st.markdown(
         f"""
         <div class="split-card">
@@ -1530,19 +1539,19 @@ def render_split_panel(titulo: str, stats: dict) -> None:
                 <div class="mini-stat"><strong>{stats['pj']}</strong><span>Partidos</span></div>
                 <div class="mini-stat"><strong>{stats['gf']:.2f}</strong><span>Goles a favor</span></div>
                 <div class="mini-stat"><strong>{stats['gc']:.2f}</strong><span>Goles en contra</span></div>
-                <div class="mini-stat"><strong>{stats['corners_for']:.2f}</strong><span>Corners for</span></div>
-                <div class="mini-stat"><strong>{stats['corners_against']:.2f}</strong><span>Corners against</span></div>
-                <div class="mini-stat"><strong>{stats['shots_for']:.2f}</strong><span>Remates</span></div>
-                <div class="mini-stat"><strong>{stats['shots_against']:.2f}</strong><span>Remates rivales</span></div>
-                <div class="mini-stat"><strong>{stats['shots_on_target_for']:.2f}</strong><span>Remates a puerta</span></div>
-                <div class="mini-stat"><strong>{stats['shots_on_target_against']:.2f}</strong><span>A puerta rival</span></div>
-                <div class="mini-stat"><strong>{stats['cards_for']:.2f}</strong><span>Tarjetas a favor</span></div>
-                <div class="mini-stat"><strong>{stats['cards_against']:.2f}</strong><span>Tarjetas en contra</span></div>
-                <div class="mini-stat"><strong>{stats['win_pct'] * 100:.1f}%</strong><span>Victorias</span></div>
-                <div class="mini-stat"><strong>{stats['draw_pct'] * 100:.1f}%</strong><span>Empates</span></div>
-                <div class="mini-stat"><strong>{stats['loss_pct'] * 100:.1f}%</strong><span>Derrotas</span></div>
-                <div class="mini-stat"><strong>{stats['btts_pct'] * 100:.1f}%</strong><span>BTTS</span></div>
-                <div class="mini-stat"><strong>{stats['over25_pct'] * 100:.1f}%</strong><span>Over 2.5</span></div>
+                <div class="mini-stat"><strong>{fmt_num(stats['corners_for'], stats.get('has_corners', False))}</strong><span>Corners for</span></div>
+                <div class="mini-stat"><strong>{fmt_num(stats['corners_against'], stats.get('has_corners', False))}</strong><span>Corners against</span></div>
+                <div class="mini-stat"><strong>{fmt_num(stats['shots_for'], stats.get('has_shots', False))}</strong><span>Remates</span></div>
+                <div class="mini-stat"><strong>{fmt_num(stats['shots_against'], stats.get('has_shots', False))}</strong><span>Remates rivales</span></div>
+                <div class="mini-stat"><strong>{fmt_num(stats['shots_on_target_for'], stats.get('has_shots_on_target', False))}</strong><span>Remates a puerta</span></div>
+                <div class="mini-stat"><strong>{fmt_num(stats['shots_on_target_against'], stats.get('has_shots_on_target', False))}</strong><span>A puerta rival</span></div>
+                <div class="mini-stat"><strong>{fmt_num(stats['cards_for'], stats.get('has_cards', False))}</strong><span>Tarjetas a favor</span></div>
+                <div class="mini-stat"><strong>{fmt_num(stats['cards_against'], stats.get('has_cards', False))}</strong><span>Tarjetas en contra</span></div>
+                <div class="mini-stat"><strong>{fmt_num(stats['win_pct'], porcentaje=True)}</strong><span>Victorias</span></div>
+                <div class="mini-stat"><strong>{fmt_num(stats['draw_pct'], porcentaje=True)}</strong><span>Empates</span></div>
+                <div class="mini-stat"><strong>{fmt_num(stats['loss_pct'], porcentaje=True)}</strong><span>Derrotas</span></div>
+                <div class="mini-stat"><strong>{fmt_num(stats['btts_pct'], porcentaje=True)}</strong><span>BTTS</span></div>
+                <div class="mini-stat"><strong>{fmt_num(stats['over25_pct'], porcentaje=True)}</strong><span>Over 2.5</span></div>
             </div>
         </div>
         """,
@@ -1797,8 +1806,9 @@ def formatear_duelo(home_valor: float | None, away_valor: float | None, decimale
 
 
 def render_h2h_summary_card(h2h: dict, local: str, visitante: str) -> None:
-    detalle = (
-        f"""
+    if h2h["matches"] > 0:
+        detalle = textwrap.dedent(
+            f"""
             <div class="pill-row">
                 <span class="tag-pill">{local}: {h2h['local_wins']}</span>
                 <span class="tag-pill">Empates: {h2h['draws']}</span>
@@ -1809,15 +1819,17 @@ def render_h2h_summary_card(h2h: dict, local: str, visitante: str) -> None:
                 <span>BTTS {h2h['btts_pct'] * 100:.1f}%</span>
                 <span>Over 2.5 {h2h['over25_pct'] * 100:.1f}%</span>
             </div>
-        """
-        if h2h["matches"] > 0
-        else """
+            """
+        ).strip()
+    else:
+        detalle = textwrap.dedent(
+            """
             <div class="form-meta">
                 <span>Sin enfrentamientos directos en la muestra</span>
                 <span>Se usa el contexto reciente general de ambos equipos</span>
             </div>
-        """
-    )
+            """
+        ).strip()
     st.markdown(
         f"""
         <div class="form-card">
@@ -1854,7 +1866,7 @@ def render_h2h_explorer(h2h: dict) -> None:
                 st.markdown(
                     f"""
                     <div class="{clase}">
-                        <div class="h2h-meta"><span>{partido['date']}</span><span>{partido['winner']}</span></div>
+                        <div class="h2h-meta"><span>{partido['date']} | {partido['winner']}</span></div>
                         <div class="h2h-score">{partido['home_team']} {partido['home_score']} - {partido['away_score']} {partido['away_team']}</div>
                         <div>{tags_html}</div>
                     </div>
@@ -1907,6 +1919,12 @@ def _fmt_comparativa(valor: float, porcentaje: bool = False, sufijo: str = "") -
     return f"{valor:.2f}{sufijo}"
 
 
+def _fmt_comparativa_condicional(valor: float, disponible: bool, porcentaje: bool = False) -> str:
+    if not disponible:
+        return "-"
+    return _fmt_comparativa(valor, porcentaje=porcentaje)
+
+
 def _leer_ventaja(local: str, visitante: str, valor_local: float, valor_visitante: float, invertido: bool = False, porcentaje: bool = False) -> str:
     diferencia_real = valor_local - valor_visitante
     diferencia_lectura = -diferencia_real if invertido else diferencia_real
@@ -1918,6 +1936,21 @@ def _leer_ventaja(local: str, visitante: str, valor_local: float, valor_visitant
     magnitud = abs(diferencia_real) * (100 if porcentaje else 1)
     sufijo = " pp" if porcentaje else ""
     return f"Ventaja {ganador} ({magnitud:.1f}{sufijo})"
+
+
+def _leer_ventaja_si_hay_datos(
+    local: str,
+    visitante: str,
+    valor_local: float,
+    valor_visitante: float,
+    disponible_local: bool,
+    disponible_visitante: bool,
+    invertido: bool = False,
+    porcentaje: bool = False,
+) -> str:
+    if not (disponible_local and disponible_visitante):
+        return "Sin datos suficientes"
+    return _leer_ventaja(local, visitante, valor_local, valor_visitante, invertido=invertido, porcentaje=porcentaje)
 
 
 def tabla_comparativa(local: str, visitante: str, stats_local: dict, stats_visitante: dict, h2h: dict) -> pd.DataFrame:
@@ -1951,6 +1984,58 @@ def tabla_comparativa(local: str, visitante: str, stats_local: dict, stats_visit
             "Lectura": _leer_ventaja(local, visitante, local_home["gc"], visitante_away["gc"], invertido=True),
         },
         {
+            "Metric": "Corners escenario casa/fuera",
+            f"{local}": _fmt_comparativa_condicional(local_home["corners_for"], local_home.get("has_corners", False)),
+            f"{visitante}": _fmt_comparativa_condicional(visitante_away["corners_for"], visitante_away.get("has_corners", False)),
+            "Lectura": _leer_ventaja_si_hay_datos(
+                local,
+                visitante,
+                local_home["corners_for"],
+                visitante_away["corners_for"],
+                local_home.get("has_corners", False),
+                visitante_away.get("has_corners", False),
+            ),
+        },
+        {
+            "Metric": "Remates escenario casa/fuera",
+            f"{local}": _fmt_comparativa_condicional(local_home["shots_for"], local_home.get("has_shots", False)),
+            f"{visitante}": _fmt_comparativa_condicional(visitante_away["shots_for"], visitante_away.get("has_shots", False)),
+            "Lectura": _leer_ventaja_si_hay_datos(
+                local,
+                visitante,
+                local_home["shots_for"],
+                visitante_away["shots_for"],
+                local_home.get("has_shots", False),
+                visitante_away.get("has_shots", False),
+            ),
+        },
+        {
+            "Metric": "Remates a puerta escenario",
+            f"{local}": _fmt_comparativa_condicional(local_home["shots_on_target_for"], local_home.get("has_shots_on_target", False)),
+            f"{visitante}": _fmt_comparativa_condicional(visitante_away["shots_on_target_for"], visitante_away.get("has_shots_on_target", False)),
+            "Lectura": _leer_ventaja_si_hay_datos(
+                local,
+                visitante,
+                local_home["shots_on_target_for"],
+                visitante_away["shots_on_target_for"],
+                local_home.get("has_shots_on_target", False),
+                visitante_away.get("has_shots_on_target", False),
+            ),
+        },
+        {
+            "Metric": "Tarjetas escenario casa/fuera",
+            f"{local}": _fmt_comparativa_condicional(local_home["cards_for"], local_home.get("has_cards", False)),
+            f"{visitante}": _fmt_comparativa_condicional(visitante_away["cards_for"], visitante_away.get("has_cards", False)),
+            "Lectura": _leer_ventaja_si_hay_datos(
+                local,
+                visitante,
+                local_home["cards_for"],
+                visitante_away["cards_for"],
+                local_home.get("has_cards", False),
+                visitante_away.get("has_cards", False),
+            ),
+        },
+        {
             "Metric": "GF global temporada",
             f"{local}": _fmt_comparativa(local_overall["gf"]),
             f"{visitante}": _fmt_comparativa(visitante_overall["gf"]),
@@ -1973,6 +2058,58 @@ def tabla_comparativa(local: str, visitante: str, stats_local: dict, stats_visit
             f"{local}": _fmt_comparativa(local_recent["gc"]),
             f"{visitante}": _fmt_comparativa(visitante_recent["gc"]),
             "Lectura": _leer_ventaja(local, visitante, local_recent["gc"], visitante_recent["gc"], invertido=True),
+        },
+        {
+            "Metric": f"Corners ultimos {recent_window}",
+            f"{local}": _fmt_comparativa_condicional(local_recent["corners_for"], local_recent.get("has_corners", False)),
+            f"{visitante}": _fmt_comparativa_condicional(visitante_recent["corners_for"], visitante_recent.get("has_corners", False)),
+            "Lectura": _leer_ventaja_si_hay_datos(
+                local,
+                visitante,
+                local_recent["corners_for"],
+                visitante_recent["corners_for"],
+                local_recent.get("has_corners", False),
+                visitante_recent.get("has_corners", False),
+            ),
+        },
+        {
+            "Metric": f"Remates ultimos {recent_window}",
+            f"{local}": _fmt_comparativa_condicional(local_recent["shots_for"], local_recent.get("has_shots", False)),
+            f"{visitante}": _fmt_comparativa_condicional(visitante_recent["shots_for"], visitante_recent.get("has_shots", False)),
+            "Lectura": _leer_ventaja_si_hay_datos(
+                local,
+                visitante,
+                local_recent["shots_for"],
+                visitante_recent["shots_for"],
+                local_recent.get("has_shots", False),
+                visitante_recent.get("has_shots", False),
+            ),
+        },
+        {
+            "Metric": f"Remates a puerta ultimos {recent_window}",
+            f"{local}": _fmt_comparativa_condicional(local_recent["shots_on_target_for"], local_recent.get("has_shots_on_target", False)),
+            f"{visitante}": _fmt_comparativa_condicional(visitante_recent["shots_on_target_for"], visitante_recent.get("has_shots_on_target", False)),
+            "Lectura": _leer_ventaja_si_hay_datos(
+                local,
+                visitante,
+                local_recent["shots_on_target_for"],
+                visitante_recent["shots_on_target_for"],
+                local_recent.get("has_shots_on_target", False),
+                visitante_recent.get("has_shots_on_target", False),
+            ),
+        },
+        {
+            "Metric": f"Tarjetas ultimos {recent_window}",
+            f"{local}": _fmt_comparativa_condicional(local_recent["cards_for"], local_recent.get("has_cards", False)),
+            f"{visitante}": _fmt_comparativa_condicional(visitante_recent["cards_for"], visitante_recent.get("has_cards", False)),
+            "Lectura": _leer_ventaja_si_hay_datos(
+                local,
+                visitante,
+                local_recent["cards_for"],
+                visitante_recent["cards_for"],
+                local_recent.get("has_cards", False),
+                visitante_recent.get("has_cards", False),
+            ),
         },
         {
             "Metric": f"BTTS ultimos {recent_window}",

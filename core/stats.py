@@ -24,17 +24,26 @@ def obtener_partidos_equipo(df: pd.DataFrame, equipo: str, n_partidos: int | Non
     return partidos
 
 
+def columnas_disponibles(df: pd.DataFrame, columnas: list[str]) -> bool:
+    return all(columna in df.columns for columna in columnas)
+
+
 def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
+    tiene_corners = columnas_disponibles(df, ["HC", "AC"])
+    tiene_shots = columnas_disponibles(df, ["HS", "AS"])
+    tiene_shots_puerta = columnas_disponibles(df, ["HST", "AST"])
+    tiene_tarjetas = any(columna in df.columns for columna in ["HY", "AY", "HR", "AR"])
+
     if scope == "home":
         partidos = df[df["HomeTeam"] == equipo].copy()
         goles_favor = partidos["FTHG"]
         goles_contra = partidos["FTAG"]
-        corners_favor = partidos["HC"] if "HC" in partidos.columns else pd.Series([4.5] * len(partidos))
-        corners_contra = partidos["AC"] if "AC" in partidos.columns else pd.Series([4.5] * len(partidos))
-        shots_favor = partidos["HS"] if "HS" in partidos.columns else pd.Series([11.0] * len(partidos))
-        shots_contra = partidos["AS"] if "AS" in partidos.columns else pd.Series([11.0] * len(partidos))
-        shots_on_target_favor = partidos["HST"] if "HST" in partidos.columns else pd.Series([4.0] * len(partidos))
-        shots_on_target_contra = partidos["AST"] if "AST" in partidos.columns else pd.Series([4.0] * len(partidos))
+        corners_favor = partidos["HC"] if tiene_corners else pd.Series([4.5] * len(partidos))
+        corners_contra = partidos["AC"] if tiene_corners else pd.Series([4.5] * len(partidos))
+        shots_favor = partidos["HS"] if tiene_shots else pd.Series([11.0] * len(partidos))
+        shots_contra = partidos["AS"] if tiene_shots else pd.Series([11.0] * len(partidos))
+        shots_on_target_favor = partidos["HST"] if tiene_shots_puerta else pd.Series([4.0] * len(partidos))
+        shots_on_target_contra = partidos["AST"] if tiene_shots_puerta else pd.Series([4.0] * len(partidos))
         cards_favor = (
             partidos.get("HY", pd.Series([2.0] * len(partidos), index=partidos.index)).fillna(0)
             + partidos.get("HR", pd.Series([0.1] * len(partidos), index=partidos.index)).fillna(0)
@@ -50,12 +59,12 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
         partidos = df[df["AwayTeam"] == equipo].copy()
         goles_favor = partidos["FTAG"]
         goles_contra = partidos["FTHG"]
-        corners_favor = partidos["AC"] if "AC" in partidos.columns else pd.Series([4.5] * len(partidos))
-        corners_contra = partidos["HC"] if "HC" in partidos.columns else pd.Series([4.5] * len(partidos))
-        shots_favor = partidos["AS"] if "AS" in partidos.columns else pd.Series([11.0] * len(partidos))
-        shots_contra = partidos["HS"] if "HS" in partidos.columns else pd.Series([11.0] * len(partidos))
-        shots_on_target_favor = partidos["AST"] if "AST" in partidos.columns else pd.Series([4.0] * len(partidos))
-        shots_on_target_contra = partidos["HST"] if "HST" in partidos.columns else pd.Series([4.0] * len(partidos))
+        corners_favor = partidos["AC"] if tiene_corners else pd.Series([4.5] * len(partidos))
+        corners_contra = partidos["HC"] if tiene_corners else pd.Series([4.5] * len(partidos))
+        shots_favor = partidos["AS"] if tiene_shots else pd.Series([11.0] * len(partidos))
+        shots_contra = partidos["HS"] if tiene_shots else pd.Series([11.0] * len(partidos))
+        shots_on_target_favor = partidos["AST"] if tiene_shots_puerta else pd.Series([4.0] * len(partidos))
+        shots_on_target_contra = partidos["HST"] if tiene_shots_puerta else pd.Series([4.0] * len(partidos))
         cards_favor = (
             partidos.get("AY", pd.Series([2.0] * len(partidos), index=partidos.index)).fillna(0)
             + partidos.get("AR", pd.Series([0.1] * len(partidos), index=partidos.index)).fillna(0)
@@ -92,7 +101,7 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
             goles_contra = pd.Series(
                 [fila["FTAG"] if fila["HomeTeam"] == equipo else fila["FTHG"] for _, fila in partidos.iterrows()]
             )
-            if "HC" in partidos.columns and "AC" in partidos.columns:
+            if tiene_corners:
                 corners_favor = pd.Series(
                     [fila["HC"] if fila["HomeTeam"] == equipo else fila["AC"] for _, fila in partidos.iterrows()]
                 )
@@ -102,7 +111,7 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
             else:
                 corners_favor = pd.Series([4.5] * len(partidos))
                 corners_contra = pd.Series([4.5] * len(partidos))
-            if "HS" in partidos.columns and "AS" in partidos.columns:
+            if tiene_shots:
                 shots_favor = pd.Series(
                     [fila["HS"] if fila["HomeTeam"] == equipo else fila["AS"] for _, fila in partidos.iterrows()]
                 )
@@ -112,7 +121,7 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
             else:
                 shots_favor = pd.Series([11.0] * len(partidos))
                 shots_contra = pd.Series([11.0] * len(partidos))
-            if "HST" in partidos.columns and "AST" in partidos.columns:
+            if tiene_shots_puerta:
                 shots_on_target_favor = pd.Series(
                     [fila["HST"] if fila["HomeTeam"] == equipo else fila["AST"] for _, fila in partidos.iterrows()]
                 )
@@ -160,6 +169,10 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
             "clean_sheet_pct": 0.0,
             "fail_score_pct": 0.0,
             "total_goals": 0.0,
+            "has_corners": False,
+            "has_shots": False,
+            "has_shots_on_target": False,
+            "has_cards": False,
         }
 
     total_goals = goles_favor + goles_contra
@@ -183,6 +196,10 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
         "clean_sheet_pct": float((goles_contra == 0).mean()),
         "fail_score_pct": float((goles_favor == 0).mean()),
         "total_goals": float(total_goals.mean()),
+        "has_corners": tiene_corners,
+        "has_shots": tiene_shots,
+        "has_shots_on_target": tiene_shots_puerta,
+        "has_cards": tiene_tarjetas,
     }
 
 
