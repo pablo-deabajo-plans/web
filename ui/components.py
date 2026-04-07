@@ -1532,6 +1532,10 @@ def render_split_panel(titulo: str, stats: dict) -> None:
                 <div class="mini-stat"><strong>{stats['gc']:.2f}</strong><span>Goles en contra</span></div>
                 <div class="mini-stat"><strong>{stats['corners_for']:.2f}</strong><span>Corners for</span></div>
                 <div class="mini-stat"><strong>{stats['corners_against']:.2f}</strong><span>Corners against</span></div>
+                <div class="mini-stat"><strong>{stats['shots_for']:.2f}</strong><span>Remates</span></div>
+                <div class="mini-stat"><strong>{stats['shots_against']:.2f}</strong><span>Remates rivales</span></div>
+                <div class="mini-stat"><strong>{stats['shots_on_target_for']:.2f}</strong><span>Remates a puerta</span></div>
+                <div class="mini-stat"><strong>{stats['shots_on_target_against']:.2f}</strong><span>A puerta rival</span></div>
                 <div class="mini-stat"><strong>{stats['cards_for']:.2f}</strong><span>Tarjetas a favor</span></div>
                 <div class="mini-stat"><strong>{stats['cards_against']:.2f}</strong><span>Tarjetas en contra</span></div>
                 <div class="mini-stat"><strong>{stats['win_pct'] * 100:.1f}%</strong><span>Victorias</span></div>
@@ -1763,7 +1767,7 @@ def render_form_card(team: str, form: dict) -> None:
         f"""
         <div class="form-card">
             <div class="form-head">
-                <div><div class="signal-label">Forma reciente</div><h4>{team}</h4></div>
+                <div><div class="signal-label">Ultimos {form['matches']} partidos</div><h4>{team}</h4></div>
                 <div class="form-ppg">{form['ppg']:.2f}<span>PPG</span></div>
             </div>
             <div class="pill-row">{resultados_html}</div>

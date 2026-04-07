@@ -190,13 +190,29 @@ def construir_trazabilidad(
     }
 
 
+def construir_fallback_h2h(historico: pd.DataFrame, local: str, visitante: str) -> tuple[dict, dict, dict]:
+    historico_h2h = historico[
+        ((historico["HomeTeam"] == local) & (historico["AwayTeam"] == visitante))
+        | ((historico["HomeTeam"] == visitante) & (historico["AwayTeam"] == local))
+    ].copy()
+    if historico_h2h.empty:
+        return calcular_stats(historico, local), calcular_stats(historico, visitante), calcular_h2h(historico, local, visitante, 8)
+    return (
+        calcular_stats(historico_h2h, local),
+        calcular_stats(historico_h2h, visitante),
+        calcular_h2h(historico_h2h, local, visitante, 8),
+    )
+
+
 def guardar_analisis(df: pd.DataFrame, liga: str, local: str, visitante: str, match_date=None, match_label: str = "") -> dict | None:
     historico = extraer_historico(df)
     stats_local = calcular_stats(historico, local)
     stats_visitante = calcular_stats(historico, visitante)
-    h2h = calcular_h2h(historico, local, visitante, 6)
+    h2h = calcular_h2h(historico, local, visitante, 8)
     if stats_local["overall"]["pj"] == 0 or stats_visitante["overall"]["pj"] == 0:
-        return None
+        stats_local, stats_visitante, h2h = construir_fallback_h2h(historico, local, visitante)
+        if stats_local["overall"]["pj"] == 0 or stats_visitante["overall"]["pj"] == 0:
+            return None
 
     ataque_local = (
         stats_local["home"]["gf"] * 0.45

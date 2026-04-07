@@ -20,6 +20,10 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
         goles_contra = partidos["FTAG"]
         corners_favor = partidos["HC"] if "HC" in partidos.columns else pd.Series([4.5] * len(partidos))
         corners_contra = partidos["AC"] if "AC" in partidos.columns else pd.Series([4.5] * len(partidos))
+        shots_favor = partidos["HS"] if "HS" in partidos.columns else pd.Series([11.0] * len(partidos))
+        shots_contra = partidos["AS"] if "AS" in partidos.columns else pd.Series([11.0] * len(partidos))
+        shots_on_target_favor = partidos["HST"] if "HST" in partidos.columns else pd.Series([4.0] * len(partidos))
+        shots_on_target_contra = partidos["AST"] if "AST" in partidos.columns else pd.Series([4.0] * len(partidos))
         cards_favor = (
             partidos.get("HY", pd.Series([2.0] * len(partidos), index=partidos.index)).fillna(0)
             + partidos.get("HR", pd.Series([0.1] * len(partidos), index=partidos.index)).fillna(0)
@@ -37,6 +41,10 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
         goles_contra = partidos["FTHG"]
         corners_favor = partidos["AC"] if "AC" in partidos.columns else pd.Series([4.5] * len(partidos))
         corners_contra = partidos["HC"] if "HC" in partidos.columns else pd.Series([4.5] * len(partidos))
+        shots_favor = partidos["AS"] if "AS" in partidos.columns else pd.Series([11.0] * len(partidos))
+        shots_contra = partidos["HS"] if "HS" in partidos.columns else pd.Series([11.0] * len(partidos))
+        shots_on_target_favor = partidos["AST"] if "AST" in partidos.columns else pd.Series([4.0] * len(partidos))
+        shots_on_target_contra = partidos["HST"] if "HST" in partidos.columns else pd.Series([4.0] * len(partidos))
         cards_favor = (
             partidos.get("AY", pd.Series([2.0] * len(partidos), index=partidos.index)).fillna(0)
             + partidos.get("AR", pd.Series([0.1] * len(partidos), index=partidos.index)).fillna(0)
@@ -57,6 +65,10 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
             goles_contra = pd.Series(dtype=float)
             corners_favor = pd.Series(dtype=float)
             corners_contra = pd.Series(dtype=float)
+            shots_favor = pd.Series(dtype=float)
+            shots_contra = pd.Series(dtype=float)
+            shots_on_target_favor = pd.Series(dtype=float)
+            shots_on_target_contra = pd.Series(dtype=float)
             cards_favor = pd.Series(dtype=float)
             cards_contra = pd.Series(dtype=float)
             victorias = pd.Series(dtype=bool)
@@ -79,6 +91,26 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
             else:
                 corners_favor = pd.Series([4.5] * len(partidos))
                 corners_contra = pd.Series([4.5] * len(partidos))
+            if "HS" in partidos.columns and "AS" in partidos.columns:
+                shots_favor = pd.Series(
+                    [fila["HS"] if fila["HomeTeam"] == equipo else fila["AS"] for _, fila in partidos.iterrows()]
+                )
+                shots_contra = pd.Series(
+                    [fila["AS"] if fila["HomeTeam"] == equipo else fila["HS"] for _, fila in partidos.iterrows()]
+                )
+            else:
+                shots_favor = pd.Series([11.0] * len(partidos))
+                shots_contra = pd.Series([11.0] * len(partidos))
+            if "HST" in partidos.columns and "AST" in partidos.columns:
+                shots_on_target_favor = pd.Series(
+                    [fila["HST"] if fila["HomeTeam"] == equipo else fila["AST"] for _, fila in partidos.iterrows()]
+                )
+                shots_on_target_contra = pd.Series(
+                    [fila["AST"] if fila["HomeTeam"] == equipo else fila["HST"] for _, fila in partidos.iterrows()]
+                )
+            else:
+                shots_on_target_favor = pd.Series([4.0] * len(partidos))
+                shots_on_target_contra = pd.Series([4.0] * len(partidos))
             cards_favor = pd.Series(
                 [
                     (fila.get("HY", 2.0) + fila.get("HR", 0.1)) if fila["HomeTeam"] == equipo else (fila.get("AY", 2.0) + fila.get("AR", 0.1))
@@ -103,6 +135,10 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
             "gc": 0.0,
             "corners_for": 0.0,
             "corners_against": 0.0,
+            "shots_for": 0.0,
+            "shots_against": 0.0,
+            "shots_on_target_for": 0.0,
+            "shots_on_target_against": 0.0,
             "cards_for": 0.0,
             "cards_against": 0.0,
             "win_pct": 0.0,
@@ -122,6 +158,10 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
         "gc": float(goles_contra.mean()),
         "corners_for": float(corners_favor.mean()),
         "corners_against": float(corners_contra.mean()),
+        "shots_for": float(shots_favor.mean()),
+        "shots_against": float(shots_contra.mean()),
+        "shots_on_target_for": float(shots_on_target_favor.mean()),
+        "shots_on_target_against": float(shots_on_target_contra.mean()),
         "cards_for": float(cards_favor.mean()),
         "cards_against": float(cards_contra.mean()),
         "win_pct": float(victorias.mean()),
@@ -135,7 +175,7 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
     }
 
 
-def calcular_forma(df: pd.DataFrame, equipo: str, n_partidos: int = 5) -> dict:
+def calcular_forma(df: pd.DataFrame, equipo: str, n_partidos: int = 8) -> dict:
     partidos = df[(df["HomeTeam"] == equipo) | (df["AwayTeam"] == equipo)].copy().tail(n_partidos)
     if partidos.empty:
         return {
@@ -185,7 +225,7 @@ def calcular_stats(df: pd.DataFrame, equipo: str) -> dict:
     todos = calcular_segmento(df, equipo, "all")
     casa = calcular_segmento(df, equipo, "home")
     fuera = calcular_segmento(df, equipo, "away")
-    recientes = df[(df["HomeTeam"] == equipo) | (df["AwayTeam"] == equipo)].copy().tail(5)
+    recientes = df[(df["HomeTeam"] == equipo) | (df["AwayTeam"] == equipo)].copy().tail(8)
     pj_rec = len(recientes)
     if pj_rec > 0:
         gf_rec = sum(
@@ -196,9 +236,19 @@ def calcular_stats(df: pd.DataFrame, equipo: str) -> dict:
             fila["FTAG"] if fila["HomeTeam"] == equipo else fila["FTHG"]
             for _, fila in recientes.iterrows()
         ) / pj_rec
+        shots_rec = sum(
+            fila["HS"] if fila["HomeTeam"] == equipo else fila["AS"]
+            for _, fila in recientes.iterrows()
+        ) / pj_rec if {"HS", "AS"}.issubset(recientes.columns) else todos["shots_for"]
+        shots_on_target_rec = sum(
+            fila["HST"] if fila["HomeTeam"] == equipo else fila["AST"]
+            for _, fila in recientes.iterrows()
+        ) / pj_rec if {"HST", "AST"}.issubset(recientes.columns) else todos["shots_on_target_for"]
     else:
         gf_rec = todos["gf"]
         gc_rec = todos["gc"]
+        shots_rec = todos["shots_for"]
+        shots_on_target_rec = todos["shots_on_target_for"]
 
     return {
         "overall": todos,
@@ -206,7 +256,9 @@ def calcular_stats(df: pd.DataFrame, equipo: str) -> dict:
         "away": fuera,
         "gf_rec": gf_rec,
         "gc_rec": gc_rec,
-        "form": calcular_forma(df, equipo, 5),
+        "shots_rec": shots_rec,
+        "shots_on_target_rec": shots_on_target_rec,
+        "form": calcular_forma(df, equipo, 8),
     }
 
 
