@@ -23,11 +23,26 @@ DEFAULT_CORNERS_FOR = 4.5
 DEFAULT_CORNERS_AGAINST = 4.5
 DEFAULT_CARDS_FOR = 2.1
 DEFAULT_CARDS_AGAINST = 2.1
+DEFAULT_SHOTS_FOR = 11.0
+DEFAULT_SHOTS_AGAINST = 11.0
+DEFAULT_SHOTS_ON_TARGET_FOR = 4.0
+DEFAULT_SHOTS_ON_TARGET_AGAINST = 4.0
 
 
 def valor_modelo(stats: dict, clave: str, flag: str, default: float) -> float:
     if stats.get(flag):
         return float(stats.get(clave, 0.0))
+    return default
+
+
+def valor_modelo_ofensivo(stats_foco: dict, stats_rival: dict, clave_for: str, clave_against: str, flag: str, default: float) -> float:
+    valores = []
+    if stats_foco.get(flag):
+        valores.append(float(stats_foco.get(clave_for, 0.0)))
+    if stats_rival.get(flag):
+        valores.append(float(stats_rival.get(clave_against, 0.0)))
+    if valores:
+        return float(sum(valores) / len(valores))
     return default
 
 
@@ -38,6 +53,10 @@ def simular_partido(
     xc_visitante: float,
     xt_local: float,
     xt_visitante: float,
+    xs_local: float,
+    xs_visitante: float,
+    xst_local: float,
+    xst_visitante: float,
 ) -> dict:
     goles_local = np.random.poisson(xg_local, SIMULACIONES)
     goles_visitante = np.random.poisson(xg_visitante, SIMULACIONES)
@@ -45,6 +64,10 @@ def simular_partido(
     corners_visitante = np.random.poisson(xc_visitante, SIMULACIONES)
     cards_local = np.random.poisson(xt_local, SIMULACIONES)
     cards_visitante = np.random.poisson(xt_visitante, SIMULACIONES)
+    shots_local = np.random.poisson(xs_local, SIMULACIONES)
+    shots_visitante = np.random.poisson(xs_visitante, SIMULACIONES)
+    shots_on_target_local = np.minimum(np.random.poisson(xst_local, SIMULACIONES), shots_local)
+    shots_on_target_visitante = np.minimum(np.random.poisson(xst_visitante, SIMULACIONES), shots_visitante)
     marcadores = [f"{x}-{y}" for x, y in zip(goles_local, goles_visitante)]
     top_scores = Counter(marcadores).most_common(3)
     return {
@@ -64,6 +87,14 @@ def simular_partido(
         "Cards_Home": float(np.mean(cards_local)),
         "Cards_Away": float(np.mean(cards_visitante)),
         "Total_Cards": float(np.mean(cards_local + cards_visitante)),
+        "Shots_Home": float(np.mean(shots_local)),
+        "Shots_Away": float(np.mean(shots_visitante)),
+        "ShotsOnTarget_Home": float(np.mean(shots_on_target_local)),
+        "ShotsOnTarget_Away": float(np.mean(shots_on_target_visitante)),
+        "Home_Over35_Corn": float(np.mean(corners_local > 3.5)),
+        "Away_Over35_Corn": float(np.mean(corners_visitante > 3.5)),
+        "Home_Over45_Corn": float(np.mean(corners_local > 4.5)),
+        "Away_Over45_Corn": float(np.mean(corners_visitante > 4.5)),
         "Total_Goals": float(np.mean(goles_local + goles_visitante)),
         "Total_Corners": float(np.mean(corners_local + corners_visitante)),
         "TopScores": top_scores,
@@ -318,9 +349,75 @@ def guardar_analisis(df: pd.DataFrame, liga: str, local: str, visitante: str, ma
         + valor_modelo(stats_local["home"], "cards_against", "has_cards", DEFAULT_CARDS_AGAINST) * 0.35
     )
 
+    xs_local = (
+        valor_modelo_ofensivo(stats_local["home"], stats_visitante["away"], "shots_for", "shots_against", "has_shots", DEFAULT_SHOTS_FOR) * 0.55
+        + valor_modelo_ofensivo(stats_local["recent_overall"], stats_visitante["recent_overall"], "shots_for", "shots_against", "has_shots", DEFAULT_SHOTS_FOR) * 0.45
+    )
+    xs_visitante = (
+        valor_modelo_ofensivo(stats_visitante["away"], stats_local["home"], "shots_for", "shots_against", "has_shots", DEFAULT_SHOTS_FOR) * 0.55
+        + valor_modelo_ofensivo(stats_visitante["recent_overall"], stats_local["recent_overall"], "shots_for", "shots_against", "has_shots", DEFAULT_SHOTS_FOR) * 0.45
+    )
+    xst_local = min(
+        xs_local,
+        (
+            valor_modelo_ofensivo(
+                stats_local["home"],
+                stats_visitante["away"],
+                "shots_on_target_for",
+                "shots_on_target_against",
+                "has_shots_on_target",
+                DEFAULT_SHOTS_ON_TARGET_FOR,
+            )
+            * 0.55
+            + valor_modelo_ofensivo(
+                stats_local["recent_overall"],
+                stats_visitante["recent_overall"],
+                "shots_on_target_for",
+                "shots_on_target_against",
+                "has_shots_on_target",
+                DEFAULT_SHOTS_ON_TARGET_FOR,
+            )
+            * 0.45
+        ),
+    )
+    xst_visitante = min(
+        xs_visitante,
+        (
+            valor_modelo_ofensivo(
+                stats_visitante["away"],
+                stats_local["home"],
+                "shots_on_target_for",
+                "shots_on_target_against",
+                "has_shots_on_target",
+                DEFAULT_SHOTS_ON_TARGET_FOR,
+            )
+            * 0.55
+            + valor_modelo_ofensivo(
+                stats_visitante["recent_overall"],
+                stats_local["recent_overall"],
+                "shots_on_target_for",
+                "shots_on_target_against",
+                "has_shots_on_target",
+                DEFAULT_SHOTS_ON_TARGET_FOR,
+            )
+            * 0.45
+        ),
+    )
+
     local_display = nombre_visual_equipo(local)
     visitante_display = nombre_visual_equipo(visitante)
-    resultado = simular_partido(xg_local, xg_visitante, xc_local, xc_visitante, xt_local, xt_visitante)
+    resultado = simular_partido(
+        xg_local,
+        xg_visitante,
+        xc_local,
+        xc_visitante,
+        xt_local,
+        xt_visitante,
+        xs_local,
+        xs_visitante,
+        xst_local,
+        xst_visitante,
+    )
     mercados = construir_mercados(resultado, local_display, visitante_display)
 
     return {
