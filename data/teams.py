@@ -177,6 +177,7 @@ RAW_TEAM_ALIASES = {
     "sporting braga": "Sp Braga",
     "sporting cp": "Sp Lisbon",
     "sporting lisbon": "Sp Lisbon",
+    "sporting clube de portugal": "Sp Lisbon",
     "estrela da amadora": "Estrela",
     "avs futebol sad": "AVS",
 }

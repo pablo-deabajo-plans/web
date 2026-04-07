@@ -177,14 +177,34 @@ def _fila_espn_evento(evento: dict, source: str) -> dict | None:
     away_name = (away.get("team") or {}).get("displayName", "")
     home_score = home.get("score")
     away_score = away.get("score")
+    estado = (((competicion.get("status") or {}).get("type")) or {}).get("state", "")
+    completado = bool((((competicion.get("status") or {}).get("type")) or {}).get("completed"))
 
-    try:
-        fthg = int(home_score) if str(home_score).strip() != "" else None
-    except (TypeError, ValueError):
+    def extraer_stat_equipo(competidor: dict, claves: list[str]) -> float | None:
+        estadisticas = competidor.get("statistics") or []
+        for entrada in estadisticas:
+            nombre = str((entrada or {}).get("name", "")).strip()
+            abreviatura = str((entrada or {}).get("abbreviation", "")).strip()
+            if nombre not in claves and abreviatura not in claves:
+                continue
+            valor = (entrada or {}).get("value", (entrada or {}).get("displayValue"))
+            try:
+                return float(valor)
+            except (TypeError, ValueError):
+                continue
+        return None
+
+    if completado or estado == "post":
+        try:
+            fthg = int(home_score) if str(home_score).strip() != "" else None
+        except (TypeError, ValueError):
+            fthg = None
+        try:
+            ftag = int(away_score) if str(away_score).strip() != "" else None
+        except (TypeError, ValueError):
+            ftag = None
+    else:
         fthg = None
-    try:
-        ftag = int(away_score) if str(away_score).strip() != "" else None
-    except (TypeError, ValueError):
         ftag = None
 
     return {
@@ -198,6 +218,12 @@ def _fila_espn_evento(evento: dict, source: str) -> dict | None:
         "AwayTeam": away_name,
         "FTHG": fthg,
         "FTAG": ftag,
+        "HC": extraer_stat_equipo(home, ["wonCorners", "CW"]),
+        "AC": extraer_stat_equipo(away, ["wonCorners", "CW"]),
+        "HS": extraer_stat_equipo(home, ["totalShots", "SH"]),
+        "AS": extraer_stat_equipo(away, ["totalShots", "SH"]),
+        "HST": extraer_stat_equipo(home, ["shotsOnTarget", "ST"]),
+        "AST": extraer_stat_equipo(away, ["shotsOnTarget", "ST"]),
         "FixtureLabel": f"{fecha_evento.strftime('%d/%m/%Y %H:%M')} | {home_name} vs {away_name}",
         "Source": source,
     }

@@ -28,6 +28,14 @@ def columnas_disponibles(df: pd.DataFrame, columnas: list[str]) -> bool:
     return all(columna in df.columns for columna in columnas)
 
 
+def rellenar_serie_fallback(serie: pd.Series, longitud: int, valor_default: float) -> tuple[pd.Series, bool]:
+    serie_numerica = pd.to_numeric(serie, errors="coerce")
+    disponible = bool(serie_numerica.notna().any())
+    if disponible:
+        return serie_numerica, True
+    return pd.Series([valor_default] * longitud, index=serie.index if len(serie.index) == longitud else None, dtype=float), False
+
+
 def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
     tiene_corners = columnas_disponibles(df, ["HC", "AC"])
     tiene_shots = columnas_disponibles(df, ["HS", "AS"])
@@ -175,6 +183,20 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
             "has_cards": False,
         }
 
+    corners_favor, has_corners_for = rellenar_serie_fallback(corners_favor, pj, 4.5)
+    corners_contra, has_corners_against = rellenar_serie_fallback(corners_contra, pj, 4.5)
+    shots_favor, has_shots_for = rellenar_serie_fallback(shots_favor, pj, 11.0)
+    shots_contra, has_shots_against = rellenar_serie_fallback(shots_contra, pj, 11.0)
+    shots_on_target_favor, has_shots_target_for = rellenar_serie_fallback(shots_on_target_favor, pj, 4.0)
+    shots_on_target_contra, has_shots_target_against = rellenar_serie_fallback(shots_on_target_contra, pj, 4.0)
+    cards_favor, has_cards_for = rellenar_serie_fallback(cards_favor, pj, 2.1)
+    cards_contra, has_cards_against = rellenar_serie_fallback(cards_contra, pj, 2.1)
+
+    has_corners_data = has_corners_for or has_corners_against
+    has_shots_data = has_shots_for or has_shots_against
+    has_shots_target_data = has_shots_target_for or has_shots_target_against
+    has_cards_data = has_cards_for or has_cards_against
+
     total_goals = goles_favor + goles_contra
     return {
         "pj": pj,
@@ -196,10 +218,10 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
         "clean_sheet_pct": float((goles_contra == 0).mean()),
         "fail_score_pct": float((goles_favor == 0).mean()),
         "total_goals": float(total_goals.mean()),
-        "has_corners": tiene_corners,
-        "has_shots": tiene_shots,
-        "has_shots_on_target": tiene_shots_puerta,
-        "has_cards": tiene_tarjetas,
+        "has_corners": has_corners_data,
+        "has_shots": has_shots_data,
+        "has_shots_on_target": has_shots_target_data,
+        "has_cards": has_cards_data,
     }
 
 
