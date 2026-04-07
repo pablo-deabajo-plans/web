@@ -111,6 +111,7 @@ def construir_insights(analisis: dict) -> list[str]:
     resultado = analisis["resultado"]
     local_home = analisis["stats_local"]["home"]
     visitante_away = analisis["stats_visitante"]["away"]
+    h2h = analisis["h2h"]
     insights = []
     if resultado["1"] > resultado["2"]:
         insights.append(f"El sesgo base favorece al local con {resultado['1'] * 100:.1f}% de victoria.")
@@ -125,7 +126,36 @@ def construir_insights(analisis: dict) -> list[str]:
         insights.append("Ambos marcan entra en zona caliente del modelo por encima del 65%.")
     if resultado["Over9.5_Corn"] >= 0.55:
         insights.append("El partido proyecta un volumen de corners alto y consistente con trading en vivo.")
+    if h2h["matches"] == 0:
+        insights.append(
+            f"Sin H2H disponible, el contexto se apoya en los ultimos {analisis['stats_local']['comparison_window']} partidos generales."
+        )
     return insights[:4]
+
+
+def calcular_ajuste_h2h_contextual(stats_local: dict, stats_visitante: dict, h2h: dict) -> tuple[float, dict]:
+    ventana_contexto = min(stats_local.get("comparison_window", 8), stats_visitante.get("comparison_window", 8))
+    forma_local_contexto = stats_local["comparison_form"]["ppg"]
+    forma_visitante_contexto = stats_visitante["comparison_form"]["ppg"]
+    ajuste_reciente = max(-0.03, min(0.03, (forma_local_contexto - forma_visitante_contexto) * 0.025))
+
+    if h2h["matches"] <= 0:
+        return ajuste_reciente, {
+            "mode": "recent_only",
+            "window": ventana_contexto,
+            "h2h_factor": 0.0,
+            "recent_factor": ajuste_reciente,
+        }
+
+    peso_muestra_h2h = min(1.0, h2h["matches"] / 4)
+    h2h_factor = (h2h["local_win_pct"] - h2h["away_win_pct"]) * 0.03 * peso_muestra_h2h
+    ajuste_final = max(-0.05, min(0.05, h2h_factor + (ajuste_reciente * 0.5)))
+    return ajuste_final, {
+        "mode": "h2h_plus_recent",
+        "window": ventana_contexto,
+        "h2h_factor": h2h_factor,
+        "recent_factor": ajuste_reciente,
+    }
 
 
 def construir_trazabilidad(
@@ -138,6 +168,7 @@ def construir_trazabilidad(
     defensa_local: float,
     ajuste_forma: float,
     ajuste_h2h: float,
+    detalle_h2h: dict,
     xg_local: float,
     xg_visitante: float,
 ) -> dict:
@@ -185,6 +216,10 @@ def construir_trazabilidad(
                 "local_win_pct": h2h["local_win_pct"],
                 "away_win_pct": h2h["away_win_pct"],
                 "factor": ajuste_h2h,
+                "mode": detalle_h2h["mode"],
+                "window": detalle_h2h["window"],
+                "h2h_factor": detalle_h2h["h2h_factor"],
+                "recent_factor": detalle_h2h["recent_factor"],
             },
         },
     }
@@ -238,9 +273,7 @@ def guardar_analisis(df: pd.DataFrame, liga: str, local: str, visitante: str, ma
     forma_local = stats_local["form"]["ppg"]
     forma_visitante = stats_visitante["form"]["ppg"]
     ajuste_forma = max(-0.08, min(0.08, (forma_local - forma_visitante) * 0.04))
-    ajuste_h2h = 0.0
-    if h2h["matches"] > 0:
-        ajuste_h2h = max(-0.05, min(0.05, (h2h["local_win_pct"] - h2h["away_win_pct"]) * 0.03))
+    ajuste_h2h, detalle_h2h = calcular_ajuste_h2h_contextual(stats_local, stats_visitante, h2h)
 
     xg_local = ((ataque_local + defensa_visitante) / 2) * 1.10 * (1 + ajuste_forma + ajuste_h2h)
     xg_visitante = ((ataque_visitante + defensa_local) / 2) * (1 - ajuste_forma - (ajuste_h2h / 2))
@@ -310,6 +343,7 @@ def guardar_analisis(df: pd.DataFrame, liga: str, local: str, visitante: str, ma
             defensa_local,
             ajuste_forma,
             ajuste_h2h,
+            detalle_h2h,
             xg_local,
             xg_visitante,
         ),

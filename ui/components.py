@@ -1797,13 +1797,8 @@ def formatear_duelo(home_valor: float | None, away_valor: float | None, decimale
 
 
 def render_h2h_summary_card(h2h: dict, local: str, visitante: str) -> None:
-    st.markdown(
+    detalle = (
         f"""
-        <div class="form-card">
-            <div class="form-head">
-                <div><div class="signal-label">Resumen H2H</div><h4>{local} vs {visitante}</h4></div>
-                <div class="form-ppg">{h2h['matches']}<span>Partidos</span></div>
-            </div>
             <div class="pill-row">
                 <span class="tag-pill">{local}: {h2h['local_wins']}</span>
                 <span class="tag-pill">Empates: {h2h['draws']}</span>
@@ -1814,6 +1809,23 @@ def render_h2h_summary_card(h2h: dict, local: str, visitante: str) -> None:
                 <span>BTTS {h2h['btts_pct'] * 100:.1f}%</span>
                 <span>Over 2.5 {h2h['over25_pct'] * 100:.1f}%</span>
             </div>
+        """
+        if h2h["matches"] > 0
+        else """
+            <div class="form-meta">
+                <span>Sin enfrentamientos directos en la muestra</span>
+                <span>Se usa el contexto reciente general de ambos equipos</span>
+            </div>
+        """
+    )
+    st.markdown(
+        f"""
+        <div class="form-card">
+            <div class="form-head">
+                <div><div class="signal-label">Resumen H2H</div><h4>{local} vs {visitante}</h4></div>
+                <div class="form-ppg">{h2h['matches']}<span>Partidos</span></div>
+            </div>
+            {detalle}
         </div>
         """,
         unsafe_allow_html=True,
@@ -1889,16 +1901,105 @@ def render_h2h_explorer(h2h: dict) -> None:
                 st.markdown(f'<div class="h2h-kpi"><span>{titulo}</span><strong>{valor}</strong></div>', unsafe_allow_html=True)
 
 
-def tabla_comparativa(local: str, visitante: str, local_home: dict, visitante_away: dict, local_all: dict, visitante_all: dict) -> pd.DataFrame:
-    return pd.DataFrame(
-        [
-            {"Metric": "GF escenario", f"{local} casa": round(local_home["gf"], 2), f"{visitante} fuera": round(visitante_away["gf"], 2), "Diff local-away": round(local_home["gf"] - visitante_away["gf"], 2)},
-            {"Metric": "GC escenario", f"{local} casa": round(local_home["gc"], 2), f"{visitante} fuera": round(visitante_away["gc"], 2), "Diff local-away": round(local_home["gc"] - visitante_away["gc"], 2)},
-            {"Metric": "Corners for escenario", f"{local} casa": round(local_home["corners_for"], 2), f"{visitante} fuera": round(visitante_away["corners_for"], 2), "Diff local-away": round(local_home["corners_for"] - visitante_away["corners_for"], 2)},
-            {"Metric": "BTTS escenario", f"{local} casa": round(local_home["btts_pct"] * 100, 1), f"{visitante} fuera": round(visitante_away["btts_pct"] * 100, 1), "Diff local-away": round((local_home["btts_pct"] - visitante_away["btts_pct"]) * 100, 1)},
-            {"Metric": "Over 2.5 escenario", f"{local} casa": round(local_home["over25_pct"] * 100, 1), f"{visitante} fuera": round(visitante_away["over25_pct"] * 100, 1), "Diff local-away": round((local_home["over25_pct"] - visitante_away["over25_pct"]) * 100, 1)},
-        ]
+def _fmt_comparativa(valor: float, porcentaje: bool = False, sufijo: str = "") -> str:
+    if porcentaje:
+        return f"{valor * 100:.1f}%"
+    return f"{valor:.2f}{sufijo}"
+
+
+def _leer_ventaja(local: str, visitante: str, valor_local: float, valor_visitante: float, invertido: bool = False, porcentaje: bool = False) -> str:
+    diferencia_real = valor_local - valor_visitante
+    diferencia_lectura = -diferencia_real if invertido else diferencia_real
+    umbral = 0.02 if porcentaje else 0.05
+    if abs(diferencia_lectura) < umbral:
+        return "Muy parejo"
+
+    ganador = local if diferencia_lectura > 0 else visitante
+    magnitud = abs(diferencia_real) * (100 if porcentaje else 1)
+    sufijo = " pp" if porcentaje else ""
+    return f"Ventaja {ganador} ({magnitud:.1f}{sufijo})"
+
+
+def tabla_comparativa(local: str, visitante: str, stats_local: dict, stats_visitante: dict, h2h: dict) -> pd.DataFrame:
+    local_home = stats_local["home"]
+    visitante_away = stats_visitante["away"]
+    local_overall = stats_local["overall"]
+    visitante_overall = stats_visitante["overall"]
+    local_recent = stats_local["recent_overall"]
+    visitante_recent = stats_visitante["recent_overall"]
+    local_context = stats_local["comparison_form"]
+    visitante_context = stats_visitante["comparison_form"]
+    recent_window = stats_local.get("recent_window", 10)
+    context_window = stats_local.get("comparison_window", 8)
+    contexto_h2h = (
+        f"{h2h['matches']} H2H + otros partidos recientes"
+        if h2h["matches"] > 0
+        else f"Sin H2H: fallback a ultimos {context_window} partidos generales"
     )
+
+    filas = [
+        {
+            "Metric": "GF escenario casa/fuera",
+            f"{local}": _fmt_comparativa(local_home["gf"]),
+            f"{visitante}": _fmt_comparativa(visitante_away["gf"]),
+            "Lectura": _leer_ventaja(local, visitante, local_home["gf"], visitante_away["gf"]),
+        },
+        {
+            "Metric": "GC escenario casa/fuera",
+            f"{local}": _fmt_comparativa(local_home["gc"]),
+            f"{visitante}": _fmt_comparativa(visitante_away["gc"]),
+            "Lectura": _leer_ventaja(local, visitante, local_home["gc"], visitante_away["gc"], invertido=True),
+        },
+        {
+            "Metric": "GF global temporada",
+            f"{local}": _fmt_comparativa(local_overall["gf"]),
+            f"{visitante}": _fmt_comparativa(visitante_overall["gf"]),
+            "Lectura": _leer_ventaja(local, visitante, local_overall["gf"], visitante_overall["gf"]),
+        },
+        {
+            "Metric": "GC global temporada",
+            f"{local}": _fmt_comparativa(local_overall["gc"]),
+            f"{visitante}": _fmt_comparativa(visitante_overall["gc"]),
+            "Lectura": _leer_ventaja(local, visitante, local_overall["gc"], visitante_overall["gc"], invertido=True),
+        },
+        {
+            "Metric": f"GF ultimos {recent_window} generales",
+            f"{local}": _fmt_comparativa(local_recent["gf"]),
+            f"{visitante}": _fmt_comparativa(visitante_recent["gf"]),
+            "Lectura": _leer_ventaja(local, visitante, local_recent["gf"], visitante_recent["gf"]),
+        },
+        {
+            "Metric": f"GC ultimos {recent_window} generales",
+            f"{local}": _fmt_comparativa(local_recent["gc"]),
+            f"{visitante}": _fmt_comparativa(visitante_recent["gc"]),
+            "Lectura": _leer_ventaja(local, visitante, local_recent["gc"], visitante_recent["gc"], invertido=True),
+        },
+        {
+            "Metric": f"BTTS ultimos {recent_window}",
+            f"{local}": _fmt_comparativa(local_recent["btts_pct"], porcentaje=True),
+            f"{visitante}": _fmt_comparativa(visitante_recent["btts_pct"], porcentaje=True),
+            "Lectura": _leer_ventaja(local, visitante, local_recent["btts_pct"], visitante_recent["btts_pct"], porcentaje=True),
+        },
+        {
+            "Metric": f"Over 2.5 ultimos {recent_window}",
+            f"{local}": _fmt_comparativa(local_recent["over25_pct"], porcentaje=True),
+            f"{visitante}": _fmt_comparativa(visitante_recent["over25_pct"], porcentaje=True),
+            "Lectura": _leer_ventaja(local, visitante, local_recent["over25_pct"], visitante_recent["over25_pct"], porcentaje=True),
+        },
+        {
+            "Metric": f"Forma ultimos {recent_window}",
+            f"{local}": f"{stats_local['form']['streak']} ({stats_local['form']['ppg']:.2f} ppg)",
+            f"{visitante}": f"{stats_visitante['form']['streak']} ({stats_visitante['form']['ppg']:.2f} ppg)",
+            "Lectura": _leer_ventaja(local, visitante, stats_local["form"]["ppg"], stats_visitante["form"]["ppg"]),
+        },
+        {
+            "Metric": f"Contexto extra ultimos {context_window}",
+            f"{local}": f"{local_context['streak']} ({local_context['ppg']:.2f} ppg)",
+            f"{visitante}": f"{visitante_context['streak']} ({visitante_context['ppg']:.2f} ppg)",
+            "Lectura": contexto_h2h,
+        },
+    ]
+    return pd.DataFrame(filas)
 
 
 def render_traceability_panel(analisis: dict) -> None:
@@ -1916,7 +2017,7 @@ def render_traceability_panel(analisis: dict) -> None:
             ("Defensa base", f"{datos['base_defense']:.2f}"),
             ("Boost local", f"{datos['home_boost']:.2f}"),
             ("Ajuste forma", f"{datos['form_adjustment']:+.3f}"),
-            ("Ajuste H2H", f"{datos['h2h_adjustment']:+.3f}"),
+            ("Ajuste H2H/contexto", f"{datos['h2h_adjustment']:+.3f}"),
             ("xG final", f"{datos['final_xg']:.2f}"),
         ]
         st.markdown(

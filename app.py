@@ -221,22 +221,29 @@ with layout_right:
                 render_split_panel("Global", analisis["stats_local"]["overall"])
                 render_split_panel("En casa", analisis["stats_local"]["home"])
                 render_split_panel("Fuera", analisis["stats_local"]["away"])
+                render_split_panel(
+                    f"Ultimos {analisis['stats_local']['recent_window']}",
+                    analisis["stats_local"]["recent_overall"],
+                )
             with eq_2:
                 st.markdown(f"### {analisis['visitante']}")
                 render_split_panel("Global", analisis["stats_visitante"]["overall"])
                 render_split_panel("En casa", analisis["stats_visitante"]["home"])
                 render_split_panel("Fuera", analisis["stats_visitante"]["away"])
+                render_split_panel(
+                    f"Ultimos {analisis['stats_visitante']['recent_window']}",
+                    analisis["stats_visitante"]["recent_overall"],
+                )
 
         with tab_compare:
-            st.markdown('<div class="section-title">Local en casa vs visitante fuera</div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-title">Escenario + forma reciente + H2H</div>', unsafe_allow_html=True)
             st.dataframe(
                 tabla_comparativa(
                     analisis["local"],
                     analisis["visitante"],
-                    analisis["stats_local"]["home"],
-                    analisis["stats_visitante"]["away"],
-                    analisis["stats_local"]["overall"],
-                    analisis["stats_visitante"]["overall"],
+                    analisis["stats_local"],
+                    analisis["stats_visitante"],
+                    analisis["h2h"],
                 ),
                 use_container_width=True,
                 hide_index=True,

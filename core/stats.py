@@ -6,11 +6,22 @@ import pandas as pd
 from data.teams import nombre_visual_equipo
 
 
+VENTANA_RECIENTE_GENERAL = 10
+VENTANA_CONTEXTO_COMPARACION = 8
+
+
 def extraer_historico(df: pd.DataFrame) -> pd.DataFrame:
     historico = df.copy()
     if "FTHG" in historico.columns and "FTAG" in historico.columns:
         historico = historico[historico["FTHG"].notna() & historico["FTAG"].notna()].copy()
     return historico
+
+
+def obtener_partidos_equipo(df: pd.DataFrame, equipo: str, n_partidos: int | None = None) -> pd.DataFrame:
+    partidos = df[(df["HomeTeam"] == equipo) | (df["AwayTeam"] == equipo)].copy()
+    if n_partidos is not None:
+        partidos = partidos.tail(n_partidos)
+    return partidos
 
 
 def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
@@ -176,7 +187,7 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
 
 
 def calcular_forma(df: pd.DataFrame, equipo: str, n_partidos: int = 8) -> dict:
-    partidos = df[(df["HomeTeam"] == equipo) | (df["AwayTeam"] == equipo)].copy().tail(n_partidos)
+    partidos = obtener_partidos_equipo(df, equipo, n_partidos)
     if partidos.empty:
         return {
             "matches": 0,
@@ -221,44 +232,37 @@ def calcular_forma(df: pd.DataFrame, equipo: str, n_partidos: int = 8) -> dict:
     }
 
 
+def calcular_contexto_reciente(df: pd.DataFrame, equipo: str, n_partidos: int) -> dict:
+    partidos = obtener_partidos_equipo(df, equipo, n_partidos)
+    return {
+        "window": n_partidos,
+        "stats": calcular_segmento(partidos, equipo, "all"),
+        "form": calcular_forma(df, equipo, n_partidos),
+    }
+
+
 def calcular_stats(df: pd.DataFrame, equipo: str) -> dict:
     todos = calcular_segmento(df, equipo, "all")
     casa = calcular_segmento(df, equipo, "home")
     fuera = calcular_segmento(df, equipo, "away")
-    recientes = df[(df["HomeTeam"] == equipo) | (df["AwayTeam"] == equipo)].copy().tail(8)
-    pj_rec = len(recientes)
-    if pj_rec > 0:
-        gf_rec = sum(
-            fila["FTHG"] if fila["HomeTeam"] == equipo else fila["FTAG"]
-            for _, fila in recientes.iterrows()
-        ) / pj_rec
-        gc_rec = sum(
-            fila["FTAG"] if fila["HomeTeam"] == equipo else fila["FTHG"]
-            for _, fila in recientes.iterrows()
-        ) / pj_rec
-        shots_rec = sum(
-            fila["HS"] if fila["HomeTeam"] == equipo else fila["AS"]
-            for _, fila in recientes.iterrows()
-        ) / pj_rec if {"HS", "AS"}.issubset(recientes.columns) else todos["shots_for"]
-        shots_on_target_rec = sum(
-            fila["HST"] if fila["HomeTeam"] == equipo else fila["AST"]
-            for _, fila in recientes.iterrows()
-        ) / pj_rec if {"HST", "AST"}.issubset(recientes.columns) else todos["shots_on_target_for"]
-    else:
-        gf_rec = todos["gf"]
-        gc_rec = todos["gc"]
-        shots_rec = todos["shots_for"]
-        shots_on_target_rec = todos["shots_on_target_for"]
+    recientes = calcular_contexto_reciente(df, equipo, VENTANA_RECIENTE_GENERAL)
+    comparacion = calcular_contexto_reciente(df, equipo, VENTANA_CONTEXTO_COMPARACION)
+    stats_recientes = recientes["stats"] if recientes["stats"]["pj"] > 0 else todos
 
     return {
         "overall": todos,
         "home": casa,
         "away": fuera,
-        "gf_rec": gf_rec,
-        "gc_rec": gc_rec,
-        "shots_rec": shots_rec,
-        "shots_on_target_rec": shots_on_target_rec,
-        "form": calcular_forma(df, equipo, 8),
+        "recent_window": recientes["window"],
+        "recent_overall": stats_recientes,
+        "comparison_window": comparacion["window"],
+        "comparison_overall": comparacion["stats"] if comparacion["stats"]["pj"] > 0 else stats_recientes,
+        "gf_rec": stats_recientes["gf"],
+        "gc_rec": stats_recientes["gc"],
+        "shots_rec": stats_recientes["shots_for"],
+        "shots_on_target_rec": stats_recientes["shots_on_target_for"],
+        "form": recientes["form"],
+        "comparison_form": comparacion["form"],
     }
 
 
