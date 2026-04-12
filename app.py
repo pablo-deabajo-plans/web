@@ -273,8 +273,7 @@ if resultados_busqueda:
             if st.button("Abrir", key=f"search_open_{safe_key(resultado['league'])}_{safe_key(resultado['fixture_label'])}", use_container_width=True):
                 st.session_state["selected_league"] = resultado["league"]
                 st.session_state["fixture_label"] = resultado["fixture_label"]
-                st.session_state["match_search"] = resultado["match"]
-                st.session_state["search_results"] = resultados_busqueda
+                st.session_state["search_results"] = []
                 st.session_state["analysis"] = None
                 st.session_state["analysis_signature"] = None
                 st.rerun()
