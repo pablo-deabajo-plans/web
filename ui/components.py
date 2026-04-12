@@ -1336,6 +1336,10 @@ def inyectar_estilos() -> None:
                 margin: 0.35rem 0 1rem 0;
             }
 
+            .search-icon-spacer {
+                height: 1.55rem;
+            }
+
             .search-result-card {
                 padding: 0.82rem 0.95rem;
                 min-height: 74px;

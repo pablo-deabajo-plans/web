@@ -228,7 +228,8 @@ with filtros_fecha:
 with filtros_busqueda:
     busqueda_partido = st.text_input("Buscar partido", key="match_search", placeholder="Equipo o partido")
 with filtros_lupa:
-    buscar_click = st.button("🔍", key="match_search_button", use_container_width=True)
+    st.markdown('<div class="search-icon-spacer"></div>', unsafe_allow_html=True)
+    buscar_click = st.button("\U0001F50D", key="match_search_button", use_container_width=True)
 
 fecha_objetivo = hoy if solo_hoy else fecha_partido
 if buscar_click:
