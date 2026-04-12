@@ -1463,6 +1463,14 @@ def inyectar_estilos() -> None:
                 font-size: 1.02rem;
             }
 
+            .player-metric-head p {
+                margin: 0.3rem 0 0 0;
+                color: var(--body);
+                font-size: 0.84rem;
+                line-height: 1.45;
+                max-width: 680px;
+            }
+
             .player-metric-head span {
                 display: inline-flex;
                 padding: 0.3rem 0.62rem;
@@ -1516,6 +1524,43 @@ def inyectar_estilos() -> None:
                 font-weight: 800;
             }
 
+            .player-summary-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 0.75rem;
+                margin: 1rem 0 0.35rem 0;
+            }
+
+            .player-summary-card {
+                background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.03));
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 18px;
+                padding: 0.95rem 1rem;
+            }
+
+            .player-summary-card span {
+                display: block;
+                color: var(--body);
+                font-size: 0.76rem;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+
+            .player-summary-card strong {
+                display: block;
+                margin-top: 0.28rem;
+                color: var(--title);
+                font-size: 1.08rem;
+                line-height: 1.35;
+            }
+
+            .player-summary-card p {
+                margin: 0.3rem 0 0 0;
+                color: var(--body);
+                font-size: 0.82rem;
+                line-height: 1.45;
+            }
+
             .player-player-row {
                 display: flex;
                 justify-content: space-between;
@@ -1545,6 +1590,28 @@ def inyectar_estilos() -> None:
                 line-height: 1.45;
             }
 
+            .player-row-meta {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.35rem;
+                margin-top: 0.45rem;
+            }
+
+            .player-row-meta span,
+            .player-confidence-pill {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0.25rem 0.52rem;
+                border-radius: 999px;
+                border: 1px solid rgba(255,255,255,0.08);
+                background: rgba(255,255,255,0.04);
+                color: var(--title);
+                font-size: 0.72rem;
+                font-weight: 800;
+                line-height: 1;
+            }
+
             .player-row-prob {
                 min-width: 86px;
                 text-align: right;
@@ -1563,6 +1630,26 @@ def inyectar_estilos() -> None:
                 color: var(--body);
                 font-size: 0.76rem;
                 font-weight: 700;
+            }
+
+            .player-confidence-pill {
+                margin-top: 0.45rem;
+                margin-left: auto;
+            }
+
+            .player-confidence-pill.high {
+                border-color: rgba(27, 216, 110, 0.28);
+                background: rgba(27, 216, 110, 0.12);
+            }
+
+            .player-confidence-pill.mid {
+                border-color: rgba(255, 209, 102, 0.28);
+                background: rgba(255, 209, 102, 0.12);
+            }
+
+            .player-confidence-pill.low {
+                border-color: rgba(239, 68, 68, 0.28);
+                background: rgba(239, 68, 68, 0.10);
             }
 
             .player-empty {
@@ -2268,6 +2355,52 @@ def render_comparador_cuotas(filas: list[dict]) -> None:
         )
 
 
+def _player_confidence_class(label: str) -> str:
+    return {
+        "Alta": "high",
+        "Media": "mid",
+        "Baja": "low",
+    }.get(label, "mid")
+
+
+def _player_probability_tier(probability: float) -> str:
+    if probability >= 0.7:
+        return "Muy fuerte"
+    if probability >= 0.58:
+        return "Fuerte"
+    if probability >= 0.45:
+        return "Vigilar"
+    return "Marginal"
+
+
+def _build_player_props_summary(metrics: list[dict]) -> dict:
+    picks = []
+    for metric in metrics:
+        for team in metric.get("teams", []):
+            for player in team.get("players", []):
+                picks.append(
+                    {
+                        "metric_label": metric["label"],
+                        "line_label": metric["line_label"],
+                        "team_name": team.get("team_name", "Equipo"),
+                        **player,
+                    }
+                )
+
+    if not picks:
+        return {"count": 0, "best_pick": None, "high_confidence": 0, "avg_probability": 0.0}
+
+    best_pick = max(picks, key=lambda item: (item["probability"] * item.get("confidence_score", 0.0), item["probability"]))
+    high_confidence = sum(1 for item in picks if item.get("confidence_label") == "Alta")
+    avg_probability = sum(item["probability"] for item in picks) / len(picks)
+    return {
+        "count": len(picks),
+        "best_pick": best_pick,
+        "high_confidence": high_confidence,
+        "avg_probability": avg_probability,
+    }
+
+
 def render_player_props_panel(payload: dict) -> None:
     disponible = payload.get("available", False)
     status = payload.get("status", "unavailable")
@@ -2341,12 +2474,64 @@ def render_player_props_panel(payload: dict) -> None:
         )
         return
 
-    for metric in payload.get("metrics", []):
+    metrics = payload.get("metrics", [])
+    summary = _build_player_props_summary(metrics)
+    if summary["count"]:
+        best_pick = summary["best_pick"]
+        summary_cards = [
+            ("Props trazables", str(summary["count"]), "Jugadores con muestra valida para este partido"),
+            (
+                "Mejor señal",
+                f"{best_pick['player_name']} {best_pick['line_label']}",
+                f"{best_pick['team_name']} | {best_pick['metric_label']} | {best_pick['probability'] * 100:.1f}%",
+            ),
+            (
+                "Confianza alta",
+                str(summary["high_confidence"]),
+                "Perfiles con muestra, rol y minutos mas estables",
+            ),
+            (
+                "Prob media",
+                f"{summary['avg_probability'] * 100:.1f}%",
+                "Media agregada de los jugadores visibles en el panel",
+            ),
+        ]
+        cards_html = "".join(
+            f"""
+            <div class="player-summary-card">
+                <span>{title}</span>
+                <strong>{value}</strong>
+                <p>{note}</p>
+            </div>
+            """
+            for title, value, note in summary_cards
+        )
+        st.markdown(f'<div class="player-summary-grid">{cards_html}</div>', unsafe_allow_html=True)
+
+    for metric in metrics:
+        mejores = [
+            {
+                "team_name": team.get("team_name", "Equipo"),
+                **player,
+            }
+            for team in metric.get("teams", [])
+            for player in team.get("players", [])[:1]
+        ]
+        mejor_texto = ""
+        if mejores:
+            mejor = max(mejores, key=lambda item: (item["probability"], item.get("confidence_score", 0.0)))
+            mejor_texto = (
+                f"Pick mas fuerte: {mejor['player_name']} ({mejor['team_name']}) con "
+                f"{mejor['probability'] * 100:.1f}% y confianza {mejor.get('confidence_label', 'Media').lower()}."
+            )
         st.markdown(
             f"""
             <div class="player-metric-shell">
                 <div class="player-metric-head">
-                    <h4>{metric['label']}</h4>
+                    <div>
+                        <h4>{metric['label']}</h4>
+                        <p>{mejor_texto or 'Sin una señal clara todavia en esta metrica.'}</p>
+                    </div>
                     <span>Linea sugerida {metric['line_label']}</span>
                 </div>
             </div>
@@ -2363,10 +2548,17 @@ def render_player_props_panel(payload: dict) -> None:
                         <div class="player-row-main">
                             <strong>{jugador['player_name']}</strong>
                             <span>{jugador['position']} | media {jugador['expected']:.2f} | hit {jugador['hit_rate'] * 100:.0f}% | {jugador['sample']}/{jugador['fixtures_sampled']} partidos</span>
+                            <div class="player-row-meta">
+                                <span>{_player_probability_tier(jugador['probability'])}</span>
+                                <span>{jugador['minutes']:.0f} min</span>
+                                <span>{jugador['starter_rate'] * 100:.0f}% titular</span>
+                                <span>{jugador['appearance_rate'] * 100:.0f}% aparicion</span>
+                            </div>
                         </div>
                         <div class="player-row-prob">
                             <strong>{jugador['probability'] * 100:.1f}%</strong>
                             <span>{metric['line_label']} {metric['label'].lower()}</span>
+                            <div class="player-confidence-pill {_player_confidence_class(jugador.get('confidence_label', 'Media'))}">{jugador.get('confidence_label', 'Media')}</div>
                         </div>
                     </div>
                     """

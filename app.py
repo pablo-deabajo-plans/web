@@ -284,6 +284,7 @@ for key, default in {
     "competition_view": "Ligas",
     "match_search": "",
     "search_results": [],
+    "sportmonks_api_token": "",
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -298,6 +299,31 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+with st.expander("Configuracion de Sportmonks", expanded=False):
+    st.caption("Pega aqui tu token para activar probabilidades de jugadores en esta sesion.")
+    token_cols = st.columns([3.2, 0.8])
+    with token_cols[0]:
+        token_input = st.text_input(
+            "SPORTMONKS_API_TOKEN",
+            key="sportmonks_api_token_input",
+            type="password",
+            value=st.session_state.get("sportmonks_api_token", ""),
+            placeholder="Introduce tu token de Sportmonks",
+            help="Se usa solo en la sesion actual de Streamlit si no esta definida la variable de entorno.",
+        )
+    with token_cols[1]:
+        st.markdown('<div class="search-icon-spacer"></div>', unsafe_allow_html=True)
+        clear_token = st.button("Limpiar", key="clear_sportmonks_token", use_container_width=True)
+
+    if clear_token:
+        st.session_state["sportmonks_api_token"] = ""
+        st.session_state["sportmonks_api_token_input"] = ""
+        st.rerun()
+
+    st.session_state["sportmonks_api_token"] = token_input.strip()
+    if st.session_state["sportmonks_api_token"]:
+        st.caption("Token cargado en memoria para esta sesion.")
 
 hoy = datetime.now(LOCAL_TIMEZONE).date()
 liga_activa = st.session_state.get("selected_league")
@@ -503,6 +529,7 @@ with layout_right:
             visitante,
             home_team_raw,
             away_team_raw,
+            token_hint=st.session_state.get("sportmonks_api_token", ""),
         )
         player_probabilities = construir_probabilidades_jugadores(player_logs_payload)
         render_summary_band(analisis)

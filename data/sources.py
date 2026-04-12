@@ -7,6 +7,7 @@ import re
 from datetime import datetime, timedelta
 from difflib import SequenceMatcher
 from html import unescape
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -694,6 +695,26 @@ def construir_cuotas_automaticas(contexto_mercado: dict, local: str, visitante: 
 
 
 def _sportmonks_token() -> str:
+    token_session = str(st.session_state.get("sportmonks_api_token", "") or "").strip()
+    if token_session:
+        return token_session
+
+    token_secret = str(st.secrets.get("SPORTMONKS_API_TOKEN", "") or "").strip()
+    if token_secret:
+        return token_secret
+
+    secrets_path = Path(".streamlit") / "secrets.toml"
+    if secrets_path.exists():
+        try:
+            contenido = secrets_path.read_text(encoding="utf-8")
+            match = re.search(r'^\s*SPORTMONKS_API_TOKEN\s*=\s*["\']?([^"\']+)["\']?\s*$', contenido, re.MULTILINE)
+            if match:
+                token_file = match.group(1).strip()
+                if token_file:
+                    return token_file
+        except OSError:
+            pass
+
     return os.getenv("SPORTMONKS_API_TOKEN", "").strip()
 
 
@@ -868,6 +889,7 @@ def buscar_fixture_sportmonks(
     away_team: str,
     home_team_raw: str = "",
     away_team_raw: str = "",
+    token_hint: str = "",
 ) -> dict:
     if not _sportmonks_token():
         return {"status": "missing_token"}
@@ -977,6 +999,7 @@ def obtener_logs_jugadores_sportmonks(
     away_team: str,
     home_team_raw: str = "",
     away_team_raw: str = "",
+    token_hint: str = "",
 ) -> dict:
     if not _sportmonks_token():
         return {
@@ -985,7 +1008,14 @@ def obtener_logs_jugadores_sportmonks(
             "message": "Configura SPORTMONKS_API_TOKEN para activar la capa de jugadores.",
         }
 
-    fixture = buscar_fixture_sportmonks(match_date, home_team, away_team, home_team_raw, away_team_raw)
+    fixture = buscar_fixture_sportmonks(
+        match_date,
+        home_team,
+        away_team,
+        home_team_raw,
+        away_team_raw,
+        token_hint=token_hint,
+    )
     if fixture.get("status") != "ok":
         return {
             "available": False,

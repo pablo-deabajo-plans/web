@@ -309,6 +309,14 @@ def _media_ponderada(valores: list[float], pesos: list[float]) -> float:
     return float(sum(valor * peso for valor, peso in zip(valores, pesos)) / total_pesos)
 
 
+def _clasificar_confianza_jugador(score: float) -> str:
+    if score >= 0.74:
+        return "Alta"
+    if score >= 0.56:
+        return "Media"
+    return "Baja"
+
+
 def construir_probabilidades_jugadores(player_payload: dict) -> dict:
     if not player_payload.get("available"):
         return {
@@ -383,13 +391,22 @@ def construir_probabilidades_jugadores(player_payload: dict) -> dict:
                 starter_rate = _media_ponderada(starters, pesos)
                 hit_rate = _media_ponderada([1.0 if valor > threshold else 0.0 for valor in valores], pesos)
                 appearance_rate = min(1.0, len(apariciones) / max(fixtures_sampled, len(apariciones)))
+                sample_depth = min(1.0, len(apariciones) / 5.0)
+                minute_share = min(1.0, media_minutos / 75.0)
 
                 availability_factor = 0.35 + (0.65 * appearance_rate)
                 role_factor = 0.55 + (0.45 * starter_rate)
-                minute_factor = 0.55 + (0.45 * min(1.0, media_minutos / 75.0))
+                minute_factor = 0.55 + (0.45 * minute_share)
                 media_ajustada = media_base * availability_factor * role_factor * minute_factor
                 prob_poisson = _poisson_probabilidad_superar(media_ajustada, threshold)
                 probabilidad = max(0.01, min(0.97, (prob_poisson * 0.68) + (hit_rate * appearance_rate * 0.32)))
+                confidence_score = (
+                    (sample_depth * 0.34)
+                    + (appearance_rate * 0.26)
+                    + (starter_rate * 0.2)
+                    + (minute_share * 0.2)
+                )
+                confidence_label = _clasificar_confianza_jugador(confidence_score)
 
                 jugadores_equipo.append(
                     {
@@ -401,11 +418,17 @@ def construir_probabilidades_jugadores(player_payload: dict) -> dict:
                         "sample": len(apariciones),
                         "fixtures_sampled": fixtures_sampled,
                         "starter_rate": starter_rate,
+                        "appearance_rate": appearance_rate,
                         "minutes": media_minutos,
+                        "confidence_score": confidence_score,
+                        "confidence_label": confidence_label,
                     }
                 )
 
-            jugadores_equipo.sort(key=lambda item: (item["probability"], item["expected"]), reverse=True)
+            jugadores_equipo.sort(
+                key=lambda item: (item["probability"], item["confidence_score"], item["expected"]),
+                reverse=True,
+            )
             equipos_metricas.append(
                 {
                     "team_id": team_id,
