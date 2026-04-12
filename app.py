@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -10,6 +9,7 @@ import streamlit as st
 from core.model import (
     SIMULACIONES,
     construir_insights,
+    construir_probabilidades_jugadores,
     construir_ranking_value_bets,
     cuota_justa,
     guardar_analisis,
@@ -22,6 +22,7 @@ from data.sources import (
     construir_cuotas_automaticas,
     descargar_datos_liga,
     descargar_fixture_espn,
+    obtener_logs_jugadores_sportmonks,
     descargar_resumen_espn,
     extraer_contexto_mercado_espn,
     fusionar_calendarios,
@@ -494,7 +495,16 @@ with layout_right:
     if analisis is not None:
         resultado = analisis["resultado"]
         mercados = analisis["mercados"]
-        player_api_ready = bool(os.getenv("SPORTMONKS_API_TOKEN"))
+        home_team_raw = str(partido_seleccionado.get("HomeTeamRaw", local) or local)
+        away_team_raw = str(partido_seleccionado.get("AwayTeamRaw", visitante) or visitante)
+        player_logs_payload = obtener_logs_jugadores_sportmonks(
+            partido_seleccionado["MatchDate"],
+            local,
+            visitante,
+            home_team_raw,
+            away_team_raw,
+        )
+        player_probabilities = construir_probabilidades_jugadores(player_logs_payload)
         render_summary_band(analisis)
 
         overview_left, overview_right = st.columns([1.45, 1])
@@ -603,7 +613,7 @@ with layout_right:
 
         with tab_players:
             st.markdown('<div class="section-title">Probabilidad de jugadores</div>', unsafe_allow_html=True)
-            render_player_props_panel(player_api_ready)
+            render_player_props_panel(player_probabilities)
 
         with tab_odds:
             st.markdown('<div class="section-title">Comparador de cuotas, Kelly y favoritos</div>', unsafe_allow_html=True)

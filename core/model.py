@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime, timezone
+import math
 
 import numpy as np
 import pandas as pd
@@ -27,6 +28,12 @@ DEFAULT_SHOTS_FOR = 11.0
 DEFAULT_SHOTS_AGAINST = 11.0
 DEFAULT_SHOTS_ON_TARGET_FOR = 4.0
 DEFAULT_SHOTS_ON_TARGET_AGAINST = 4.0
+PLAYER_PROP_CONFIG = {
+    "shots_on_target": {"label": "Remates a puerta", "threshold": 0.5, "line_label": "1+"},
+    "shots_total": {"label": "Remates", "threshold": 1.5, "line_label": "2+"},
+    "fouls_committed": {"label": "Faltas cometidas", "threshold": 0.5, "line_label": "1+"},
+    "fouls_drawn": {"label": "Faltas recibidas", "threshold": 0.5, "line_label": "1+"},
+}
 
 
 def valor_modelo(stats: dict, clave: str, flag: str, default: float) -> float:
@@ -281,6 +288,151 @@ def construir_fallback_h2h(historico: pd.DataFrame, local: str, visitante: str) 
         calcular_stats(historico_h2h, visitante),
         calcular_h2h(historico_h2h, local, visitante, 8),
     )
+
+
+def _poisson_probabilidad_superar(media: float, threshold: float) -> float:
+    if media <= 0:
+        return 0.0
+    minimo = int(math.floor(threshold)) + 1
+    acumulada = 0.0
+    for k in range(minimo):
+        acumulada += math.exp(-media) * (media**k) / math.factorial(k)
+    return max(0.0, min(1.0, 1 - acumulada))
+
+
+def _media_ponderada(valores: list[float], pesos: list[float]) -> float:
+    if not valores or not pesos:
+        return 0.0
+    total_pesos = sum(pesos)
+    if total_pesos <= 0:
+        return 0.0
+    return float(sum(valor * peso for valor, peso in zip(valores, pesos)) / total_pesos)
+
+
+def construir_probabilidades_jugadores(player_payload: dict) -> dict:
+    if not player_payload.get("available"):
+        return {
+            "available": False,
+            "status": player_payload.get("status", "unavailable"),
+            "message": player_payload.get("message", "La integracion de jugadores no esta disponible."),
+            "fixture": player_payload.get("fixture", {}),
+            "teams": player_payload.get("teams", []),
+            "metrics": [],
+        }
+
+    logs = player_payload.get("player_logs", [])
+    teams = player_payload.get("teams", [])
+    if not logs or not teams:
+        return {
+            "available": False,
+            "status": "no_logs",
+            "message": "No hay logs de jugadores suficientes para construir probabilidades.",
+            "fixture": player_payload.get("fixture", {}),
+            "teams": teams,
+            "metrics": [],
+        }
+
+    jugadores: dict[tuple[str, str], dict] = {}
+    logs_ordenados = sorted(logs, key=lambda item: item.get("starting_at", ""), reverse=True)
+    for log in logs_ordenados:
+        player_id = str(log.get("player_id") or log.get("player_name"))
+        team_id = str(log.get("team_id"))
+        clave = (team_id, player_id)
+        jugador = jugadores.setdefault(
+            clave,
+            {
+                "team_id": team_id,
+                "team_name": log.get("team_name", "Equipo"),
+                "player_id": player_id,
+                "player_name": log.get("player_name", "Jugador"),
+                "position": log.get("position", ""),
+                "entries": [],
+            },
+        )
+        jugador["entries"].append(log)
+
+    metricas = []
+    for metric_key, config in PLAYER_PROP_CONFIG.items():
+        equipos_metricas = []
+        for team in teams:
+            team_id = str(team.get("team_id"))
+            team_name = team.get("team_name", "Equipo")
+            fixtures_sampled = max(1, int(team.get("fixtures_sampled", 0) or 0))
+            jugadores_equipo = []
+
+            for clave, jugador in jugadores.items():
+                if clave[0] != team_id:
+                    continue
+                entradas = jugador["entries"][:6]
+                apariciones = [
+                    entrada
+                    for entrada in entradas
+                    if (entrada.get("minutes", 0) or 0) > 0 or (entrada.get("stats", {}).get(metric_key, 0) or 0) > 0
+                ]
+                if len(apariciones) < 2:
+                    continue
+
+                pesos = [0.88**indice for indice in range(len(apariciones))]
+                valores = [float(entrada.get("stats", {}).get(metric_key, 0.0) or 0.0) for entrada in apariciones]
+                minutos = [float(entrada.get("minutes", 0.0) or 0.0) for entrada in apariciones]
+                starters = [1.0 if entrada.get("is_starter") else 0.0 for entrada in apariciones]
+                threshold = config["threshold"]
+
+                media_base = _media_ponderada(valores, pesos)
+                media_minutos = _media_ponderada(minutos, pesos)
+                starter_rate = _media_ponderada(starters, pesos)
+                hit_rate = _media_ponderada([1.0 if valor > threshold else 0.0 for valor in valores], pesos)
+                appearance_rate = min(1.0, len(apariciones) / max(fixtures_sampled, len(apariciones)))
+
+                availability_factor = 0.35 + (0.65 * appearance_rate)
+                role_factor = 0.55 + (0.45 * starter_rate)
+                minute_factor = 0.55 + (0.45 * min(1.0, media_minutos / 75.0))
+                media_ajustada = media_base * availability_factor * role_factor * minute_factor
+                prob_poisson = _poisson_probabilidad_superar(media_ajustada, threshold)
+                probabilidad = max(0.01, min(0.97, (prob_poisson * 0.68) + (hit_rate * appearance_rate * 0.32)))
+
+                jugadores_equipo.append(
+                    {
+                        "player_name": jugador["player_name"],
+                        "position": jugador["position"] or "Sin rol",
+                        "probability": probabilidad,
+                        "expected": media_ajustada,
+                        "hit_rate": hit_rate,
+                        "sample": len(apariciones),
+                        "fixtures_sampled": fixtures_sampled,
+                        "starter_rate": starter_rate,
+                        "minutes": media_minutos,
+                    }
+                )
+
+            jugadores_equipo.sort(key=lambda item: (item["probability"], item["expected"]), reverse=True)
+            equipos_metricas.append(
+                {
+                    "team_id": team_id,
+                    "team_name": team_name,
+                    "fixtures_sampled": fixtures_sampled,
+                    "players": jugadores_equipo[:6],
+                }
+            )
+
+        metricas.append(
+            {
+                "key": metric_key,
+                "label": config["label"],
+                "threshold": config["threshold"],
+                "line_label": config["line_label"],
+                "teams": equipos_metricas,
+            }
+        )
+
+    return {
+        "available": True,
+        "status": "ok",
+        "provider": player_payload.get("provider", "Sportmonks"),
+        "fixture": player_payload.get("fixture", {}),
+        "teams": teams,
+        "metrics": metricas,
+    }
 
 
 def guardar_analisis(df: pd.DataFrame, liga: str, local: str, visitante: str, match_date=None, match_label: str = "") -> dict | None:

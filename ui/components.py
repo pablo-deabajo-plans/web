@@ -1426,6 +1426,152 @@ def inyectar_estilos() -> None:
                 font-weight: 800;
             }
 
+            .player-status-pill {
+                display: inline-flex;
+                margin-top: 0.7rem;
+                padding: 0.34rem 0.68rem;
+                border-radius: 999px;
+                border: 1px solid rgba(27, 216, 110, 0.28);
+                background: rgba(27, 216, 110, 0.12);
+                color: var(--title);
+                font-size: 0.78rem;
+                font-weight: 800;
+            }
+
+            .player-model-note {
+                margin: 0.95rem 0 0 0;
+                color: var(--body);
+                font-size: 0.84rem;
+                line-height: 1.5;
+            }
+
+            .player-metric-shell {
+                margin-top: 1rem;
+            }
+
+            .player-metric-head {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 0.8rem;
+                margin-bottom: 0.65rem;
+            }
+
+            .player-metric-head h4 {
+                margin: 0;
+                color: var(--title);
+                font-size: 1.02rem;
+            }
+
+            .player-metric-head span {
+                display: inline-flex;
+                padding: 0.3rem 0.62rem;
+                border-radius: 999px;
+                border: 1px solid rgba(59,130,246,0.24);
+                background: rgba(59,130,246,0.12);
+                color: var(--title);
+                font-size: 0.78rem;
+                font-weight: 800;
+            }
+
+            .player-team-card {
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 18px;
+                padding: 1rem 1.05rem;
+                min-height: 100%;
+            }
+
+            .player-team-head {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 0.8rem;
+                margin-bottom: 0.8rem;
+            }
+
+            .player-team-head strong {
+                display: block;
+                color: var(--title);
+                font-size: 1rem;
+                line-height: 1.3;
+            }
+
+            .player-team-head span {
+                display: block;
+                margin-top: 0.16rem;
+                color: var(--body);
+                font-size: 0.82rem;
+                line-height: 1.45;
+            }
+
+            .player-team-badge {
+                white-space: nowrap;
+                padding: 0.3rem 0.58rem;
+                border-radius: 999px;
+                background: rgba(255,255,255,0.04);
+                border: 1px solid rgba(255,255,255,0.08);
+                color: var(--title);
+                font-size: 0.76rem;
+                font-weight: 800;
+            }
+
+            .player-player-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 0.9rem;
+                padding: 0.8rem 0;
+                border-top: 1px solid rgba(255,255,255,0.06);
+            }
+
+            .player-player-row:first-of-type {
+                border-top: none;
+                padding-top: 0;
+            }
+
+            .player-row-main strong {
+                display: block;
+                color: var(--title);
+                font-size: 0.95rem;
+                line-height: 1.3;
+            }
+
+            .player-row-main span {
+                display: block;
+                margin-top: 0.18rem;
+                color: var(--body);
+                font-size: 0.8rem;
+                line-height: 1.45;
+            }
+
+            .player-row-prob {
+                min-width: 86px;
+                text-align: right;
+            }
+
+            .player-row-prob strong {
+                display: block;
+                color: var(--title);
+                font-size: 1rem;
+                line-height: 1.1;
+            }
+
+            .player-row-prob span {
+                display: block;
+                margin-top: 0.18rem;
+                color: var(--body);
+                font-size: 0.76rem;
+                font-weight: 700;
+            }
+
+            .player-empty {
+                color: var(--body);
+                font-size: 0.86rem;
+                line-height: 1.5;
+                padding-top: 0.2rem;
+            }
+
             .summary-band,
             .split-grid,
             .radar-grid,
@@ -2122,14 +2268,36 @@ def render_comparador_cuotas(filas: list[dict]) -> None:
         )
 
 
-def render_player_props_panel(api_ready: bool) -> None:
-    estado = "API lista para conectar" if api_ready else "Falta configurar token y mapping del fixture"
+def render_player_props_panel(payload: dict) -> None:
+    disponible = payload.get("available", False)
+    status = payload.get("status", "unavailable")
+    fixture = payload.get("fixture") or {}
+    provider = payload.get("provider", "Sportmonks")
+    estado = {
+        "ok": "Modelo activo",
+        "missing_token": "Falta configurar token",
+        "fixture_not_found": "No se pudo enlazar el fixture",
+        "no_fixtures": "No hay fixtures disponibles ese dia",
+        "no_logs": "Sin logs de jugador aprovechables",
+    }.get(status, "Integracion parcial")
+    fixture_meta = []
+    if fixture.get("fixture_id"):
+        fixture_meta.append(f"Fixture #{fixture['fixture_id']}")
+    if fixture.get("league_name"):
+        fixture_meta.append(fixture["league_name"])
+    if fixture.get("starting_at"):
+        fecha = pd.to_datetime(fixture["starting_at"], errors="coerce")
+        if pd.notna(fecha):
+            fixture_meta.append(fecha.strftime("%d/%m/%Y %H:%M"))
+    subtitulo = " | ".join(fixture_meta) if fixture_meta else "Esperando un enlace estable con el partido abierto"
     st.markdown(
         f"""
         <div class="player-api-card">
             <h3>Integracion de jugadores</h3>
-            <p>Fuente recomendada: Sportmonks Football API. Es la opcion que mejor encaja para remates, remates a puerta, faltas cometidas y faltas recibidas por jugador.</p>
-            <p>{estado}</p>
+            <p>Fuente: {provider}. El modelo usa el partido abierto para buscar su fixture real, recoger logs recientes y convertir volumen esperado en probabilidad por jugador.</p>
+            <p>{subtitulo}</p>
+            <div class="player-status-pill">{estado}</div>
+            <div class="player-model-note">Base del modelo: ultimos 6 partidos utiles por jugador, ajuste por aparicion, rol probable, minutos y una capa Poisson para transformar media esperada en probabilidad.</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -2161,16 +2329,67 @@ def render_player_props_panel(api_ready: bool) -> None:
         """,
         unsafe_allow_html=True,
     )
-    if not api_ready:
+    if not disponible:
         st.markdown(
-            """
+            f"""
             <div class="empty-panel">
                 <h3>Estado actual de la integracion</h3>
-                <p>La pestaña ya esta preparada a nivel de producto, pero falta conectar un proveedor externo con token y resolver el enlace entre nuestro partido y el fixture del proveedor.</p>
+                <p>{payload.get('message', 'La pestana ya esta preparada, pero todavia falta completar la integracion externa.')}</p>
             </div>
             """,
             unsafe_allow_html=True,
         )
+        return
+
+    for metric in payload.get("metrics", []):
+        st.markdown(
+            f"""
+            <div class="player-metric-shell">
+                <div class="player-metric-head">
+                    <h4>{metric['label']}</h4>
+                    <span>Linea sugerida {metric['line_label']}</span>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        cols = st.columns(2)
+        for col, team in zip(cols, metric.get("teams", [])):
+            jugadores = team.get("players", [])
+            if jugadores:
+                rows_html = "".join(
+                    f"""
+                    <div class="player-player-row">
+                        <div class="player-row-main">
+                            <strong>{jugador['player_name']}</strong>
+                            <span>{jugador['position']} | media {jugador['expected']:.2f} | hit {jugador['hit_rate'] * 100:.0f}% | {jugador['sample']}/{jugador['fixtures_sampled']} partidos</span>
+                        </div>
+                        <div class="player-row-prob">
+                            <strong>{jugador['probability'] * 100:.1f}%</strong>
+                            <span>{metric['line_label']} {metric['label'].lower()}</span>
+                        </div>
+                    </div>
+                    """
+                    for jugador in jugadores
+                )
+            else:
+                rows_html = '<div class="player-empty">Todavia no hay una muestra suficiente para este equipo en esta metrica.</div>'
+            with col:
+                st.markdown(
+                    f"""
+                    <div class="player-team-card">
+                        <div class="player-team-head">
+                            <div>
+                                <strong>{team['team_name']}</strong>
+                                <span>Muestra del modelo: {team['fixtures_sampled']} partidos del equipo</span>
+                            </div>
+                            <div class="player-team-badge">Top props</div>
+                        </div>
+                        {rows_html}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
 
 def render_fixture_cards(partidos: pd.DataFrame, fecha_objetivo, hoy) -> pd.Series | None:

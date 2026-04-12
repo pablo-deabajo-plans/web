@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
+from difflib import SequenceMatcher
 from html import unescape
 from zoneinfo import ZoneInfo
 
@@ -15,6 +17,14 @@ from data.teams import nombre_visual_equipo, normalizar_nombre, resolver_nombre_
 
 LOCAL_TIMEZONE = ZoneInfo("Europe/Madrid")
 HTTP_HEADERS = {"User-Agent": "Mozilla/5.0"}
+SPORTMONKS_BASE_URL = "https://api.sportmonks.com/v3/football"
+SPORTMONKS_PLAYER_STAT_TYPES = {
+    "shots_total": 42,
+    "fouls_committed": 56,
+    "shots_on_target": 86,
+    "fouls_drawn": 96,
+    "minutes_played": 119,
+}
 
 
 LEAGUE_CONFIGS = {
@@ -681,3 +691,369 @@ def construir_cuotas_automaticas(contexto_mercado: dict, local: str, visitante: 
             "source": "auto",
         }
     return cuotas
+
+
+def _sportmonks_token() -> str:
+    return os.getenv("SPORTMONKS_API_TOKEN", "").strip()
+
+
+def _sportmonks_parse_float(valor) -> float | None:
+    try:
+        return float(valor)
+    except (TypeError, ValueError):
+        return None
+
+
+def _sportmonks_parse_datetime(valor) -> datetime | None:
+    if isinstance(valor, dict):
+        for clave in ["date_time", "starting_at", "starting_at_timestamp", "date", "datetime"]:
+            candidato = valor.get(clave)
+            if candidato:
+                return _sportmonks_parse_datetime(candidato)
+        return None
+    if isinstance(valor, (int, float)):
+        try:
+            return datetime.fromtimestamp(valor, tz=ZoneInfo("UTC")).astimezone(LOCAL_TIMEZONE)
+        except (OSError, OverflowError, ValueError):
+            return None
+    if not valor:
+        return None
+    texto = str(valor).strip().replace("Z", "+00:00")
+    for candidato in [texto, texto.replace(" ", "T")]:
+        try:
+            fecha = datetime.fromisoformat(candidato)
+            if fecha.tzinfo is None:
+                fecha = fecha.replace(tzinfo=ZoneInfo("UTC"))
+            return fecha.astimezone(LOCAL_TIMEZONE)
+        except ValueError:
+            continue
+    return None
+
+
+def _sportmonks_request(path: str, params: dict | None = None) -> dict:
+    token = _sportmonks_token()
+    if not token:
+        return {}
+
+    query = {"api_token": token}
+    if params:
+        query.update({clave: valor for clave, valor in params.items() if valor not in {None, ""}})
+
+    try:
+        respuesta = requests.get(f"{SPORTMONKS_BASE_URL}{path}", params=query, headers=HTTP_HEADERS, timeout=25)
+        respuesta.raise_for_status()
+        return respuesta.json()
+    except Exception:
+        return {}
+
+
+def _sportmonks_paginated(path: str, params: dict | None = None, max_pages: int = 4) -> list[dict]:
+    resultados: list[dict] = []
+    pagina = 1
+    base_params = dict(params or {})
+    por_pagina = int(base_params.get("per_page", 50) or 50)
+
+    while pagina <= max_pages:
+        payload = _sportmonks_request(path, {**base_params, "page": pagina})
+        data = payload.get("data") or []
+        if isinstance(data, dict):
+            data = [data]
+        if not data:
+            break
+        resultados.extend(data)
+
+        paginacion = payload.get("pagination") or ((payload.get("meta") or {}).get("pagination")) or {}
+        pagina_actual = int(paginacion.get("current_page") or pagina)
+        ultima_pagina = int(paginacion.get("last_page") or pagina_actual)
+        if pagina_actual >= ultima_pagina or len(data) < por_pagina:
+            break
+        pagina += 1
+
+    return resultados
+
+
+def _sportmonks_participant_name(participant: dict) -> str:
+    return (
+        participant.get("name")
+        or participant.get("short_name")
+        or participant.get("display_name")
+        or participant.get("common_name")
+        or "Equipo"
+    )
+
+
+def _sportmonks_lineup_player_name(lineup: dict) -> str:
+    jugador = lineup.get("player") or lineup.get("participant") or {}
+    return (
+        jugador.get("display_name")
+        or jugador.get("common_name")
+        or jugador.get("name")
+        or lineup.get("player_name")
+        or "Jugador"
+    )
+
+
+def _sportmonks_position_name(lineup: dict) -> str:
+    posicion = lineup.get("detailedposition") or lineup.get("detailedPosition") or lineup.get("position") or {}
+    return posicion.get("name") or posicion.get("developer_name") or ""
+
+
+def _sportmonks_is_starter(lineup: dict) -> bool:
+    if lineup.get("formation_field") or lineup.get("formation_position"):
+        return True
+    tipo = normalizar_nombre(((lineup.get("type") or {}).get("name")) or lineup.get("type_name") or "")
+    return tipo in {"starting lineups", "starting lineup", "starting xi", "starter"}
+
+
+def _sportmonks_obtener_participantes(fixture: dict) -> tuple[dict | None, dict | None]:
+    participantes = fixture.get("participants") or []
+    if not participantes:
+        return None, None
+
+    local = None
+    visitante = None
+    for participante in participantes:
+        meta = participante.get("meta") or participante.get("pivot") or {}
+        ubicacion = normalizar_nombre(meta.get("location", ""))
+        if ubicacion in {"home", "local"}:
+            local = participante
+        elif ubicacion in {"away", "visitante"}:
+            visitante = participante
+
+    if local and visitante:
+        return local, visitante
+    if len(participantes) >= 2:
+        return participantes[0], participantes[1]
+    return participantes[0], None
+
+
+def _sportmonks_name_score(objetivo: str, candidato: str) -> float:
+    if not objetivo or not candidato:
+        return 0.0
+
+    objetivo_norm = normalizar_nombre(nombre_visual_equipo(objetivo))
+    candidato_norm = normalizar_nombre(nombre_visual_equipo(candidato))
+    if not objetivo_norm or not candidato_norm:
+        return 0.0
+    if objetivo_norm == candidato_norm:
+        return 1.0
+    if objetivo_norm in candidato_norm or candidato_norm in objetivo_norm:
+        return 0.92
+
+    ratio = SequenceMatcher(None, objetivo_norm, candidato_norm).ratio()
+    palabras_objetivo = {token for token in objetivo_norm.split() if len(token) >= 3}
+    palabras_candidato = {token for token in candidato_norm.split() if len(token) >= 3}
+    if palabras_objetivo and palabras_candidato:
+        solape = len(palabras_objetivo & palabras_candidato) / max(len(palabras_objetivo), len(palabras_candidato))
+        ratio = max(ratio, solape)
+    return ratio
+
+
+def _sportmonks_fixture_score(fixture: dict, nombres_local: list[str], nombres_visitante: list[str]) -> float:
+    local_participante, visitante_participante = _sportmonks_obtener_participantes(fixture)
+    nombre_local = _sportmonks_participant_name(local_participante or {})
+    nombre_visitante = _sportmonks_participant_name(visitante_participante or {})
+    score_local = max((_sportmonks_name_score(nombre, nombre_local) for nombre in nombres_local if nombre), default=0.0)
+    score_visitante = max(
+        (_sportmonks_name_score(nombre, nombre_visitante) for nombre in nombres_visitante if nombre),
+        default=0.0,
+    )
+    return score_local + score_visitante
+
+
+@st.cache_data(ttl=1200, show_spinner=False)
+def buscar_fixture_sportmonks(
+    match_date,
+    home_team: str,
+    away_team: str,
+    home_team_raw: str = "",
+    away_team_raw: str = "",
+) -> dict:
+    if not _sportmonks_token():
+        return {"status": "missing_token"}
+
+    fecha = match_date.strftime("%Y-%m-%d")
+    fixtures = _sportmonks_paginated(
+        f"/fixtures/date/{fecha}",
+        params={"include": "participants;league", "per_page": 100},
+        max_pages=2,
+    )
+    if not fixtures:
+        return {"status": "no_fixtures"}
+
+    nombres_local = [home_team_raw, home_team, nombre_visual_equipo(home_team)]
+    nombres_visitante = [away_team_raw, away_team, nombre_visual_equipo(away_team)]
+    candidatos = []
+    for fixture in fixtures:
+        score = _sportmonks_fixture_score(fixture, nombres_local, nombres_visitante)
+        if score < 1.25:
+            continue
+        candidatos.append((score, fixture))
+
+    if not candidatos:
+        return {"status": "fixture_not_found"}
+
+    candidatos.sort(key=lambda item: item[0], reverse=True)
+    fixture = candidatos[0][1]
+    participante_local, participante_visitante = _sportmonks_obtener_participantes(fixture)
+    fecha_fixture = _sportmonks_parse_datetime(fixture.get("starting_at"))
+    liga = fixture.get("league") or {}
+    return {
+        "status": "ok",
+        "fixture_id": fixture.get("id"),
+        "fixture_name": fixture.get("name") or f"{home_team} vs {away_team}",
+        "starting_at": fecha_fixture.isoformat() if fecha_fixture else "",
+        "league_name": liga.get("name") or "",
+        "home_team": {
+            "id": (participante_local or {}).get("id"),
+            "name": _sportmonks_participant_name(participante_local or {}),
+        },
+        "away_team": {
+            "id": (participante_visitante or {}).get("id"),
+            "name": _sportmonks_participant_name(participante_visitante or {}),
+        },
+    }
+
+
+def _sportmonks_detalles_a_mapa(lineup: dict) -> dict[int, float]:
+    valores: dict[int, float] = {}
+    for detalle in lineup.get("details") or []:
+        type_id = detalle.get("type_id") or ((detalle.get("type") or {}).get("id"))
+        valor = _sportmonks_parse_float(detalle.get("value"))
+        if type_id is None or valor is None:
+            continue
+        valores[int(type_id)] = valor
+    return valores
+
+
+def _sportmonks_extraer_logs_fixture(fixture: dict, team_id: int | str | None, team_name: str) -> list[dict]:
+    if not team_id:
+        return []
+
+    fecha_fixture = _sportmonks_parse_datetime(fixture.get("starting_at"))
+    participantes = fixture.get("participants") or []
+    rival = next((item for item in participantes if str(item.get("id")) != str(team_id)), {})
+    rival_nombre = _sportmonks_participant_name(rival)
+
+    logs = []
+    for lineup in fixture.get("lineups") or []:
+        if str(lineup.get("team_id")) != str(team_id):
+            continue
+        detalles = _sportmonks_detalles_a_mapa(lineup)
+        minutos = detalles.get(SPORTMONKS_PLAYER_STAT_TYPES["minutes_played"], 0.0)
+        stats = {
+            "shots_on_target": detalles.get(SPORTMONKS_PLAYER_STAT_TYPES["shots_on_target"], 0.0),
+            "shots_total": detalles.get(SPORTMONKS_PLAYER_STAT_TYPES["shots_total"], 0.0),
+            "fouls_committed": detalles.get(SPORTMONKS_PLAYER_STAT_TYPES["fouls_committed"], 0.0),
+            "fouls_drawn": detalles.get(SPORTMONKS_PLAYER_STAT_TYPES["fouls_drawn"], 0.0),
+        }
+        if minutos <= 0 and not any(stats.values()):
+            continue
+
+        jugador = lineup.get("player") or lineup.get("participant") or {}
+        logs.append(
+            {
+                "fixture_id": fixture.get("id"),
+                "fixture_name": fixture.get("name") or "",
+                "starting_at": fecha_fixture.isoformat() if fecha_fixture else "",
+                "team_id": team_id,
+                "team_name": team_name,
+                "opponent_name": rival_nombre,
+                "player_id": jugador.get("id") or lineup.get("player_id"),
+                "player_name": _sportmonks_lineup_player_name(lineup),
+                "position": _sportmonks_position_name(lineup),
+                "is_starter": _sportmonks_is_starter(lineup),
+                "minutes": minutos,
+                "stats": stats,
+            }
+        )
+    return logs
+
+
+@st.cache_data(ttl=1200, show_spinner=False)
+def obtener_logs_jugadores_sportmonks(
+    match_date,
+    home_team: str,
+    away_team: str,
+    home_team_raw: str = "",
+    away_team_raw: str = "",
+) -> dict:
+    if not _sportmonks_token():
+        return {
+            "available": False,
+            "status": "missing_token",
+            "message": "Configura SPORTMONKS_API_TOKEN para activar la capa de jugadores.",
+        }
+
+    fixture = buscar_fixture_sportmonks(match_date, home_team, away_team, home_team_raw, away_team_raw)
+    if fixture.get("status") != "ok":
+        return {
+            "available": False,
+            "status": fixture.get("status", "fixture_not_found"),
+            "message": "No he podido enlazar este partido con un fixture de Sportmonks.",
+            "fixture": fixture,
+        }
+
+    fecha_inicio = (match_date - timedelta(days=220)).strftime("%Y-%m-%d")
+    fecha_fin = (match_date - timedelta(days=1)).strftime("%Y-%m-%d")
+    include = "participants;lineups.details;lineups.player;lineups.detailedposition"
+    filtros = "lineupDetailTypes:42,56,86,96,119"
+
+    team_payloads = []
+    all_logs: list[dict] = []
+
+    for side in ["home_team", "away_team"]:
+        equipo = fixture.get(side) or {}
+        team_id = equipo.get("id")
+        team_name = equipo.get("name") or (home_team if side == "home_team" else away_team)
+        if not team_id:
+            team_payloads.append({"team_id": None, "team_name": team_name, "fixtures_sampled": 0, "logs": []})
+            continue
+
+        fixtures = _sportmonks_paginated(
+            f"/fixtures/between/{fecha_inicio}/{fecha_fin}/{team_id}",
+            params={"include": include, "filters": filtros, "per_page": 50},
+            max_pages=2,
+        )
+
+        fixtures_validos = []
+        team_logs: list[dict] = []
+        for item in fixtures:
+            if str(item.get("id")) == str(fixture.get("fixture_id")):
+                continue
+            logs_fixture = _sportmonks_extraer_logs_fixture(item, team_id, team_name)
+            if not logs_fixture:
+                continue
+            fixtures_validos.append(item.get("id"))
+            team_logs.extend(logs_fixture)
+            if len(fixtures_validos) >= 8:
+                break
+
+        team_payloads.append(
+            {
+                "team_id": team_id,
+                "team_name": team_name,
+                "fixtures_sampled": len(fixtures_validos),
+                "logs": team_logs,
+            }
+        )
+        all_logs.extend(team_logs)
+
+    if not all_logs:
+        return {
+            "available": False,
+            "status": "no_logs",
+            "message": "Sportmonks no ha devuelto logs de jugador utiles para este cruce.",
+            "fixture": fixture,
+            "teams": team_payloads,
+            "player_logs": [],
+        }
+
+    return {
+        "available": True,
+        "status": "ok",
+        "provider": "Sportmonks",
+        "fixture": fixture,
+        "teams": team_payloads,
+        "player_logs": all_logs,
+    }
