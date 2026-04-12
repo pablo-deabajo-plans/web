@@ -1192,7 +1192,8 @@ def inyectar_estilos() -> None:
             .league-card,
             .league-summary-card,
             .odds-panel,
-            .empty-panel {
+            .empty-panel,
+            .search-result-card {
                 background: rgba(17, 24, 39, 0.78);
                 border: 1px solid var(--border);
                 border-radius: 18px;
@@ -1329,6 +1330,37 @@ def inyectar_estilos() -> None:
             .empty-panel p {
                 margin: 0;
                 line-height: 1.55;
+            }
+
+            .search-results-shell {
+                margin: 0.35rem 0 1rem 0;
+            }
+
+            .search-result-card {
+                padding: 0.82rem 0.95rem;
+                min-height: 74px;
+                background: rgba(17, 24, 39, 0.9);
+                box-shadow: none;
+                margin-bottom: 0.55rem;
+            }
+
+            .search-result-card strong {
+                display: block;
+                color: var(--title);
+                font-size: 0.98rem;
+                line-height: 1.3;
+            }
+
+            .search-result-card span {
+                display: block;
+                margin-top: 0.16rem;
+                color: var(--body);
+                font-size: 0.84rem;
+                line-height: 1.45;
+            }
+
+            .search-result-meta {
+                text-align: center;
             }
 
             .summary-band,

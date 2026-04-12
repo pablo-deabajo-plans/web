@@ -32,6 +32,7 @@ from storage.favorites import (
     eliminar_favorito,
     vaciar_favoritos,
 )
+from data.teams import nombre_visual_equipo
 from ui.components import (
     inyectar_estilos,
     render_comparador_cuotas,
@@ -139,6 +140,55 @@ def construir_portada_ligas(fecha_objetivo, hoy) -> list[dict]:
     return sorted(filas, key=lambda item: (-item["match_count"], item["league"]))
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def buscar_partidos_global(fecha_objetivo, hoy, query: str) -> list[dict]:
+    termino = query.strip().lower()
+    if not termino:
+        return []
+
+    resultados = []
+    for liga in LEAGUE_CONFIGS:
+        config = LEAGUE_CONFIGS.get(liga, {})
+        history = config.get("history", {})
+        source_type = history.get("type", "")
+        league_id = ESPN_LEAGUE_IDS.get(liga, "")
+
+        df = descargar_datos_liga(liga) if source_type in {"football_data", "footystats_fixtures"} else None
+        calendario_csv = preparar_calendario(df) if df is not None else pd.DataFrame()
+        equipos_csv = sorted(df["HomeTeam"].dropna().unique()) if df is not None and "HomeTeam" in df.columns else []
+        partidos_csv = calendario_csv[calendario_csv["MatchDate"] == fecha_objetivo].copy() if not calendario_csv.empty else pd.DataFrame()
+
+        partidos_espn = pd.DataFrame()
+        if league_id and (source_type == "espn_scoreboard" or fecha_objetivo >= hoy or partidos_csv.empty):
+            partidos_espn = descargar_fixture_espn(league_id, fecha_objetivo)
+
+        base_csv = partidos_csv if source_type != "espn_scoreboard" else pd.DataFrame()
+        partidos = fusionar_calendarios(base_csv, partidos_espn, equipos_csv)
+        if partidos.empty:
+            continue
+
+        if "EventId" not in partidos.columns:
+            partidos["EventId"] = ""
+
+        for partido in partidos.to_dict("records"):
+            local = nombre_visual_equipo(partido.get("HomeTeam", "TBD"))
+            visitante = nombre_visual_equipo(partido.get("AwayTeam", "TBD"))
+            match_text = f"{local} vs {visitante}".lower()
+            if termino not in match_text and termino not in local.lower() and termino not in visitante.lower():
+                continue
+            resultados.append(
+                {
+                    "league": liga,
+                    "country": LEAGUE_COUNTRIES.get(liga, "Internacional"),
+                    "match": f"{local} vs {visitante}",
+                    "time": str(partido.get("Time", "")).strip(),
+                    "fixture_label": partido.get("FixtureLabel", ""),
+                    "event_id": partido.get("EventId", ""),
+                }
+            )
+    return resultados
+
+
 def limpiar_contexto_partido() -> None:
     for key in ["fixture_label", "analysis", "analysis_signature", "selected_h2h_match"]:
         st.session_state[key] = None
@@ -151,6 +201,8 @@ for key, default in {
     "analysis_signature": None,
     "solo_hoy_toggle": True,
     "selected_league": None,
+    "match_search": "",
+    "search_results": [],
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -160,7 +212,6 @@ st.markdown(
     <div class="titlebar">
         <div class="titlebar-copy">
             <h1>Gordon BetScanner</h1>
-            <p>Scanner de partidos, value bets y lectura prepartido con una entrada por ligas mas flexible.</p>
         </div>
     </div>
     """,
@@ -169,13 +220,74 @@ st.markdown(
 
 hoy = datetime.now(LOCAL_TIMEZONE).date()
 liga_activa = st.session_state.get("selected_league")
-filtros_toggle, filtros_fecha = st.columns([0.9, 1.05])
+filtros_toggle, filtros_fecha, filtros_busqueda, filtros_lupa = st.columns([0.8, 1.05, 1.3, 0.18])
 with filtros_toggle:
     solo_hoy = st.toggle("Partidos de hoy", key="solo_hoy_toggle")
 with filtros_fecha:
     fecha_partido = st.date_input("Fecha", value=hoy, disabled=solo_hoy)
+with filtros_busqueda:
+    busqueda_partido = st.text_input("Buscar partido", key="match_search", placeholder="Equipo o partido")
+with filtros_lupa:
+    buscar_click = st.button("🔍", key="match_search_button", use_container_width=True)
 
 fecha_objetivo = hoy if solo_hoy else fecha_partido
+if buscar_click:
+    st.session_state["search_results"] = buscar_partidos_global(fecha_objetivo, hoy, busqueda_partido)
+
+resultados_busqueda = st.session_state.get("search_results", [])
+if busqueda_partido.strip():
+    resultados_busqueda = buscar_partidos_global(fecha_objetivo, hoy, busqueda_partido)
+    st.session_state["search_results"] = resultados_busqueda
+else:
+    resultados_busqueda = []
+    st.session_state["search_results"] = []
+
+if resultados_busqueda:
+    st.markdown('<div class="search-results-shell">', unsafe_allow_html=True)
+    st.markdown(f'<div class="section-title">Resultados de busqueda</div>', unsafe_allow_html=True)
+    for resultado in resultados_busqueda[:8]:
+        cols = st.columns([3.1, 1.2, 0.9])
+        with cols[0]:
+            hora_label = resultado["time"] if resultado["time"] else "Sin hora"
+            st.markdown(
+                f"""
+                <div class="search-result-card">
+                    <strong>{resultado['match']}</strong>
+                    <span>{resultado['league']} | {resultado['country']} | {hora_label}</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with cols[1]:
+            st.markdown(
+                f"""
+                <div class="search-result-card search-result-meta">
+                    <strong>{resultado['league']}</strong>
+                    <span>{resultado['country']}</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with cols[2]:
+            if st.button("Abrir", key=f"search_open_{safe_key(resultado['league'])}_{safe_key(resultado['fixture_label'])}", use_container_width=True):
+                st.session_state["selected_league"] = resultado["league"]
+                st.session_state["fixture_label"] = resultado["fixture_label"]
+                st.session_state["match_search"] = resultado["match"]
+                st.session_state["search_results"] = resultados_busqueda
+                st.session_state["analysis"] = None
+                st.session_state["analysis_signature"] = None
+                st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
+elif busqueda_partido.strip():
+    st.markdown(
+        """
+        <div class="empty-panel">
+            <h3>No he encontrado partidos con esa busqueda</h3>
+            <p>Prueba con el nombre de un equipo o una parte del cruce en la fecha seleccionada.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 if not liga_activa:
     with st.spinner("Cargando panorama de ligas..."):
