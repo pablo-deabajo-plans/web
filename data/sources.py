@@ -22,6 +22,30 @@ LEAGUE_CONFIGS = {
         "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/E0.csv"},
         "espn_id": "eng.1",
     },
+    "League One": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/E2.csv"},
+        "espn_id": "eng.3",
+    },
+    "League Two": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/E3.csv"},
+        "espn_id": "eng.4",
+    },
+    "Escocia Premiership": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SC0.csv"},
+        "espn_id": "sco.1",
+    },
+    "Escocia Championship": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SC1.csv"},
+        "espn_id": "sco.2",
+    },
+    "Escocia League One": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SC2.csv"},
+        "espn_id": "sco.3",
+    },
+    "Escocia League Two": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SC3.csv"},
+        "espn_id": "sco.4",
+    },
     "LaLiga": {
         "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SP1.csv"},
         "espn_id": "esp.1",
@@ -34,6 +58,10 @@ LEAGUE_CONFIGS = {
         "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/I1.csv"},
         "espn_id": "ita.1",
     },
+    "Serie B": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/I2.csv"},
+        "espn_id": "ita.2",
+    },
     "Bundesliga": {
         "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/D1.csv"},
         "espn_id": "ger.1",
@@ -42,13 +70,25 @@ LEAGUE_CONFIGS = {
         "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/F1.csv"},
         "espn_id": "fra.1",
     },
+    "Ligue 2": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/F2.csv"},
+        "espn_id": "fra.2",
+    },
     "Holanda": {
         "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/N1.csv"},
         "espn_id": "ned.1",
     },
+    "Belgica": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/B1.csv"},
+        "espn_id": "bel.1",
+    },
     "Liga de Portugal": {
         "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/P1.csv"},
         "espn_id": "por.1",
+    },
+    "Grecia": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/G1.csv"},
+        "espn_id": "gre.1",
     },
     "Champions League": {
         "history": {"type": "espn_scoreboard", "league_id": "uefa.champions", "season": "european"},
@@ -67,11 +107,11 @@ LEAGUE_CONFIGS = {
         "espn_id": "esp.copa_del_rey",
     },
     "Turquia": {
-        "history": {"type": "espn_scoreboard", "league_id": "tur.1", "season": "european"},
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/T1.csv"},
         "espn_id": "tur.1",
     },
     "Segunda Inglesa": {
-        "history": {"type": "espn_scoreboard", "league_id": "eng.2", "season": "european"},
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/E1.csv"},
         "espn_id": "eng.2",
     },
     "Arabia Saudi": {
@@ -87,7 +127,7 @@ LEAGUE_CONFIGS = {
         "espn_id": "fifa.friendly",
     },
     "Segunda Alemana": {
-        "history": {"type": "espn_scoreboard", "league_id": "ger.2", "season": "european"},
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/D2.csv"},
         "espn_id": "ger.2",
     },
     "Chile": {
@@ -126,13 +166,23 @@ LEAGUE_CONFIGS = {
 
 LEAGUE_COUNTRIES = {
     "Premier League": "Inglaterra",
+    "League One": "Inglaterra",
+    "League Two": "Inglaterra",
+    "Escocia Premiership": "Escocia",
+    "Escocia Championship": "Escocia",
+    "Escocia League One": "Escocia",
+    "Escocia League Two": "Escocia",
     "LaLiga": "Espana",
     "Segunda Division": "Espana",
     "Serie A": "Italia",
+    "Serie B": "Italia",
     "Bundesliga": "Alemania",
     "Ligue 1": "Francia",
+    "Ligue 2": "Francia",
     "Holanda": "Paises Bajos",
+    "Belgica": "Belgica",
     "Liga de Portugal": "Portugal",
+    "Grecia": "Grecia",
     "Champions League": "Europa",
     "Europa League": "Europa",
     "Conference League": "Europa",
