@@ -95,6 +95,45 @@ LEAGUE_COUNTRIES = {
     "Serie A Femenina": "Italia",
 }
 
+COMPETITION_TYPES = {
+    "Premier League": "Liga",
+    "League One": "Liga",
+    "League Two": "Liga",
+    "Escocia Premiership": "Liga",
+    "Escocia Championship": "Liga",
+    "Escocia League One": "Liga",
+    "Escocia League Two": "Liga",
+    "LaLiga": "Liga",
+    "Segunda Division": "Liga",
+    "Serie A": "Liga",
+    "Serie B": "Liga",
+    "Bundesliga": "Liga",
+    "Ligue 1": "Liga",
+    "Ligue 2": "Liga",
+    "Holanda": "Liga",
+    "Belgica": "Liga",
+    "Liga de Portugal": "Liga",
+    "Grecia": "Liga",
+    "Turquia": "Liga",
+    "Segunda Inglesa": "Liga",
+    "Arabia Saudi": "Liga",
+    "Australia": "Liga",
+    "Segunda Alemana": "Liga",
+    "Chile": "Liga",
+    "MLS": "Liga",
+    "Brasil": "Liga",
+    "WSL Femenina": "Liga",
+    "Liga F": "Liga",
+    "Premiere Ligue Femenina": "Liga",
+    "Frauen-Bundesliga": "Liga",
+    "Serie A Femenina": "Liga",
+    "Champions League": "Torneo",
+    "Europa League": "Torneo",
+    "Conference League": "Torneo",
+    "Copa del Rey": "Torneo",
+    "Internacionales": "Torneo",
+}
+
 
 @st.cache_data(ttl=300, show_spinner=False)
 def construir_ranking_liga(df: pd.DataFrame, liga: str, league_id: str, partidos_serializados: list[dict]) -> list[dict]:
@@ -211,6 +250,7 @@ for key, default in {
     "analysis_signature": None,
     "solo_hoy_toggle": True,
     "selected_league": None,
+    "competition_view": "Ligas",
     "match_search": "",
     "search_results": [],
 }.items():
@@ -302,7 +342,18 @@ elif busqueda_partido.strip():
 if not liga_activa:
     with st.spinner("Cargando panorama de ligas..."):
         portada_ligas = construir_portada_ligas(fecha_objetivo, hoy)
-    liga_elegida = render_league_hub(portada_ligas, fecha_objetivo, hoy)
+    tipo_competicion = st.radio(
+        "Tipo de competicion",
+        ["Ligas", "Torneos"],
+        key="competition_view",
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+    competiciones_filtradas = [
+        item for item in portada_ligas
+        if COMPETITION_TYPES.get(item["league"], "Liga") == ("Liga" if tipo_competicion == "Ligas" else "Torneo")
+    ]
+    liga_elegida = render_league_hub(competiciones_filtradas, fecha_objetivo, hoy)
     if liga_elegida:
         st.session_state["selected_league"] = liga_elegida
         limpiar_contexto_partido()

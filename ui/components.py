@@ -1722,6 +1722,33 @@ def inyectar_estilos() -> None:
                 color: var(--title);
             }
 
+            div[data-testid="stRadio"] > div {
+                gap: 0.55rem;
+            }
+
+            div[data-testid="stRadio"] label {
+                background: rgba(17, 24, 39, 0.86);
+                border: 1px solid var(--border);
+                border-radius: 999px;
+                padding: 0.55rem 0.95rem;
+                min-height: auto;
+            }
+
+            div[data-testid="stRadio"] label p {
+                color: var(--body);
+                font-weight: 700;
+                margin: 0;
+            }
+
+            div[data-testid="stRadio"] label:has(input:checked) {
+                background: rgba(59,130,246,0.18);
+                border-color: var(--blue);
+            }
+
+            div[data-testid="stRadio"] label:has(input:checked) p {
+                color: var(--title);
+            }
+
             div[data-baseweb="select"] > div,
             div[data-testid="stDateInput"] input,
             div[data-testid="stNumberInput"] input {
