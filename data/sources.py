@@ -124,6 +124,35 @@ LEAGUE_CONFIGS = {
     },
 }
 
+LEAGUE_COUNTRIES = {
+    "Premier League": "Inglaterra",
+    "LaLiga": "Espana",
+    "Segunda Division": "Espana",
+    "Serie A": "Italia",
+    "Bundesliga": "Alemania",
+    "Ligue 1": "Francia",
+    "Holanda": "Paises Bajos",
+    "Liga de Portugal": "Portugal",
+    "Champions League": "Europa",
+    "Europa League": "Europa",
+    "Conference League": "Europa",
+    "Copa del Rey": "Espana",
+    "Turquia": "Turquia",
+    "Segunda Inglesa": "Inglaterra",
+    "Arabia Saudi": "Arabia Saudi",
+    "Australia": "Australia",
+    "Internacionales": "Internacional",
+    "Segunda Alemana": "Alemania",
+    "Chile": "Chile",
+    "MLS": "Estados Unidos",
+    "Brasil": "Brasil",
+    "WSL Femenina": "Inglaterra",
+    "Liga F": "Espana",
+    "Premiere Ligue Femenina": "Francia",
+    "Frauen-Bundesliga": "Alemania",
+    "Serie A Femenina": "Italia",
+}
+
 URLS_LIGAS = {
     liga: config["history"].get("url", config["history"].get("league_id", ""))
     for liga, config in LEAGUE_CONFIGS.items()

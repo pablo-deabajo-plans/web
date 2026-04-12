@@ -1175,10 +1175,160 @@ def inyectar_estilos() -> None:
                 letter-spacing: -0.04em;
             }
 
+            .titlebar-copy p {
+                margin: 0.35rem 0 0 0;
+                color: var(--subtitle);
+                font-size: 0.98rem;
+                line-height: 1.45;
+            }
+
             .layout-divider {
                 height: 1px;
                 background: linear-gradient(90deg, transparent, rgba(55,65,81,0.85), transparent);
                 margin: 0.25rem 0 1rem 0;
+            }
+
+            .toolbar-shell,
+            .league-card,
+            .league-summary-card,
+            .odds-panel,
+            .empty-panel {
+                background: rgba(17, 24, 39, 0.78);
+                border: 1px solid var(--border);
+                border-radius: 18px;
+                box-shadow: 0 18px 44px rgba(0, 0, 0, 0.18);
+            }
+
+            .toolbar-shell {
+                padding: 1rem 1.1rem;
+                margin-bottom: 0.85rem;
+                background: linear-gradient(135deg, rgba(17,24,39,0.96), rgba(31,41,55,0.88));
+            }
+
+            .toolbar-kicker,
+            .league-card-country,
+            .league-card-foot,
+            .odds-note,
+            .odds-summary-card span,
+            .empty-panel p {
+                color: var(--body);
+                font-size: 0.88rem;
+            }
+
+            .toolbar-kicker,
+            .league-card-country {
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                font-weight: 800;
+            }
+
+            .toolbar-title,
+            .league-card-title,
+            .odds-market,
+            .empty-panel h3 {
+                color: var(--title);
+                font-weight: 900;
+            }
+
+            .toolbar-title {
+                margin-top: 0.2rem;
+                font-size: 1.45rem;
+                line-height: 1.1;
+            }
+
+            .toolbar-meta {
+                margin-top: 0.35rem;
+                color: var(--subtitle);
+                font-size: 0.95rem;
+            }
+
+            .league-summary-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 0.75rem;
+                margin: 0 0 1rem 0;
+            }
+
+            .league-summary-card {
+                padding: 0.95rem 1rem;
+            }
+
+            .league-summary-card strong {
+                display: block;
+                color: var(--title);
+                font-size: 1.65rem;
+                line-height: 1;
+                margin-top: 0.3rem;
+            }
+
+            .league-card {
+                padding: 1rem 1.05rem;
+                min-height: 196px;
+                background: linear-gradient(180deg, rgba(31,41,55,0.92), rgba(17,24,39,0.92));
+            }
+
+            .league-card-top {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+
+            .league-card-title {
+                font-size: 1.1rem;
+                line-height: 1.2;
+            }
+
+            .league-rank-pill {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 68px;
+                padding: 0.28rem 0.6rem;
+                border-radius: 999px;
+                border: 1px solid rgba(59,130,246,0.28);
+                background: rgba(59,130,246,0.12);
+                color: var(--title);
+                font-size: 0.74rem;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+            }
+
+            .league-card-count {
+                margin-top: 1.2rem;
+                color: var(--title);
+                font-size: 2.6rem;
+                font-weight: 900;
+                line-height: 1;
+            }
+
+            .league-card-count-label {
+                margin-top: 0.3rem;
+                color: var(--subtitle);
+                font-size: 0.94rem;
+                font-weight: 700;
+            }
+
+            .league-card-foot {
+                margin-top: 1rem;
+                padding-top: 0.8rem;
+                border-top: 1px solid rgba(55, 65, 81, 0.9);
+                line-height: 1.45;
+            }
+
+            .empty-panel {
+                padding: 1.15rem;
+            }
+
+            .empty-panel h3 {
+                margin: 0 0 0.35rem 0;
+                font-size: 1.2rem;
+            }
+
+            .empty-panel p {
+                margin: 0;
+                line-height: 1.55;
             }
 
             .summary-band,
@@ -1359,6 +1509,156 @@ def inyectar_estilos() -> None:
                 align-items: center;
             }
 
+            .odds-panel {
+                padding: 1rem;
+                margin-top: 0.35rem;
+                background: linear-gradient(180deg, rgba(31,41,55,0.92), rgba(17,24,39,0.94));
+            }
+
+            .odds-panel-head {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 1rem;
+                margin-bottom: 0.85rem;
+            }
+
+            .odds-panel-head h3 {
+                margin: 0;
+                color: var(--title);
+                font-size: 1.1rem;
+            }
+
+            .odds-panel-head p {
+                margin: 0.25rem 0 0 0;
+                color: var(--body);
+                font-size: 0.9rem;
+            }
+
+            .odds-overview {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 0.7rem;
+                margin-bottom: 0.95rem;
+            }
+
+            .odds-summary-card {
+                padding: 0.85rem 0.9rem;
+                border-radius: 16px;
+                border: 1px solid rgba(55, 65, 81, 0.95);
+                background: rgba(17, 24, 39, 0.78);
+            }
+
+            .odds-summary-card strong {
+                display: block;
+                color: var(--title);
+                font-size: 1.25rem;
+                line-height: 1.15;
+                margin-top: 0.18rem;
+            }
+
+            .odds-list {
+                display: grid;
+                gap: 0.75rem;
+            }
+
+            .odds-row {
+                display: block;
+                padding: 1rem;
+                border-radius: 18px;
+                border: 1px solid rgba(55, 65, 81, 0.95);
+                background: rgba(17, 24, 39, 0.82);
+            }
+
+            .odds-row.value {
+                border-color: rgba(34, 197, 94, 0.55);
+                background: linear-gradient(135deg, rgba(34,197,94,0.14), rgba(17,24,39,0.92));
+            }
+
+            .odds-row.flat {
+                border-color: rgba(59,130,246,0.5);
+                background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(17,24,39,0.92));
+            }
+
+            .odds-row.bad {
+                border-color: rgba(239,68,68,0.45);
+                background: linear-gradient(135deg, rgba(239,68,68,0.10), rgba(17,24,39,0.92));
+            }
+
+            .odds-row-top {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 0.85rem;
+            }
+
+            .odds-market {
+                font-size: 1rem;
+                line-height: 1.2;
+            }
+
+            .odds-note {
+                margin-top: 0.3rem;
+                line-height: 1.45;
+            }
+
+            .odds-badge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 92px;
+                padding: 0.42rem 0.72rem;
+                border-radius: 999px;
+                font-size: 0.86rem;
+                font-weight: 900;
+                line-height: 1;
+                color: var(--title);
+            }
+
+            .odds-badge.value {
+                background: rgba(34,197,94,0.18);
+                border: 1px solid rgba(34,197,94,0.42);
+            }
+
+            .odds-badge.flat {
+                background: rgba(59,130,246,0.18);
+                border: 1px solid rgba(59,130,246,0.42);
+            }
+
+            .odds-badge.bad {
+                background: rgba(239,68,68,0.18);
+                border: 1px solid rgba(239,68,68,0.38);
+            }
+
+            .odds-metrics {
+                display: grid;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 0.6rem;
+                margin-top: 0.9rem;
+            }
+
+            .odds-metric {
+                padding: 0.75rem 0.8rem;
+                border-radius: 14px;
+                border: 1px solid rgba(55, 65, 81, 0.85);
+                background: rgba(31, 41, 55, 0.74);
+            }
+
+            .odds-metric span {
+                display: block;
+                color: var(--body);
+                font-size: 0.76rem;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+            }
+
+            .odds-metric strong {
+                display: block;
+                color: var(--title);
+                font-size: 1rem;
+                margin-top: 0.18rem;
+            }
+
             .ranking-subhead {
                 display: grid;
                 grid-template-columns: 1.8fr 0.8fr 0.8fr 0.8fr;
@@ -1425,6 +1725,7 @@ def inyectar_estilos() -> None:
             @media (max-width: 1100px) {
                 .summary-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
                 .ranking-top3 { grid-template-columns: 1fr; }
+                .odds-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             }
 
             @media (max-width: 780px) {
@@ -1439,11 +1740,15 @@ def inyectar_estilos() -> None:
                 .h2h-detail-head,
                 .form-head,
                 .fixture-meta,
-                .ranking-head {
+                .ranking-head,
+                .odds-panel-head,
+                .odds-row-top,
+                .league-card-top {
                     flex-direction: column;
                     align-items: flex-start;
                 }
                 .ranking-subhead { display: none; }
+                .odds-metrics { grid-template-columns: 1fr; }
             }
         </style>
         """,
@@ -1570,34 +1875,138 @@ def render_insight_panel(insights: list[str]) -> None:
     )
 
 
-def render_comparador_cuotas(filas: list[dict]) -> None:
+def render_league_hub(league_rows: list[dict], fecha_objetivo, hoy) -> str | None:
+    fecha_label = "hoy" if fecha_objetivo == hoy else fecha_objetivo.strftime("%d/%m/%Y")
+    total_partidos = sum(item["match_count"] for item in league_rows)
+    ligas_activas = sum(1 for item in league_rows if item["match_count"] > 0)
+
     st.markdown(
-        """
-        <div class="odds-head">
-            <div>Mercado</div>
-            <div>Prob IA</div>
-            <div>Justa</div>
-            <div>Casa</div>
-            <div>Edge</div>
+        f"""
+        <div class="toolbar-shell">
+            <div class="toolbar-kicker">Explorador de ligas</div>
+            <div class="toolbar-title">Empieza por la liga que mas movimiento tiene</div>
+            <div class="toolbar-meta">Vista de {fecha_label} con todas las competiciones ordenadas por numero de partidos.</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    for fila in filas:
+    st.markdown(
+        f"""
+        <div class="league-summary-grid">
+            <div class="league-summary-card">
+                <span>Partidos en la fecha</span>
+                <strong>{total_partidos}</strong>
+            </div>
+            <div class="league-summary-card">
+                <span>Ligas con actividad</span>
+                <strong>{ligas_activas}</strong>
+            </div>
+            <div class="league-summary-card">
+                <span>Competiciones visibles</span>
+                <strong>{len(league_rows)}</strong>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    for inicio in range(0, len(league_rows), 3):
+        bloque = league_rows[inicio : inicio + 3]
+        cols = st.columns(len(bloque))
+        for indice, (col, item) in enumerate(zip(cols, bloque), start=inicio + 1):
+            etiqueta = "Mas activa" if indice == 1 and item["match_count"] > 0 else f"Top {indice}"
+            partido_label = "partidos" if item["match_count"] != 1 else "partido"
+            estado = "Lista para explorar el dia" if item["match_count"] > 0 else "Sin cruces cargados en esta fecha"
+            with col:
+                st.markdown(
+                    f"""
+                    <div class="league-card">
+                        <div class="league-card-top">
+                            <div>
+                                <div class="league-card-country">{item['country']}</div>
+                                <div class="league-card-title">{item['league']}</div>
+                            </div>
+                            <div class="league-rank-pill">{etiqueta}</div>
+                        </div>
+                        <div class="league-card-count">{item['match_count']}</div>
+                        <div class="league-card-count-label">{partido_label} en la fecha</div>
+                        <div class="league-card-foot">{estado}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                if st.button(
+                    "Ver liga" if item["match_count"] > 0 else "Abrir liga",
+                    key=f"league_hub_{safe_key(item['league'])}",
+                    use_container_width=True,
+                ):
+                    return item["league"]
+    return None
+
+
+def render_comparador_cuotas(filas: list[dict]) -> None:
+    if not filas:
+        return
+
+    filas_ordenadas = sorted(filas, key=lambda item: item["edge"], reverse=True)
+    positivos = [fila for fila in filas_ordenadas if fila["edge"] > 0]
+    mejor = filas_ordenadas[0]
+
+    st.markdown(
+        f"""
+        <div class="odds-panel">
+            <div class="odds-panel-head">
+                <div>
+                    <h3>Lectura rapida del mercado</h3>
+                    <p>La tabla prioriza edge, break-even y diferencia real entre la cuota justa y la oferta de la casa.</p>
+                </div>
+            </div>
+            <div class="odds-overview">
+                <div class="odds-summary-card">
+                    <span>Value bets detectadas</span>
+                    <strong>{len(positivos)}</strong>
+                </div>
+                <div class="odds-summary-card">
+                    <span>Mejor edge</span>
+                    <strong>{mejor['edge'] * 100:+.2f}%</strong>
+                </div>
+                <div class="odds-summary-card">
+                    <span>Mercado lider</span>
+                    <strong>{mejor['market']}</strong>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    for fila in filas_ordenadas:
         if fila["edge"] > 0:
             clase = "value"
+            lectura = "La cuota ofrecida esta por encima del break-even del modelo."
         elif fila["offered_odds"] >= fila["fair_odds"]:
             clase = "flat"
+            lectura = "Mercado practicamente alineado con la cuota justa."
         else:
             clase = "bad"
+            lectura = "La casa paga por debajo de la cuota justa del modelo."
+
         st.markdown(
             f"""
             <div class="odds-row {clase}">
-                <div><strong>{fila['market']}</strong></div>
-                <div>{fila['prob'] * 100:.1f}%</div>
-                <div>@{fila['fair_odds']:.2f}</div>
-                <div>@{fila['offered_odds']:.2f}</div>
-                <div>{fila['edge'] * 100:.2f}%</div>
+                <div class="odds-row-top">
+                    <div>
+                        <div class="odds-market">{fila['market']}</div>
+                        <div class="odds-note">{lectura}</div>
+                    </div>
+                    <div class="odds-badge {clase}">{fila['edge'] * 100:+.2f}%</div>
+                </div>
+                <div class="odds-metrics">
+                    <div class="odds-metric"><span>Prob IA</span><strong>{fila['prob'] * 100:.1f}%</strong></div>
+                    <div class="odds-metric"><span>Cuota justa</span><strong>@{fila['fair_odds']:.2f}</strong></div>
+                    <div class="odds-metric"><span>Cuota casa</span><strong>@{fila['offered_odds']:.2f}</strong></div>
+                    <div class="odds-metric"><span>Diferencia</span><strong>{fila['offered_odds'] - fila['fair_odds']:+.2f}</strong></div>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,

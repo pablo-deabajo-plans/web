@@ -17,6 +17,7 @@ from core.model import (
 from data.sources import (
     ESPN_LEAGUE_IDS,
     LEAGUE_CONFIGS,
+    LEAGUE_COUNTRIES,
     LOCAL_TIMEZONE,
     construir_cuotas_automaticas,
     descargar_datos_liga,
@@ -41,6 +42,7 @@ from ui.components import (
     render_h2h_explorer,
     render_h2h_summary_card,
     render_insight_panel,
+    render_league_hub,
     render_radar_panel,
     render_ranking_value_panel,
     render_signal_card,
@@ -77,13 +79,49 @@ def construir_ranking_liga(df: pd.DataFrame, liga: str, league_id: str, partidos
     return construir_ranking_value_bets(items, limite=10)
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def resumir_liga_para_portada(liga: str, fecha_objetivo, hoy) -> dict:
+    config = LEAGUE_CONFIGS.get(liga, {})
+    history = config.get("history", {})
+    source_type = history.get("type", "")
+    league_id = ESPN_LEAGUE_IDS.get(liga, "")
+
+    df = descargar_datos_liga(liga) if source_type in {"football_data", "footystats_fixtures"} else None
+    calendario_csv = preparar_calendario(df) if df is not None else pd.DataFrame()
+    equipos_csv = sorted(df["HomeTeam"].dropna().unique()) if df is not None and "HomeTeam" in df.columns else []
+    partidos_csv = calendario_csv[calendario_csv["MatchDate"] == fecha_objetivo].copy() if not calendario_csv.empty else pd.DataFrame()
+
+    partidos_espn = pd.DataFrame()
+    if league_id and (source_type == "espn_scoreboard" or fecha_objetivo >= hoy or partidos_csv.empty):
+        partidos_espn = descargar_fixture_espn(league_id, fecha_objetivo)
+
+    base_csv = partidos_csv if source_type != "espn_scoreboard" else pd.DataFrame()
+    partidos = fusionar_calendarios(base_csv, partidos_espn, equipos_csv)
+    return {
+        "league": liga,
+        "country": LEAGUE_COUNTRIES.get(liga, "Internacional"),
+        "match_count": len(partidos),
+    }
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def construir_portada_ligas(fecha_objetivo, hoy) -> list[dict]:
+    filas = [resumir_liga_para_portada(liga, fecha_objetivo, hoy) for liga in LEAGUE_CONFIGS]
+    return sorted(filas, key=lambda item: (-item["match_count"], item["league"]))
+
+
+def limpiar_contexto_partido() -> None:
+    for key in ["fixture_label", "analysis", "analysis_signature", "selected_h2h_match"]:
+        st.session_state[key] = None
+
+
 inyectar_estilos()
 
 for key, default in {
     "analysis": None,
     "analysis_signature": None,
     "solo_hoy_toggle": True,
-    "last_league": None,
+    "selected_league": None,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -93,56 +131,98 @@ st.markdown(
     <div class="titlebar">
         <div class="titlebar-copy">
             <h1>Gordon BetScanner</h1>
+            <p>Scanner de partidos, value bets y lectura prepartido con una entrada por ligas mas flexible.</p>
         </div>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-top_1, top_2, top_3, top_4 = st.columns([1.25, 0.9, 1.05, 0.6])
-with top_1:
-    liga_seleccionada = st.selectbox("Liga", list(LEAGUE_CONFIGS.keys()))
+hoy = datetime.now(LOCAL_TIMEZONE).date()
+liga_activa = st.session_state.get("selected_league")
+filtros_left, filtros_toggle, filtros_fecha = st.columns([1.4, 0.9, 1.05])
+with filtros_left:
+    if not liga_activa:
+        st.markdown(
+            """
+            <div class="toolbar-shell">
+                <div class="toolbar-kicker">Vista global</div>
+                <div class="toolbar-title">Primero eliges la liga, luego entras al partido</div>
+                <div class="toolbar-meta">Puedes explorar por volumen del dia en vez de arrancar siempre desde una competicion fija.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+with filtros_toggle:
+    solo_hoy = st.toggle("Partidos de hoy", key="solo_hoy_toggle")
+with filtros_fecha:
+    fecha_partido = st.date_input("Fecha", value=hoy, disabled=solo_hoy)
 
-if st.session_state.get("last_league") != liga_seleccionada:
-    st.session_state["solo_hoy_toggle"] = True
-    st.session_state["fixture_label"] = None
-    st.session_state["last_league"] = liga_seleccionada
+fecha_objetivo = hoy if solo_hoy else fecha_partido
+
+if not liga_activa:
+    with st.spinner("Cargando panorama de ligas..."):
+        portada_ligas = construir_portada_ligas(fecha_objetivo, hoy)
+    liga_elegida = render_league_hub(portada_ligas, fecha_objetivo, hoy)
+    if liga_elegida:
+        st.session_state["selected_league"] = liga_elegida
+        limpiar_contexto_partido()
+        st.rerun()
+    st.stop()
+
+liga_seleccionada = st.session_state.get("selected_league")
+st.markdown(
+    f"""
+    <div class="toolbar-shell">
+        <div class="toolbar-kicker">Liga activa</div>
+        <div class="toolbar-title">{liga_seleccionada}</div>
+        <div class="toolbar-meta">{LEAGUE_COUNTRIES.get(liga_seleccionada, "Internacional")} | Analisis disponible para {fecha_objetivo.strftime("%d/%m/%Y")}</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+top_1, top_2, top_3 = st.columns([1.1, 0.7, 0.7])
+with top_1:
+    if st.button("Ver todas las ligas", use_container_width=True):
+        st.session_state["selected_league"] = None
+        limpiar_contexto_partido()
+        st.rerun()
 
 df = descargar_datos_liga(liga_seleccionada) if liga_seleccionada else None
 calendario_csv = preparar_calendario(df) if df is not None else pd.DataFrame()
 equipos_csv = sorted(df["HomeTeam"].dropna().unique()) if df is not None and "HomeTeam" in df.columns else []
 league_id = ESPN_LEAGUE_IDS.get(liga_seleccionada, "")
 
-fechas_disponibles = sorted([fecha for fecha in calendario_csv.get("MatchDate", pd.Series(dtype=object)).dropna().unique()])
-hoy = datetime.now(LOCAL_TIMEZONE).date()
-partidos_hoy_espn = descargar_fixture_espn(league_id, hoy) if league_id else pd.DataFrame()
-hay_partidos_hoy = hoy in fechas_disponibles or not partidos_hoy_espn.empty
-fechas_futuras = [fecha for fecha in fechas_disponibles if fecha >= hoy]
-fecha_default = hoy if hay_partidos_hoy else (fechas_futuras[0] if fechas_futuras else (fechas_disponibles[-1] if fechas_disponibles else hoy))
-
-with top_2:
-    solo_hoy = st.toggle("Partidos de hoy", key="solo_hoy_toggle")
-with top_3:
-    fecha_partido = st.date_input("Fecha", value=fecha_default, disabled=solo_hoy)
-
-fecha_objetivo = hoy if solo_hoy else fecha_partido
 partidos_csv = calendario_csv[calendario_csv["MatchDate"] == fecha_objetivo].copy() if not calendario_csv.empty else pd.DataFrame()
 usar_fallback_espn = fecha_objetivo >= hoy or partidos_csv.empty
-partidos_espn = partidos_hoy_espn if fecha_objetivo == hoy else (descargar_fixture_espn(league_id, fecha_objetivo) if usar_fallback_espn and league_id else pd.DataFrame())
+partidos_espn = descargar_fixture_espn(league_id, fecha_objetivo) if usar_fallback_espn and league_id else pd.DataFrame()
 partidos_filtrados = fusionar_calendarios(partidos_csv, partidos_espn, equipos_csv)
-if partidos_filtrados.empty and not calendario_csv.empty and not solo_hoy:
-    partidos_filtrados = fusionar_calendarios(calendario_csv, pd.DataFrame(), equipos_csv)
 if not partidos_filtrados.empty and "EventId" not in partidos_filtrados.columns:
     partidos_filtrados["EventId"] = ""
 
-with top_4:
+with top_2:
     st.metric("Partidos", len(partidos_filtrados))
+with top_3:
+    st.metric("Pais", LEAGUE_COUNTRIES.get(liga_seleccionada, "Internacional"))
 st.markdown('<div class="layout-divider"></div>', unsafe_allow_html=True)
 
 layout_left, layout_right = st.columns([0.92, 1.58], gap="large")
 
 with layout_left:
-    partido_seleccionado = render_fixture_cards(partidos_filtrados, fecha_objetivo, hoy) if not partidos_filtrados.empty else None
+    if not partidos_filtrados.empty:
+        partido_seleccionado = render_fixture_cards(partidos_filtrados, fecha_objetivo, hoy)
+    else:
+        partido_seleccionado = None
+        st.markdown(
+            """
+            <div class="empty-panel">
+                <h3>No hay partidos cargados para esta liga en la fecha elegida</h3>
+                <p>Cambia la fecha o vuelve al explorador de ligas para entrar por otra competicion con mas actividad.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 local = partido_seleccionado["HomeTeam"] if partido_seleccionado is not None else None
 visitante = partido_seleccionado["AwayTeam"] if partido_seleccionado is not None else None
@@ -405,3 +485,13 @@ with layout_right:
                         if st.button("Eliminar", key=f"delete_{favorito['id']}", use_container_width=True):
                             eliminar_favorito(favorito["id"])
                             st.rerun()
+    else:
+        st.markdown(
+            """
+            <div class="empty-panel">
+                <h3>Selecciona un partido para abrir el analisis</h3>
+                <p>El detalle se cargara aqui con radar, comparativas, proyecciones y comparador de cuotas en cuanto abras un cruce.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
