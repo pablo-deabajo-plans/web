@@ -17,7 +17,6 @@ from core.model import (
 from data.sources import (
     ESPN_LEAGUE_IDS,
     LEAGUE_CONFIGS,
-    LEAGUE_COUNTRIES,
     LOCAL_TIMEZONE,
     construir_cuotas_automaticas,
     descargar_datos_liga,
@@ -54,6 +53,36 @@ from ui.components import (
 
 
 st.set_page_config(page_title="Gordon BetScanner", layout="wide")
+
+
+LEAGUE_COUNTRIES = {
+    "Premier League": "Inglaterra",
+    "LaLiga": "Espana",
+    "Segunda Division": "Espana",
+    "Serie A": "Italia",
+    "Bundesliga": "Alemania",
+    "Ligue 1": "Francia",
+    "Holanda": "Paises Bajos",
+    "Liga de Portugal": "Portugal",
+    "Champions League": "Europa",
+    "Europa League": "Europa",
+    "Conference League": "Europa",
+    "Copa del Rey": "Espana",
+    "Turquia": "Turquia",
+    "Segunda Inglesa": "Inglaterra",
+    "Arabia Saudi": "Arabia Saudi",
+    "Australia": "Australia",
+    "Internacionales": "Internacional",
+    "Segunda Alemana": "Alemania",
+    "Chile": "Chile",
+    "MLS": "Estados Unidos",
+    "Brasil": "Brasil",
+    "WSL Femenina": "Inglaterra",
+    "Liga F": "Espana",
+    "Premiere Ligue Femenina": "Francia",
+    "Frauen-Bundesliga": "Alemania",
+    "Serie A Femenina": "Italia",
+}
 
 
 @st.cache_data(ttl=300, show_spinner=False)
