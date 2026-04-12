@@ -1088,6 +1088,7 @@ def inyectar_estilos() -> None:
         """
         <style>
             :root {
+                color-scheme: dark;
                 --bg: #0B1220;
                 --bg-2: #111827;
                 --card: #1F2937;
@@ -1110,6 +1111,13 @@ def inyectar_estilos() -> None:
                 --divider: #1F2937;
             }
 
+            html,
+            body {
+                background: #0B1220 !important;
+                color: #F9FAFB !important;
+                color-scheme: dark !important;
+            }
+
             .stApp,
             .stApp [data-testid="stAppViewContainer"],
             .stApp [data-testid="stHeader"] {
@@ -1118,6 +1126,13 @@ def inyectar_estilos() -> None:
                     radial-gradient(circle at top left, rgba(34,197,94,0.12), transparent 24%),
                     linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
                 color: var(--title);
+            }
+
+            input,
+            textarea,
+            select,
+            button {
+                color-scheme: dark;
             }
 
             .block-container {
