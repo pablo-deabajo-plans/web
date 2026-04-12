@@ -46,6 +46,18 @@ LEAGUE_CONFIGS = {
         "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SC3.csv"},
         "espn_id": "sco.4",
     },
+    "Eliteserien": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/NOR.csv"},
+        "espn_id": "",
+    },
+    "Allsvenskan": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/SWE.csv"},
+        "espn_id": "",
+    },
+    "Superliga Dinamarca": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/DNK.csv"},
+        "espn_id": "",
+    },
     "LaLiga": {
         "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SP1.csv"},
         "espn_id": "esp.1",
@@ -86,9 +98,25 @@ LEAGUE_CONFIGS = {
         "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/P1.csv"},
         "espn_id": "por.1",
     },
+    "Liga Portugal 2": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/P2.csv"},
+        "espn_id": "",
+    },
+    "Super League Suiza": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/SWZ.csv"},
+        "espn_id": "",
+    },
+    "Bundesliga Austria": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/AUT.csv"},
+        "espn_id": "",
+    },
     "Grecia": {
         "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/G1.csv"},
         "espn_id": "gre.1",
+    },
+    "Ekstraklasa": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/POL.csv"},
+        "espn_id": "",
     },
     "Champions League": {
         "history": {"type": "espn_scoreboard", "league_id": "uefa.champions", "season": "european"},
@@ -139,8 +167,36 @@ LEAGUE_CONFIGS = {
         "espn_id": "usa.1",
     },
     "Brasil": {
-        "history": {"type": "espn_scoreboard", "league_id": "bra.1", "season": "calendar"},
-        "espn_id": "bra.1",
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/BRA.csv"},
+        "espn_id": "",
+    },
+    "Serie B Brasil": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/BRA2.csv"},
+        "espn_id": "",
+    },
+    "Primera B Nacional": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/ARG2.csv"},
+        "espn_id": "",
+    },
+    "Liga MX": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/MEX.csv"},
+        "espn_id": "",
+    },
+    "Primera A Colombia": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/COL.csv"},
+        "espn_id": "",
+    },
+    "J1 League": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/JPN.csv"},
+        "espn_id": "",
+    },
+    "J2 League": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/JPN2.csv"},
+        "espn_id": "",
+    },
+    "K League 1": {
+        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/KOR.csv"},
+        "espn_id": "",
     },
     "WSL Femenina": {
         "history": {"type": "espn_scoreboard", "league_id": "eng.w.1", "season": "european"},
@@ -172,6 +228,9 @@ LEAGUE_COUNTRIES = {
     "Escocia Championship": "Escocia",
     "Escocia League One": "Escocia",
     "Escocia League Two": "Escocia",
+    "Eliteserien": "Noruega",
+    "Allsvenskan": "Suecia",
+    "Superliga Dinamarca": "Dinamarca",
     "LaLiga": "Espana",
     "Segunda Division": "Espana",
     "Serie A": "Italia",
@@ -182,7 +241,11 @@ LEAGUE_COUNTRIES = {
     "Holanda": "Paises Bajos",
     "Belgica": "Belgica",
     "Liga de Portugal": "Portugal",
+    "Liga Portugal 2": "Portugal",
+    "Super League Suiza": "Suiza",
+    "Bundesliga Austria": "Austria",
     "Grecia": "Grecia",
+    "Ekstraklasa": "Polonia",
     "Champions League": "Europa",
     "Europa League": "Europa",
     "Conference League": "Europa",
@@ -196,6 +259,13 @@ LEAGUE_COUNTRIES = {
     "Chile": "Chile",
     "MLS": "Estados Unidos",
     "Brasil": "Brasil",
+    "Serie B Brasil": "Brasil",
+    "Primera B Nacional": "Argentina",
+    "Liga MX": "Mexico",
+    "Primera A Colombia": "Colombia",
+    "J1 League": "Japon",
+    "J2 League": "Japon",
+    "K League 1": "Corea del Sur",
     "WSL Femenina": "Inglaterra",
     "Liga F": "Espana",
     "Premiere Ligue Femenina": "Francia",
