@@ -1208,7 +1208,9 @@ def inyectar_estilos() -> None:
             .league-summary-card,
             .odds-panel,
             .empty-panel,
-            .search-result-card {
+            .search-result-card,
+            .player-api-card,
+            .player-prop-card {
                 background: rgba(17, 24, 39, 0.78);
                 border: 1px solid var(--border);
                 border-radius: 18px;
@@ -1380,6 +1382,48 @@ def inyectar_estilos() -> None:
 
             .search-result-meta {
                 text-align: center;
+            }
+
+            .player-api-card,
+            .player-prop-card {
+                padding: 1rem 1.05rem;
+            }
+
+            .player-api-card {
+                margin-bottom: 0.9rem;
+                background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(17,24,39,0.92));
+            }
+
+            .player-api-card h3,
+            .player-prop-card h4 {
+                margin: 0;
+                color: var(--title);
+            }
+
+            .player-api-card p,
+            .player-prop-card p {
+                margin: 0.35rem 0 0 0;
+                color: var(--body);
+                line-height: 1.5;
+            }
+
+            .player-prop-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 0.75rem;
+                margin-top: 0.75rem;
+            }
+
+            .player-prop-card span {
+                display: inline-flex;
+                margin-top: 0.6rem;
+                padding: 0.3rem 0.6rem;
+                border-radius: 999px;
+                border: 1px solid rgba(59,130,246,0.28);
+                background: rgba(59,130,246,0.12);
+                color: var(--title);
+                font-size: 0.78rem;
+                font-weight: 800;
             }
 
             .summary-band,
@@ -2072,6 +2116,57 @@ def render_comparador_cuotas(filas: list[dict]) -> None:
                     <div class="odds-metric"><span>Cuota casa</span><strong>@{fila['offered_odds']:.2f}</strong></div>
                     <div class="odds-metric"><span>Diferencia</span><strong>{fila['offered_odds'] - fila['fair_odds']:+.2f}</strong></div>
                 </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+def render_player_props_panel(api_ready: bool) -> None:
+    estado = "API lista para conectar" if api_ready else "Falta configurar token y mapping del fixture"
+    st.markdown(
+        f"""
+        <div class="player-api-card">
+            <h3>Integracion de jugadores</h3>
+            <p>Fuente recomendada: Sportmonks Football API. Es la opcion que mejor encaja para remates, remates a puerta, faltas cometidas y faltas recibidas por jugador.</p>
+            <p>{estado}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        """
+        <div class="player-prop-grid">
+            <div class="player-prop-card">
+                <h4>Remates a puerta por jugador</h4>
+                <p>Base para proyectar lineas de tiros a puerta y detectar perfiles con volumen estable.</p>
+                <span>Shots on target</span>
+            </div>
+            <div class="player-prop-card">
+                <h4>Remates por jugador</h4>
+                <p>Sirve para modelar volumen ofensivo total, no solo finalizacion precisa.</p>
+                <span>Total shots</span>
+            </div>
+            <div class="player-prop-card">
+                <h4>Faltas cometidas</h4>
+                <p>Util para props defensivas, tarjetas y perfiles de riesgo por posicion o rol.</p>
+                <span>Fouls committed</span>
+            </div>
+            <div class="player-prop-card">
+                <h4>Faltas recibidas</h4>
+                <p>Clave para detectar extremos, mediapuntas y delanteros que fuerzan contacto.</p>
+                <span>Fouls drawn</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if not api_ready:
+        st.markdown(
+            """
+            <div class="empty-panel">
+                <h3>Estado actual de la integracion</h3>
+                <p>La pestaña ya esta preparada a nivel de producto, pero falta conectar un proveedor externo con token y resolver el enlace entre nuestro partido y el fixture del proveedor.</p>
             </div>
             """,
             unsafe_allow_html=True,

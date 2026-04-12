@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -43,6 +44,7 @@ from ui.components import (
     render_h2h_summary_card,
     render_insight_panel,
     render_league_hub,
+    render_player_props_panel,
     render_radar_panel,
     render_ranking_value_panel,
     render_signal_card,
@@ -492,6 +494,7 @@ with layout_right:
     if analisis is not None:
         resultado = analisis["resultado"]
         mercados = analisis["mercados"]
+        player_api_ready = bool(os.getenv("SPORTMONKS_API_TOKEN"))
         render_summary_band(analisis)
 
         overview_left, overview_right = st.columns([1.45, 1])
@@ -507,8 +510,14 @@ with layout_right:
         with overview_right:
             render_radar_panel(analisis)
 
-        tab_stats, tab_compare, tab_match, tab_odds = st.tabs(
-            ["Estadisticas generales", "Comparativa equipos", "Posibles estadisticas del partido", "Comparador cuota real vs cuota justa"]
+        tab_stats, tab_compare, tab_match, tab_players, tab_odds = st.tabs(
+            [
+                "Estadisticas generales",
+                "Comparativa equipos",
+                "Posibles estadisticas del partido",
+                "Probabilidad jugadores",
+                "Comparador cuota real vs cuota justa",
+            ]
         )
 
         with tab_stats:
@@ -591,6 +600,10 @@ with layout_right:
                 for marcador, prob in [(item[0], item[1] / SIMULACIONES) for item in resultado["TopScores"]]
             )
             st.markdown(marcador_html, unsafe_allow_html=True)
+
+        with tab_players:
+            st.markdown('<div class="section-title">Probabilidad de jugadores</div>', unsafe_allow_html=True)
+            render_player_props_panel(player_api_ready)
 
         with tab_odds:
             st.markdown('<div class="section-title">Comparador de cuotas, Kelly y favoritos</div>', unsafe_allow_html=True)
