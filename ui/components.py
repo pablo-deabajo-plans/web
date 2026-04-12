@@ -1876,20 +1876,9 @@ def render_insight_panel(insights: list[str]) -> None:
 
 
 def render_league_hub(league_rows: list[dict], fecha_objetivo, hoy) -> str | None:
-    fecha_label = "hoy" if fecha_objetivo == hoy else fecha_objetivo.strftime("%d/%m/%Y")
     total_partidos = sum(item["match_count"] for item in league_rows)
     ligas_activas = sum(1 for item in league_rows if item["match_count"] > 0)
 
-    st.markdown(
-        f"""
-        <div class="toolbar-shell">
-            <div class="toolbar-kicker">Explorador de ligas</div>
-            <div class="toolbar-title">Empieza por la liga que mas movimiento tiene</div>
-            <div class="toolbar-meta">Vista de {fecha_label} con todas las competiciones ordenadas por numero de partidos.</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
     st.markdown(
         f"""
         <div class="league-summary-grid">
@@ -1916,7 +1905,6 @@ def render_league_hub(league_rows: list[dict], fecha_objetivo, hoy) -> str | Non
         for indice, (col, item) in enumerate(zip(cols, bloque), start=inicio + 1):
             etiqueta = "Mas activa" if indice == 1 and item["match_count"] > 0 else f"Top {indice}"
             partido_label = "partidos" if item["match_count"] != 1 else "partido"
-            estado = "Lista para explorar el dia" if item["match_count"] > 0 else "Sin cruces cargados en esta fecha"
             with col:
                 st.markdown(
                     f"""
@@ -1930,7 +1918,6 @@ def render_league_hub(league_rows: list[dict], fecha_objetivo, hoy) -> str | Non
                         </div>
                         <div class="league-card-count">{item['match_count']}</div>
                         <div class="league-card-count-label">{partido_label} en la fecha</div>
-                        <div class="league-card-foot">{estado}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,

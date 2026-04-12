@@ -169,19 +169,7 @@ st.markdown(
 
 hoy = datetime.now(LOCAL_TIMEZONE).date()
 liga_activa = st.session_state.get("selected_league")
-filtros_left, filtros_toggle, filtros_fecha = st.columns([1.4, 0.9, 1.05])
-with filtros_left:
-    if not liga_activa:
-        st.markdown(
-            """
-            <div class="toolbar-shell">
-                <div class="toolbar-kicker">Vista global</div>
-                <div class="toolbar-title">Primero eliges la liga, luego entras al partido</div>
-                <div class="toolbar-meta">Puedes explorar por volumen del dia en vez de arrancar siempre desde una competicion fija.</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+filtros_toggle, filtros_fecha = st.columns([0.9, 1.05])
 with filtros_toggle:
     solo_hoy = st.toggle("Partidos de hoy", key="solo_hoy_toggle")
 with filtros_fecha:
