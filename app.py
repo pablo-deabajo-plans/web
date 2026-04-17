@@ -6,11 +6,11 @@ from uuid import uuid4
 import pandas as pd
 import streamlit as st
 
+from backend.app.services.value_pick_ranking import build_value_pick_ranking
 from core.model import (
     SIMULACIONES,
     construir_insights,
     construir_probabilidades_jugadores,
-    construir_ranking_value_bets,
     cuota_justa,
     guardar_analisis,
     stake_kelly,
@@ -186,7 +186,7 @@ def construir_ranking_liga(df: pd.DataFrame, liga: str, league_id: str, partidos
         contexto = extraer_contexto_mercado_espn(resumen) if resumen else {}
         auto_odds = construir_cuotas_automaticas(contexto, analisis["local"], analisis["visitante"])
         items.append({"analysis": analisis, "auto_odds": auto_odds})
-    return construir_ranking_value_bets(items, limite=10)
+    return build_value_pick_ranking(items, limit=10)
 
 
 @st.cache_data(ttl=300, show_spinner=False)

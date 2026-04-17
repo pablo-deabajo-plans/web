@@ -7,6 +7,7 @@ import math
 import numpy as np
 import pandas as pd
 
+from backend.app.services.value_pick_ranking import build_value_pick_ranking
 from core.stats import calcular_h2h, calcular_stats, extraer_historico
 from data.teams import clave_equipo, nombre_visual_equipo
 
@@ -637,29 +638,4 @@ def guardar_analisis(df: pd.DataFrame, liga: str, local: str, visitante: str, ma
 
 
 def construir_ranking_value_bets(items: list[dict], limite: int = 10) -> list[dict]:
-    ranking = []
-    for item in items:
-        analisis = item.get("analysis")
-        auto_odds = item.get("auto_odds") or {}
-        if not analisis or not auto_odds:
-            continue
-        for mercado in analisis["mercados"]:
-            if mercado["nombre"] not in auto_odds:
-                continue
-            cuota = auto_odds[mercado["nombre"]]["odds"]
-            prob = mercado["prob"]
-            fair_odds = cuota_justa(prob)
-            edge = (prob * cuota) - 1
-            ranking.append(
-                {
-                    "match": f"{analisis['local']} vs {analisis['visitante']}",
-                    "market": mercado["nombre"],
-                    "prob": prob,
-                    "fair_odds": fair_odds,
-                    "offered_odds": cuota,
-                    "edge": edge,
-                    "provider": auto_odds[mercado["nombre"]]["provider"],
-                }
-            )
-    ranking.sort(key=lambda fila: fila["edge"], reverse=True)
-    return ranking[:limite]
+    return build_value_pick_ranking(items, limit=limite)

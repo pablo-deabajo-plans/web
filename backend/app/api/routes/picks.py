@@ -1,0 +1,28 @@
+from __future__ import annotations
+
+from datetime import date, datetime, timezone
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query
+
+from backend.app.repositories.in_memory import InMemoryPickRepository
+from backend.app.schemas.picks import PickRead
+from backend.app.services.get_daily_picks import GetDailyPicksService
+
+
+router = APIRouter()
+
+
+def get_daily_picks_service() -> GetDailyPicksService:
+    repository = InMemoryPickRepository()
+    return GetDailyPicksService(repository)
+
+
+@router.get("", response_model=list[PickRead])
+def get_picks(
+    service: Annotated[GetDailyPicksService, Depends(get_daily_picks_service)],
+    day: date = Query(default_factory=lambda: datetime.now(timezone.utc).date()),
+    limit: int = Query(default=10, ge=1, le=100),
+) -> list[PickRead]:
+    picks = service.get_for_date(target_date=day, limit=limit)
+    return [PickRead.from_domain(item) for item in picks]
