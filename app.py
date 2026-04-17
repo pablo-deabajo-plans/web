@@ -361,31 +361,16 @@ else:
     st.session_state["search_results"] = []
 
 if resultados_busqueda:
-    st.markdown('<div class="search-results-shell">', unsafe_allow_html=True)
-    st.markdown(f'<div class="section-title">Resultados de busqueda</div>', unsafe_allow_html=True)
+    st.subheader("Resultados de busqueda")
     for resultado in resultados_busqueda[:8]:
         cols = st.columns([3.1, 1.2, 0.9])
         with cols[0]:
             hora_label = resultado["time"] if resultado["time"] else "Sin hora"
-            st.markdown(
-                f"""
-                <div class="search-result-card">
-                    <strong>{resultado['match']}</strong>
-                    <span>{resultado['league']} | {resultado['country']} | {hora_label}</span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            st.write(resultado["match"])
+            st.caption(f"{resultado['league']} | {resultado['country']} | {hora_label}")
         with cols[1]:
-            st.markdown(
-                f"""
-                <div class="search-result-card search-result-meta">
-                    <strong>{resultado['league']}</strong>
-                    <span>{resultado['country']}</span>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            st.write(resultado["league"])
+            st.caption(resultado["country"])
         with cols[2]:
             if st.button("Abrir", key=f"search_open_{safe_key(resultado['league'])}_{safe_key(resultado['fixture_label'])}", use_container_width=True):
                 st.session_state["selected_league"] = resultado["league"]
@@ -394,7 +379,6 @@ if resultados_busqueda:
                 st.session_state["analysis"] = None
                 st.session_state["analysis_signature"] = None
                 st.rerun()
-    st.markdown("</div>", unsafe_allow_html=True)
 elif busqueda_partido.strip():
     st.markdown(
         """
@@ -755,17 +739,15 @@ with layout_right:
                 for favorito in favoritos:
                     cols = st.columns([5, 1])
                     with cols[0]:
-                        st.markdown(
-                            f"""
-                            <div class="favorite-card">
-                                <strong>{favorito['market']}</strong>
-                                <p>{favorito['match']} | {favorito['liga']}</p>
-                                <p>Prob IA {favorito['prob'] * 100:.2f}% | Justa @{favorito['fair_odds']:.2f} | Casa @{favorito['offered_odds']:.2f}</p>
-                                <p>Edge {favorito['edge'] * 100:.2f}% | Kelly {favorito['kelly_pct'] * 100:.2f}% | Stake {favorito['stake_units']:.2f} u | {favorito['saved_at']}</p>
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
+                        with st.container(border=True):
+                            st.write(favorito["market"])
+                            st.caption(f"{favorito['match']} | {favorito['liga']}")
+                            st.caption(
+                                f"Prob IA {favorito['prob'] * 100:.2f}% | Justa @{favorito['fair_odds']:.2f} | Casa @{favorito['offered_odds']:.2f}"
+                            )
+                            st.caption(
+                                f"Edge {favorito['edge'] * 100:.2f}% | Kelly {favorito['kelly_pct'] * 100:.2f}% | Stake {favorito['stake_units']:.2f} u | {favorito['saved_at']}"
+                            )
                     with cols[1]:
                         if st.button("Eliminar", key=f"delete_{favorito['id']}", use_container_width=True):
                             eliminar_favorito(favorito["id"])

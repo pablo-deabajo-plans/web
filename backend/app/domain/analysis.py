@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from collections import Counter
 from datetime import datetime, timezone
+import math
 
-import numpy as np
 import pandas as pd
 
 from data.teams import clave_equipo, nombre_visual_equipo
@@ -21,6 +20,7 @@ DEFAULT_SHOTS_FOR = 11.0
 DEFAULT_SHOTS_AGAINST = 11.0
 DEFAULT_SHOTS_ON_TARGET_FOR = 4.0
 DEFAULT_SHOTS_ON_TARGET_AGAINST = 4.0
+POISSON_SCORE_MAX = 12
 
 
 def model_value(stats: dict, key: str, flag: str, default: float) -> float:
@@ -40,20 +40,92 @@ def offensive_model_value(stats_focus: dict, stats_opponent: dict, key_for: str,
     return default
 
 
+def poisson_probability_series(mean: float, max_events: int = POISSON_SCORE_MAX) -> list[float]:
+    if mean <= 0:
+        return [1.0] + [0.0] * max_events
+    series = [math.exp(-mean)]
+    for event_count in range(1, max_events + 1):
+        series.append(series[-1] * mean / event_count)
+    return series
+
+
+def poisson_score_limit(mean: float) -> int:
+    return max(POISSON_SCORE_MAX, int(math.ceil(mean + (6 * math.sqrt(mean + 1.0)))))
+
+
+def poisson_cdf(mean: float, max_value: int) -> float:
+    if max_value < 0:
+        return 0.0
+    return float(sum(poisson_probability_series(mean, max_value)))
+
+
+def poisson_probability_over(mean: float, threshold: float) -> float:
+    minimum = int(math.floor(threshold))
+    return max(0.0, min(1.0, 1.0 - poisson_cdf(mean, minimum)))
+
+
+def build_top_scores(home_mean: float, away_mean: float) -> list[tuple[str, int]]:
+    max_goals = max(poisson_score_limit(home_mean), poisson_score_limit(away_mean))
+    home_probs = poisson_probability_series(home_mean, max_goals)
+    away_probs = poisson_probability_series(away_mean, max_goals)
+    score_probs: list[tuple[str, float]] = []
+    for home_goals, home_prob in enumerate(home_probs):
+        for away_goals, away_prob in enumerate(away_probs):
+            score_probs.append((f"{home_goals}-{away_goals}", home_prob * away_prob))
+    score_probs.sort(key=lambda item: item[1], reverse=True)
+    return [(score, int(round(probability * SIMULACIONES))) for score, probability in score_probs[:3]]
+
+
 def simulate_match(xg_local: float, xg_visitante: float, xc_local: float, xc_visitante: float, xt_local: float, xt_visitante: float, xs_local: float, xs_visitante: float, xst_local: float, xst_visitante: float) -> dict:
-    goles_local = np.random.poisson(xg_local, SIMULACIONES)
-    goles_visitante = np.random.poisson(xg_visitante, SIMULACIONES)
-    corners_local = np.random.poisson(xc_local, SIMULACIONES)
-    corners_visitante = np.random.poisson(xc_visitante, SIMULACIONES)
-    cards_local = np.random.poisson(xt_local, SIMULACIONES)
-    cards_visitante = np.random.poisson(xt_visitante, SIMULACIONES)
-    shots_local = np.random.poisson(xs_local, SIMULACIONES)
-    shots_visitante = np.random.poisson(xs_visitante, SIMULACIONES)
-    shots_on_target_local = np.minimum(np.random.poisson(xst_local, SIMULACIONES), shots_local)
-    shots_on_target_visitante = np.minimum(np.random.poisson(xst_visitante, SIMULACIONES), shots_visitante)
-    marcadores = [f"{x}-{y}" for x, y in zip(goles_local, goles_visitante)]
-    top_scores = Counter(marcadores).most_common(3)
-    return {"1": float(np.mean(goles_local > goles_visitante)), "X": float(np.mean(goles_local == goles_visitante)), "2": float(np.mean(goles_local < goles_visitante)), "BTTS": float(np.mean((goles_local > 0) & (goles_visitante > 0))), "O25": float(np.mean((goles_local + goles_visitante) > 2.5)), "U25": float(np.mean((goles_local + goles_visitante) < 2.5)), "Home_Over15": float(np.mean(goles_local > 1.5)), "Away_Over15": float(np.mean(goles_visitante > 1.5)), "Home_CleanSheet": float(np.mean(goles_visitante == 0)), "Away_CleanSheet": float(np.mean(goles_local == 0)), "Corn_Home": float(np.mean(corners_local)), "Corn_Away": float(np.mean(corners_visitante)), "Over9.5_Corn": float(np.mean((corners_local + corners_visitante) > 9.5)), "Cards_Home": float(np.mean(cards_local)), "Cards_Away": float(np.mean(cards_visitante)), "Total_Cards": float(np.mean(cards_local + cards_visitante)), "Shots_Home": float(np.mean(shots_local)), "Shots_Away": float(np.mean(shots_visitante)), "ShotsOnTarget_Home": float(np.mean(shots_on_target_local)), "ShotsOnTarget_Away": float(np.mean(shots_on_target_visitante)), "Home_Over35_Corn": float(np.mean(corners_local > 3.5)), "Away_Over35_Corn": float(np.mean(corners_visitante > 3.5)), "Home_Over45_Corn": float(np.mean(corners_local > 4.5)), "Away_Over45_Corn": float(np.mean(corners_visitante > 4.5)), "Total_Goals": float(np.mean(goles_local + goles_visitante)), "Total_Corners": float(np.mean(corners_local + corners_visitante)), "TopScores": top_scores, "Marcador": top_scores[0][0] if top_scores else "0-0"}
+    max_goals = max(poisson_score_limit(xg_local), poisson_score_limit(xg_visitante))
+    home_goal_probs = poisson_probability_series(xg_local, max_goals)
+    away_goal_probs = poisson_probability_series(xg_visitante, max_goals)
+    home_win = 0.0
+    draw = 0.0
+    away_win = 0.0
+    for home_goals, home_prob in enumerate(home_goal_probs):
+        for away_goals, away_prob in enumerate(away_goal_probs):
+            joint_prob = home_prob * away_prob
+            if home_goals > away_goals:
+                home_win += joint_prob
+            elif home_goals == away_goals:
+                draw += joint_prob
+            else:
+                away_win += joint_prob
+
+    goal_total_mean = xg_local + xg_visitante
+    corner_total_mean = xc_local + xc_visitante
+    top_scores = build_top_scores(xg_local, xg_visitante)
+    return {
+        "1": home_win,
+        "X": draw,
+        "2": away_win,
+        "BTTS": (1.0 - math.exp(-xg_local)) * (1.0 - math.exp(-xg_visitante)),
+        "O25": poisson_probability_over(goal_total_mean, 2.5),
+        "U25": poisson_cdf(goal_total_mean, 2),
+        "Home_Over15": poisson_probability_over(xg_local, 1.5),
+        "Away_Over15": poisson_probability_over(xg_visitante, 1.5),
+        "Home_CleanSheet": math.exp(-xg_visitante),
+        "Away_CleanSheet": math.exp(-xg_local),
+        "Corn_Home": xc_local,
+        "Corn_Away": xc_visitante,
+        "Over9.5_Corn": poisson_probability_over(corner_total_mean, 9.5),
+        "Cards_Home": xt_local,
+        "Cards_Away": xt_visitante,
+        "Total_Cards": xt_local + xt_visitante,
+        "Shots_Home": xs_local,
+        "Shots_Away": xs_visitante,
+        "ShotsOnTarget_Home": min(xs_local, xst_local),
+        "ShotsOnTarget_Away": min(xs_visitante, xst_visitante),
+        "Home_Over35_Corn": poisson_probability_over(xc_local, 3.5),
+        "Away_Over35_Corn": poisson_probability_over(xc_visitante, 3.5),
+        "Home_Over45_Corn": poisson_probability_over(xc_local, 4.5),
+        "Away_Over45_Corn": poisson_probability_over(xc_visitante, 4.5),
+        "Total_Goals": goal_total_mean,
+        "Total_Corners": corner_total_mean,
+        "TopScores": top_scores,
+        "Marcador": top_scores[0][0] if top_scores else "0-0",
+    }
 
 
 def build_markets(resultado: dict, local: str, visitante: str) -> list[dict]:

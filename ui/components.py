@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from html import escape
 import textwrap
 
 import pandas as pd
@@ -2423,13 +2424,17 @@ def render_player_props_panel(payload: dict) -> None:
         if pd.notna(fecha):
             fixture_meta.append(fecha.strftime("%d/%m/%Y %H:%M"))
     subtitulo = " | ".join(fixture_meta) if fixture_meta else "Esperando un enlace estable con el partido abierto"
+    provider_safe = escape(str(provider))
+    subtitulo_safe = escape(subtitulo)
+    estado_safe = escape(estado)
+    message_safe = escape(str(payload.get("message", "La pestana ya esta preparada, pero todavia falta completar la integracion externa.")))
     st.markdown(
         f"""
         <div class="player-api-card">
             <h3>Integracion de jugadores</h3>
-            <p>Fuente: {provider}. El modelo usa el partido abierto para buscar su fixture real, recoger logs recientes y convertir volumen esperado en probabilidad por jugador.</p>
-            <p>{subtitulo}</p>
-            <div class="player-status-pill">{estado}</div>
+            <p>Fuente: {provider_safe}. El modelo usa el partido abierto para buscar su fixture real, recoger logs recientes y convertir volumen esperado en probabilidad por jugador.</p>
+            <p>{subtitulo_safe}</p>
+            <div class="player-status-pill">{estado_safe}</div>
             <div class="player-model-note">Base del modelo: ultimos 6 partidos utiles por jugador, ajuste por aparicion, rol probable, minutos y una capa Poisson para transformar media esperada en probabilidad.</div>
         </div>
         """,
@@ -2467,7 +2472,7 @@ def render_player_props_panel(payload: dict) -> None:
             f"""
             <div class="empty-panel">
                 <h3>Estado actual de la integracion</h3>
-                <p>{payload.get('message', 'La pestana ya esta preparada, pero todavia falta completar la integracion externa.')}</p>
+                <p>{message_safe}</p>
             </div>
             """,
             unsafe_allow_html=True,

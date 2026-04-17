@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import os
 import re
 from datetime import datetime, timedelta
@@ -18,6 +19,7 @@ from data.teams import nombre_visual_equipo, normalizar_nombre, resolver_nombre_
 
 LOCAL_TIMEZONE = ZoneInfo("Europe/Madrid")
 HTTP_HEADERS = {"User-Agent": "Mozilla/5.0"}
+LOGGER = logging.getLogger(__name__)
 SPORTMONKS_BASE_URL = "https://api.sportmonks.com/v3/football"
 SPORTMONKS_PLAYER_STAT_TYPES = {
     "shots_total": 42,
@@ -291,6 +293,10 @@ URLS_LIGAS = {
 ESPN_LEAGUE_IDS = {liga: config.get("espn_id", "") for liga, config in LEAGUE_CONFIGS.items()}
 
 
+def _log_request_error(contexto: str, exc: Exception, extra: dict | None = None) -> None:
+    LOGGER.warning("%s failed: %s | extra=%s", contexto, exc, extra or {})
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def descargar_datos(url: str) -> pd.DataFrame | None:
     try:
@@ -304,7 +310,8 @@ def descargar_datos(url: str) -> pd.DataFrame | None:
         if len(df) > 500:
             df = df.tail(400)
         return df
-    except Exception:
+    except (requests.RequestException, pd.errors.ParserError, UnicodeDecodeError) as exc:
+        _log_request_error("descargar_datos", exc, {"url": url})
         return None
 
 
@@ -399,7 +406,8 @@ def descargar_historial_espn(league_id: str, season_type: str) -> pd.DataFrame |
         respuesta = requests.get(url, params=params, headers=HTTP_HEADERS, timeout=25)
         respuesta.raise_for_status()
         payload = respuesta.json()
-    except Exception:
+    except (requests.RequestException, ValueError) as exc:
+        _log_request_error("descargar_historial_espn", exc, {"league_id": league_id, "season_type": season_type})
         return None
 
     filas = []
@@ -420,7 +428,8 @@ def descargar_fixture_footystats(url: str) -> pd.DataFrame | None:
         respuesta = requests.get(url, headers=HTTP_HEADERS, timeout=25)
         respuesta.raise_for_status()
         html = respuesta.text
-    except Exception:
+    except requests.RequestException as exc:
+        _log_request_error("descargar_fixture_footystats", exc, {"url": url})
         return None
 
     bloques = re.findall(r"<ul class='match row cf [^']*'[^>]*>(.*?)</ul>", html, flags=re.S)
@@ -526,7 +535,8 @@ def descargar_fixture_espn(league_id: str, fecha_objetivo) -> pd.DataFrame:
         respuesta = requests.get(url, params=params, headers=HTTP_HEADERS, timeout=20)
         respuesta.raise_for_status()
         payload = respuesta.json()
-    except Exception:
+    except (requests.RequestException, ValueError) as exc:
+        _log_request_error("descargar_fixture_espn", exc, {"league_id": league_id, "fecha": fecha_objetivo.strftime("%Y%m%d")})
         return pd.DataFrame()
 
     filas = []
@@ -547,7 +557,8 @@ def descargar_resumen_espn(league_id: str, event_id: str) -> dict:
         respuesta = requests.get(url, params=params, headers=HTTP_HEADERS, timeout=20)
         respuesta.raise_for_status()
         return respuesta.json()
-    except Exception:
+    except (requests.RequestException, ValueError) as exc:
+        _log_request_error("descargar_resumen_espn", exc, {"league_id": league_id, "event_id": event_id})
         return {}
 
 
@@ -712,8 +723,8 @@ def _sportmonks_token() -> str:
                 token_file = match.group(1).strip()
                 if token_file:
                     return token_file
-        except OSError:
-            pass
+        except OSError as exc:
+            _log_request_error("_sportmonks_token", exc, {"path": str(secrets_path)})
 
     return os.getenv("SPORTMONKS_API_TOKEN", "").strip()
 
@@ -764,7 +775,8 @@ def _sportmonks_request(path: str, params: dict | None = None) -> dict:
         respuesta = requests.get(f"{SPORTMONKS_BASE_URL}{path}", params=query, headers=HTTP_HEADERS, timeout=25)
         respuesta.raise_for_status()
         return respuesta.json()
-    except Exception:
+    except (requests.RequestException, ValueError) as exc:
+        _log_request_error("_sportmonks_request", exc, {"path": path, "params": params or {}})
         return {}
 
 

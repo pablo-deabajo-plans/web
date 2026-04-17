@@ -252,6 +252,53 @@ Pydantic schemas:
 - [backend/app/schemas/matches.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/schemas/matches.py:1)
 - [backend/app/schemas/history.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/schemas/history.py:1)
 
+API dependency wiring:
+- [backend/app/api/dependencies.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/api/dependencies.py:1)
+
+## Performance Improvements
+
+The first performance pass is now implemented in two places:
+
+### 1. Analytical probabilities instead of heavy Monte Carlo
+
+Match simulation in [backend/app/domain/analysis.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/domain/analysis.py:1) no longer relies on random Poisson sampling for core read paths.
+
+What changed:
+
+- `1X2`, `BTTS`, `Over/Under 2.5`, clean sheets, and corner threshold markets are computed analytically from Poisson distributions
+- expected totals for goals, corners, cards, shots, and shots on target are returned directly from model means
+- top scorelines are derived from Poisson score matrices instead of 50,000 random draws
+
+Why it matters:
+
+- removes expensive recomputation on repeated reads
+- eliminates output jitter between identical requests
+- improves latency in both API and legacy Streamlit reads because `core/model.py` now delegates to this backend domain
+
+### 2. Caching per use case
+
+A shared in-memory TTL cache now lives in [backend/app/core/cache.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/core/cache.py:1).
+
+Current cache strategy:
+
+- daily picks: cached by `date + limit`
+- matches: cached by `date`
+- match detail: cached by `match_id`
+- history: cached by `date`
+
+Service integration:
+
+- [backend/app/services/get_daily_picks.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/services/get_daily_picks.py:1)
+- [backend/app/services/get_matches.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/services/get_matches.py:1)
+- [backend/app/services/get_match_detail.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/services/get_match_detail.py:1)
+- [backend/app/services/get_history.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/services/get_history.py:1)
+
+TTL settings are configurable in [backend/app/core/config.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/core/config.py:1).
+
+### Suggested next optimization
+
+The next high-value step is to move legacy `descargar_resumen_espn` and daily ranking precompute fully into workers so Streamlit stops building league rankings on demand.
+
 ## Breaking Changes
 
 None in runtime behavior yet.

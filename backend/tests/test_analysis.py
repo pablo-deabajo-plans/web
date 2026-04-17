@@ -6,6 +6,7 @@ from backend.app.domain.analysis import (
     build_fallback_h2h,
     build_match_analysis,
     calculate_contextual_h2h_adjustment,
+    simulate_match,
 )
 
 
@@ -60,3 +61,13 @@ def test_contextual_h2h_adjustment_is_bounded() -> None:
 
     assert -0.05 <= adjustment <= 0.05
     assert detail["mode"] == "h2h_plus_recent"
+
+
+def test_simulate_match_is_deterministic_with_analytical_model() -> None:
+    first = simulate_match(1.4, 0.9, 5.2, 4.7, 2.1, 2.3, 12.0, 10.0, 4.5, 3.8)
+    second = simulate_match(1.4, 0.9, 5.2, 4.7, 2.1, 2.3, 12.0, 10.0, 4.5, 3.8)
+
+    assert first == second
+    assert first["Marcador"]
+    assert len(first["TopScores"]) == 3
+    assert abs((first["1"] + first["X"] + first["2"]) - 1.0) < 0.001

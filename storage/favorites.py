@@ -85,17 +85,35 @@ class JsonFavoriteRepository:
 _repository = JsonFavoriteRepository(FAVORITES_FILE)
 
 
+def _validate_favorite_payload(item: dict) -> FavoritePick | None:
+    try:
+        favorite = FavoritePick(**item)
+    except TypeError:
+        LOGGER.warning("Payload de favorito invalido: %s", item)
+        return None
+    if not 0.0 <= float(favorite.prob) <= 1.0:
+        LOGGER.warning("Payload de favorito rechazado por probabilidad fuera de rango: %s", item)
+        return None
+    if float(favorite.offered_odds) <= 1.0 or float(favorite.fair_odds) <= 0.0:
+        LOGGER.warning("Payload de favorito rechazado por cuotas invalidas: %s", item)
+        return None
+    return favorite
+
+
 def cargar_favoritos() -> list[dict]:
     return [asdict(item) for item in _repository.list_all()]
 
 
 def guardar_favoritos(favoritos: list[dict]) -> None:
-    records = [FavoritePick(**item) for item in favoritos]
+    records = [favorite for item in favoritos if (favorite := _validate_favorite_payload(item)) is not None]
     _repository.replace_all(records)
 
 
 def agregar_favorito(entrada: dict) -> None:
-    _repository.save(FavoritePick(**entrada))
+    favorite = _validate_favorite_payload(entrada)
+    if favorite is None:
+        return
+    _repository.save(favorite)
 
 
 def eliminar_favorito(favorite_id: str) -> None:
