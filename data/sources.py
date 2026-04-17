@@ -16,6 +16,8 @@ import requests
 import streamlit as st
 
 from backend.app.repositories.providers import (
+    fetch_espn_matches_for_date,
+    fetch_espn_matches_for_season,
     fetch_espn_scoreboard,
     fetch_espn_summary,
     fetch_sportmonks_paginated,
@@ -321,99 +323,17 @@ def descargar_datos(url: str) -> pd.DataFrame | None:
         return None
 
 
-def rango_temporada(tipo: str) -> tuple[str, str]:
-    hoy = datetime.now(LOCAL_TIMEZONE).date()
-    if tipo == "european":
-        temporada_inicio = hoy.year if hoy.month >= 7 else hoy.year - 1
-        inicio = datetime(temporada_inicio, 7, 1).date()
-        fin = datetime(temporada_inicio + 1, 6, 30).date()
-    elif tipo == "australia":
-        temporada_inicio = hoy.year if hoy.month >= 7 else hoy.year - 1
-        inicio = datetime(temporada_inicio, 7, 1).date()
-        fin = datetime(temporada_inicio + 1, 5, 31).date()
-    else:
-        inicio = datetime(hoy.year, 1, 1).date()
-        fin = datetime(hoy.year, 12, 31).date()
-    return inicio.strftime("%Y%m%d"), fin.strftime("%Y%m%d")
-
-
-def _fila_espn_evento(evento: dict, source: str) -> dict | None:
-    competicion = (evento.get("competitions") or [{}])[0]
-    competidores = competicion.get("competitors") or []
-    home = next((item for item in competidores if item.get("homeAway") == "home"), None)
-    away = next((item for item in competidores if item.get("homeAway") == "away"), None)
-    if not home or not away:
-        return None
-
-    fecha_evento = datetime.fromisoformat(evento["date"].replace("Z", "+00:00")).astimezone(LOCAL_TIMEZONE)
-    home_name = (home.get("team") or {}).get("displayName", "")
-    away_name = (away.get("team") or {}).get("displayName", "")
-    home_score = home.get("score")
-    away_score = away.get("score")
-    estado = (((competicion.get("status") or {}).get("type")) or {}).get("state", "")
-    completado = bool((((competicion.get("status") or {}).get("type")) or {}).get("completed"))
-
-    def extraer_stat_equipo(competidor: dict, claves: list[str]) -> float | None:
-        estadisticas = competidor.get("statistics") or []
-        for entrada in estadisticas:
-            nombre = str((entrada or {}).get("name", "")).strip()
-            abreviatura = str((entrada or {}).get("abbreviation", "")).strip()
-            if nombre not in claves and abreviatura not in claves:
-                continue
-            valor = (entrada or {}).get("value", (entrada or {}).get("displayValue"))
-            try:
-                return float(valor)
-            except (TypeError, ValueError):
-                continue
-        return None
-
-    if completado or estado == "post":
-        try:
-            fthg = int(home_score) if str(home_score).strip() != "" else None
-        except (TypeError, ValueError):
-            fthg = None
-        try:
-            ftag = int(away_score) if str(away_score).strip() != "" else None
-        except (TypeError, ValueError):
-            ftag = None
-    else:
-        fthg = None
-        ftag = None
-
-    return {
-        "EventId": str(evento.get("id", "")),
-        "Date": fecha_evento.strftime("%d/%m/%Y"),
-        "MatchDate": fecha_evento.date(),
-        "Time": fecha_evento.strftime("%H:%M"),
-        "HomeTeamRaw": home_name,
-        "AwayTeamRaw": away_name,
-        "HomeTeam": home_name,
-        "AwayTeam": away_name,
-        "FTHG": fthg,
-        "FTAG": ftag,
-        "HC": extraer_stat_equipo(home, ["wonCorners", "CW"]),
-        "AC": extraer_stat_equipo(away, ["wonCorners", "CW"]),
-        "HS": extraer_stat_equipo(home, ["totalShots", "SH"]),
-        "AS": extraer_stat_equipo(away, ["totalShots", "SH"]),
-        "HST": extraer_stat_equipo(home, ["shotsOnTarget", "ST"]),
-        "AST": extraer_stat_equipo(away, ["shotsOnTarget", "ST"]),
-        "FixtureLabel": f"{fecha_evento.strftime('%d/%m/%Y %H:%M')} | {home_name} vs {away_name}",
-        "Source": source,
-    }
-
-
 @st.cache_data(ttl=3600, show_spinner=False)
 def descargar_historial_espn(league_id: str, season_type: str) -> pd.DataFrame | None:
-    inicio, fin = rango_temporada(season_type)
-    payload = fetch_espn_scoreboard(league_id, {"dates": f"{inicio}-{fin}", "limit": 1000}, timeout=25)
-    if not payload:
+    try:
+        filas = fetch_espn_matches_for_season(league_id, season_type, source="HISTORY", timeout=25)
+    except Exception as exc:
+        _log_request_error(
+            "descargar_historial_espn",
+            exc,
+            {"league_id": league_id, "season_type": season_type},
+        )
         return None
-
-    filas = []
-    for evento in payload.get("events", []):
-        fila = _fila_espn_evento(evento, "HISTORY")
-        if fila:
-            filas.append(fila)
 
     if not filas:
         return pd.DataFrame()
@@ -527,15 +447,16 @@ def preparar_calendario(df: pd.DataFrame) -> pd.DataFrame:
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def descargar_fixture_espn(league_id: str, fecha_objetivo) -> pd.DataFrame:
-    payload = fetch_espn_scoreboard(league_id, {"dates": fecha_objetivo.strftime("%Y%m%d"), "limit": 100}, timeout=20)
-    if not payload:
+    try:
+        filas = fetch_espn_matches_for_date(league_id, fecha_objetivo, source="ESPN", timeout=20)
+    except Exception as exc:
+        _log_request_error(
+            "descargar_fixture_espn",
+            exc,
+            {"league_id": league_id, "fecha_objetivo": str(fecha_objetivo)},
+        )
         return pd.DataFrame()
 
-    filas = []
-    for evento in payload.get("events", []):
-        fila = _fila_espn_evento(evento, "ESPN")
-        if fila:
-            filas.append(fila)
     return pd.DataFrame(filas)
 
 

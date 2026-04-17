@@ -6,7 +6,9 @@ from uuid import uuid4
 import pandas as pd
 import streamlit as st
 
-from backend.app.services import AnalyzeMatchService, ComputePlayerPropsService
+from backend.app.services.analyze_match import AnalyzeMatchService
+from backend.app.services.compute_player_props import ComputePlayerPropsService
+from backend.app.services.match_ingestion import MatchIngestionService
 from backend.app.services.value_pick_ranking import build_value_pick_ranking
 from core.model import (
     SIMULACIONES,
@@ -19,7 +21,6 @@ from data.sources import (
     LOCAL_TIMEZONE,
     construir_cuotas_automaticas,
     descargar_datos_liga,
-    descargar_fixture_espn,
     obtener_logs_jugadores_sportmonks,
     descargar_resumen_espn,
     extraer_contexto_mercado_espn,
@@ -59,6 +60,7 @@ st.set_page_config(page_title="Gordon BetScanner", layout="wide")
 
 analyze_match_service = AnalyzeMatchService()
 compute_player_props_service = ComputePlayerPropsService()
+match_ingestion_service = MatchIngestionService()
 
 
 LEAGUE_COUNTRIES = {
@@ -169,19 +171,77 @@ COMPETITION_TYPES = {
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def construir_ranking_liga(df: pd.DataFrame, liga: str, league_id: str, partidos_serializados: list[dict]) -> list[dict]:
+def cargar_partidos_espn_analizados(liga: str, league_id: str, fecha_objetivo) -> tuple[pd.DataFrame, dict[str, dict]]:
+    if not league_id:
+        return pd.DataFrame(), {}
+
+    history = (LEAGUE_CONFIGS.get(liga, {}) or {}).get("history", {})
+    season_type = history.get("season", "calendar")
+    try:
+        analyzed_matches = match_ingestion_service.get_analyzed_matches(
+            league_id,
+            liga,
+            fecha_objetivo,
+            season_type=season_type,
+        )
+    except Exception:
+        return pd.DataFrame(), {}
+
+    filas = []
+    analysis_map: dict[str, dict] = {}
+    for item in analyzed_matches:
+        match = item.match
+        filas.append(
+            {
+                "EventId": match.id,
+                "Date": match.kickoff_at.strftime("%d/%m/%Y"),
+                "MatchDate": match.kickoff_at.date(),
+                "Time": match.kickoff_at.strftime("%H:%M"),
+                "HomeTeamRaw": match.raw_home_team,
+                "AwayTeamRaw": match.raw_away_team,
+                "HomeTeam": match.home_team,
+                "AwayTeam": match.away_team,
+                "FTHG": match.home_score,
+                "FTAG": match.away_score,
+                "HC": match.home_corners,
+                "AC": match.away_corners,
+                "HS": match.home_shots,
+                "AS": match.away_shots,
+                "HST": match.home_shots_on_target,
+                "AST": match.away_shots_on_target,
+                "FixtureLabel": match.fixture_label,
+                "Source": match.source,
+            }
+        )
+        if item.analysis is not None:
+            analysis_map[match.id] = item.analysis
+
+    return pd.DataFrame(filas), analysis_map
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def construir_ranking_liga(
+    df: pd.DataFrame,
+    liga: str,
+    league_id: str,
+    partidos_serializados: list[dict],
+    analysis_map: dict[str, dict] | None = None,
+) -> list[dict]:
     items = []
+    analysis_map = analysis_map or {}
     for partido in partidos_serializados:
         if not partido.get("EventId"):
             continue
-        analisis = analyze_match_service.analyze(
-            df,
-            liga,
-            partido["HomeTeam"],
-            partido["AwayTeam"],
-            match_date=partido.get("MatchDate"),
-            match_label=partido.get("FixtureLabel", ""),
-        )
+        analisis = analysis_map.get(str(partido["EventId"]))
+        if analisis is None:
+            analisis = analyze_match_service.analyze(
+                df,
+                liga,
+                partido["HomeTeam"],
+                partido["AwayTeam"],
+                match_date=partido.get("MatchDate"),
+                match_label=partido.get("FixtureLabel", ""),
+            )
         if analisis is None:
             continue
         resumen = descargar_resumen_espn(league_id, str(partido["EventId"]))
@@ -205,7 +265,7 @@ def resumir_liga_para_portada(liga: str, fecha_objetivo, hoy) -> dict:
 
     partidos_espn = pd.DataFrame()
     if league_id and (source_type == "espn_scoreboard" or fecha_objetivo >= hoy or partidos_csv.empty):
-        partidos_espn = descargar_fixture_espn(league_id, fecha_objetivo)
+        partidos_espn, _ = cargar_partidos_espn_analizados(liga, league_id, fecha_objetivo)
 
     base_csv = partidos_csv if source_type != "espn_scoreboard" else pd.DataFrame()
     partidos = fusionar_calendarios(base_csv, partidos_espn, equipos_csv)
@@ -242,7 +302,7 @@ def buscar_partidos_global(fecha_objetivo, hoy, query: str) -> list[dict]:
 
         partidos_espn = pd.DataFrame()
         if league_id and (source_type == "espn_scoreboard" or fecha_objetivo >= hoy or partidos_csv.empty):
-            partidos_espn = descargar_fixture_espn(league_id, fecha_objetivo)
+            partidos_espn, _ = cargar_partidos_espn_analizados(liga, league_id, fecha_objetivo)
 
         base_csv = partidos_csv if source_type != "espn_scoreboard" else pd.DataFrame()
         partidos = fusionar_calendarios(base_csv, partidos_espn, equipos_csv)
@@ -438,7 +498,11 @@ league_id = ESPN_LEAGUE_IDS.get(liga_seleccionada, "")
 
 partidos_csv = calendario_csv[calendario_csv["MatchDate"] == fecha_objetivo].copy() if not calendario_csv.empty else pd.DataFrame()
 usar_fallback_espn = fecha_objetivo >= hoy or partidos_csv.empty
-partidos_espn = descargar_fixture_espn(league_id, fecha_objetivo) if usar_fallback_espn and league_id else pd.DataFrame()
+partidos_espn, analysis_map_espn = (
+    cargar_partidos_espn_analizados(liga_seleccionada, league_id, fecha_objetivo)
+    if usar_fallback_espn and league_id
+    else (pd.DataFrame(), {})
+)
 partidos_filtrados = fusionar_calendarios(partidos_csv, partidos_espn, equipos_csv)
 if not partidos_filtrados.empty and "EventId" not in partidos_filtrados.columns:
     partidos_filtrados["EventId"] = ""
@@ -476,6 +540,7 @@ if df is not None and not partidos_filtrados.empty and league_id:
         liga_seleccionada,
         league_id,
         partidos_filtrados[["HomeTeam", "AwayTeam", "MatchDate", "FixtureLabel", "EventId"]].fillna("").to_dict("records"),
+        analysis_map_espn,
     )
 
 if df is None:
@@ -494,14 +559,18 @@ else:
     )
     if st.session_state.get("analysis_signature") != firma_actual:
         with st.spinner("Cargando..."):
-            st.session_state["analysis"] = analyze_match_service.analyze(
-                df,
-                liga_seleccionada,
-                local,
-                visitante,
-                match_date=partido_seleccionado["MatchDate"],
-                match_label=partido_seleccionado["FixtureLabel"],
-            )
+            analisis_espn = analysis_map_espn.get(str(partido_seleccionado.get("EventId", "")))
+            if analisis_espn is not None:
+                st.session_state["analysis"] = analisis_espn
+            else:
+                st.session_state["analysis"] = analyze_match_service.analyze(
+                    df,
+                    liga_seleccionada,
+                    local,
+                    visitante,
+                    match_date=partido_seleccionado["MatchDate"],
+                    match_label=partido_seleccionado["FixtureLabel"],
+                )
         st.session_state["analysis_signature"] = firma_actual
 analisis = st.session_state.get("analysis")
 resumen_espn = {}

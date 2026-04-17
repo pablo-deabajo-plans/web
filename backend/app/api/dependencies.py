@@ -1,22 +1,22 @@
 from __future__ import annotations
 
 from backend.app.core import TTLCache, settings
-from backend.app.repositories import (
-    InMemoryMatchRepository,
-    InMemoryOddsRepository,
-    InMemoryPickRepository,
-    InMemoryResultRepository,
-)
+from backend.app.repositories.postgres.connection import create_postgres_connection_factory
+from backend.app.repositories.postgres.matches import PostgresMatchRepository
+from backend.app.repositories.postgres.odds import PostgresOddsRepository
+from backend.app.repositories.postgres.picks import PostgresPickRepository
+from backend.app.repositories.postgres.results import PostgresResultRepository
 from backend.app.services.get_daily_picks import GetDailyPicksService
 from backend.app.services.get_history import GetHistoryService
 from backend.app.services.get_match_detail import GetMatchDetailService
 from backend.app.services.get_matches import GetMatchesService
 
 
-_match_repository = InMemoryMatchRepository()
-_odds_repository = InMemoryOddsRepository()
-_pick_repository = InMemoryPickRepository()
-_result_repository = InMemoryResultRepository()
+_connection_factory = create_postgres_connection_factory()
+_match_repository = PostgresMatchRepository(_connection_factory)
+_odds_repository = PostgresOddsRepository(_connection_factory)
+_pick_repository = PostgresPickRepository(_connection_factory)
+_result_repository = PostgresResultRepository(_connection_factory)
 _read_cache = TTLCache()
 
 
