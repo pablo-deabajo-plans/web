@@ -15,6 +15,12 @@ import pandas as pd
 import requests
 import streamlit as st
 
+from backend.app.repositories.providers import (
+    fetch_espn_scoreboard,
+    fetch_espn_summary,
+    fetch_sportmonks_paginated,
+    fetch_sportmonks_resource,
+)
 from data.teams import nombre_visual_equipo, normalizar_nombre, resolver_nombre_equipo
 
 LOCAL_TIMEZONE = ZoneInfo("Europe/Madrid")
@@ -399,15 +405,8 @@ def _fila_espn_evento(evento: dict, source: str) -> dict | None:
 @st.cache_data(ttl=3600, show_spinner=False)
 def descargar_historial_espn(league_id: str, season_type: str) -> pd.DataFrame | None:
     inicio, fin = rango_temporada(season_type)
-    url = f"https://site.api.espn.com/apis/site/v2/sports/soccer/{league_id}/scoreboard"
-    params = {"dates": f"{inicio}-{fin}", "limit": 1000}
-
-    try:
-        respuesta = requests.get(url, params=params, headers=HTTP_HEADERS, timeout=25)
-        respuesta.raise_for_status()
-        payload = respuesta.json()
-    except (requests.RequestException, ValueError) as exc:
-        _log_request_error("descargar_historial_espn", exc, {"league_id": league_id, "season_type": season_type})
+    payload = fetch_espn_scoreboard(league_id, {"dates": f"{inicio}-{fin}", "limit": 1000}, timeout=25)
+    if not payload:
         return None
 
     filas = []
@@ -528,15 +527,8 @@ def preparar_calendario(df: pd.DataFrame) -> pd.DataFrame:
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def descargar_fixture_espn(league_id: str, fecha_objetivo) -> pd.DataFrame:
-    url = f"https://site.api.espn.com/apis/site/v2/sports/soccer/{league_id}/scoreboard"
-    params = {"dates": fecha_objetivo.strftime("%Y%m%d"), "limit": 100}
-
-    try:
-        respuesta = requests.get(url, params=params, headers=HTTP_HEADERS, timeout=20)
-        respuesta.raise_for_status()
-        payload = respuesta.json()
-    except (requests.RequestException, ValueError) as exc:
-        _log_request_error("descargar_fixture_espn", exc, {"league_id": league_id, "fecha": fecha_objetivo.strftime("%Y%m%d")})
+    payload = fetch_espn_scoreboard(league_id, {"dates": fecha_objetivo.strftime("%Y%m%d"), "limit": 100}, timeout=20)
+    if not payload:
         return pd.DataFrame()
 
     filas = []
@@ -551,15 +543,7 @@ def descargar_fixture_espn(league_id: str, fecha_objetivo) -> pd.DataFrame:
 def descargar_resumen_espn(league_id: str, event_id: str) -> dict:
     if not league_id or not event_id:
         return {}
-    url = f"https://site.api.espn.com/apis/site/v2/sports/soccer/{league_id}/summary"
-    params = {"event": event_id}
-    try:
-        respuesta = requests.get(url, params=params, headers=HTTP_HEADERS, timeout=20)
-        respuesta.raise_for_status()
-        return respuesta.json()
-    except (requests.RequestException, ValueError) as exc:
-        _log_request_error("descargar_resumen_espn", exc, {"league_id": league_id, "event_id": event_id})
-        return {}
+    return fetch_espn_summary(league_id, event_id, timeout=20)
 
 
 def fusionar_calendarios(csv_df: pd.DataFrame, espn_df: pd.DataFrame, equipos_csv: list[str]) -> pd.DataFrame:
@@ -766,43 +750,14 @@ def _sportmonks_request(path: str, params: dict | None = None) -> dict:
     token = _sportmonks_token()
     if not token:
         return {}
-
-    query = {"api_token": token}
-    if params:
-        query.update({clave: valor for clave, valor in params.items() if valor not in {None, ""}})
-
-    try:
-        respuesta = requests.get(f"{SPORTMONKS_BASE_URL}{path}", params=query, headers=HTTP_HEADERS, timeout=25)
-        respuesta.raise_for_status()
-        return respuesta.json()
-    except (requests.RequestException, ValueError) as exc:
-        _log_request_error("_sportmonks_request", exc, {"path": path, "params": params or {}})
-        return {}
+    return fetch_sportmonks_resource(SPORTMONKS_BASE_URL, path, token, params=params, timeout=25)
 
 
 def _sportmonks_paginated(path: str, params: dict | None = None, max_pages: int = 4) -> list[dict]:
-    resultados: list[dict] = []
-    pagina = 1
-    base_params = dict(params or {})
-    por_pagina = int(base_params.get("per_page", 50) or 50)
-
-    while pagina <= max_pages:
-        payload = _sportmonks_request(path, {**base_params, "page": pagina})
-        data = payload.get("data") or []
-        if isinstance(data, dict):
-            data = [data]
-        if not data:
-            break
-        resultados.extend(data)
-
-        paginacion = payload.get("pagination") or ((payload.get("meta") or {}).get("pagination")) or {}
-        pagina_actual = int(paginacion.get("current_page") or pagina)
-        ultima_pagina = int(paginacion.get("last_page") or pagina_actual)
-        if pagina_actual >= ultima_pagina or len(data) < por_pagina:
-            break
-        pagina += 1
-
-    return resultados
+    token = _sportmonks_token()
+    if not token:
+        return []
+    return fetch_sportmonks_paginated(SPORTMONKS_BASE_URL, path, token, params=params, max_pages=max_pages)
 
 
 def _sportmonks_participant_name(participant: dict) -> str:

@@ -2690,7 +2690,7 @@ def render_contexto_feed_espn(resumen: dict, analisis: dict) -> None:
         if not disponibilidad["xg_shots"]:
             avisos.append("xG por disparo")
         st.markdown(
-            f'<div class="detail-note">La fuente abierta del partido no expone ahora mismo {", ".join(avisos)}. Cuando el feed no lo trae, la app lo marca como no disponible en lugar de inventarlo.</div>',
+            f'<div class="detail-note">La fuente abierta del partido no expone ahora mismo {escape(", ".join(avisos))}. Cuando el feed no lo trae, la app lo marca como no disponible en lugar de inventarlo.</div>',
             unsafe_allow_html=True,
         )
 
@@ -2698,25 +2698,26 @@ def render_contexto_feed_espn(resumen: dict, analisis: dict) -> None:
     with top_left:
         lineas = []
         if contexto_mercado["available"]:
-            lineas.append(f"<p>Proveedor: {contexto_mercado['provider']}</p>")
-            lineas.append(f"<p>Mercado: {contexto_mercado['details']}</p>")
+            lineas.append(f"<p>Proveedor: {escape(str(contexto_mercado['provider']))}</p>")
+            lineas.append(f"<p>Mercado: {escape(str(contexto_mercado['details']))}</p>")
             if contexto_mercado["home_ml"] is not None:
                 texto = f"1 local: ML {contexto_mercado['home_ml']}"
                 if contexto_mercado["home_decimal"] is not None:
                     texto += f" | Decimal @{contexto_mercado['home_decimal']:.2f}"
-                lineas.append(f"<p>{texto}</p>")
+                lineas.append(f"<p>{escape(texto)}</p>")
             if contexto_mercado["draw_ml"] is not None:
                 texto = f"X empate: ML {contexto_mercado['draw_ml']}"
                 if contexto_mercado["draw_decimal"] is not None:
                     texto += f" | Decimal @{contexto_mercado['draw_decimal']:.2f}"
-                lineas.append(f"<p>{texto}</p>")
+                lineas.append(f"<p>{escape(texto)}</p>")
             if contexto_mercado["away_ml"] is not None:
                 texto = f"2 visitante: ML {contexto_mercado['away_ml']}"
                 if contexto_mercado["away_decimal"] is not None:
                     texto += f" | Decimal @{contexto_mercado['away_decimal']:.2f}"
-                lineas.append(f"<p>{texto}</p>")
+                lineas.append(f"<p>{escape(texto)}</p>")
             if contexto_mercado["over_under"] is not None:
-                lineas.append(f"<p>Linea total: {contexto_mercado['over_under']:.2f}</p>")
+                linea_total = f"Linea total: {contexto_mercado['over_under']:.2f}"
+                lineas.append(f"<p>{escape(linea_total)}</p>")
         else:
             lineas.append("<p>Sin cuotas abiertas en este feed.</p>")
         st.markdown(f'<div class="detail-card"><h4>Mercado en tiempo real</h4>{"".join(lineas)}</div>', unsafe_allow_html=True)
@@ -2737,15 +2738,15 @@ def render_contexto_feed_espn(resumen: dict, analisis: dict) -> None:
 
     bottom_left, bottom_right = st.columns(2)
     with bottom_left:
-        lineas = [f"<p>{entrada['team']}: {entrada['summary']}</p>" for entrada in forma_espn] or ["<p>Sin resumen de forma extra en la fuente abierta.</p>"]
+        lineas = [f"<p>{escape(str(entrada['team']))}: {escape(str(entrada['summary']))}</p>" for entrada in forma_espn] or ["<p>Sin resumen de forma extra en la fuente abierta.</p>"]
         st.markdown(f'<div class="detail-card"><h4>Lectura de forma del feed</h4>{"".join(lineas)}</div>', unsafe_allow_html=True)
     with bottom_right:
-        lineas = [f"<p>{item}</p>" for item in h2h_espn] or ["<p>Sin head to head adicional en el feed abierto.</p>"]
+        lineas = [f"<p>{escape(str(item))}</p>" for item in h2h_espn] or ["<p>Sin head to head adicional en el feed abierto.</p>"]
         if contexto_mercado["pickcenter"]:
             lineas.append("<p>Consenso del mercado:</p>")
             for pick in contexto_mercado["pickcenter"]:
                 detalle = pick.get("details") or pick.get("summary") or "Sin detalle"
-                lineas.append(f"<p>- {detalle}</p>")
+                lineas.append(f"<p>- {escape(str(detalle))}</p>")
         st.markdown(f'<div class="detail-card"><h4>Head to head del feed</h4>{"".join(lineas)}</div>', unsafe_allow_html=True)
 
 

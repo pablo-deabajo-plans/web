@@ -44,6 +44,19 @@ def test_build_match_analysis_returns_expected_shape() -> None:
     assert "trace" in analysis
 
 
+def test_build_match_analysis_returns_none_when_teams_have_no_history() -> None:
+    analysis = build_match_analysis(
+        _sample_history(),
+        liga="LaLiga",
+        local="Unknown FC",
+        visitante="Missing FC",
+        match_date=datetime(2026, 3, 1),
+        match_label="Unknown FC vs Missing FC",
+    )
+
+    assert analysis is None
+
+
 def test_build_fallback_h2h_uses_general_history_when_no_direct_match() -> None:
     stats_local, stats_visitante, h2h = build_fallback_h2h(_sample_history(), "Alpha FC", "Delta FC")
 
@@ -71,3 +84,5 @@ def test_simulate_match_is_deterministic_with_analytical_model() -> None:
     assert first["Marcador"]
     assert len(first["TopScores"]) == 3
     assert abs((first["1"] + first["X"] + first["2"]) - 1.0) < 0.001
+    assert 0.0 <= first["BTTS"] <= 1.0
+    assert 0.0 <= first["O25"] <= 1.0

@@ -10,6 +10,13 @@ Planned modules:
 - `results.py`
 - `player_props.py`
 
+Current concrete repository files now exist for:
+
+- [matches.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/repositories/postgres/matches.py:1)
+- [odds.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/repositories/postgres/odds.py:1)
+- [picks.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/repositories/postgres/picks.py:1)
+- [results.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/repositories/postgres/results.py:1)
+
 Current contract source of truth:
 - [contracts.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/repositories/contracts.py:1)
 

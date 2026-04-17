@@ -326,6 +326,17 @@ Legacy compatibility:
 
 This keeps the Streamlit app working while the pure domain becomes the real source of truth.
 
+## Ongoing Legacy Reduction
+
+The latest safe migration steps also started reducing three major hotspots:
+
+- `app.py`
+  - now uses dedicated services for match analysis and player props instead of calling only legacy `core/model.py` wrappers
+- `data/sources.py`
+  - now delegates ESPN and Sportmonks HTTP calls to provider clients under `backend/app/repositories/providers/`
+- `backend/app/repositories/postgres/`
+  - now contains concrete repository implementations for matches, odds, picks, and results on top of the SQL schema
+
 ## Extraction Rules
 
 Every module in `backend/app/domain/` must respect these rules:

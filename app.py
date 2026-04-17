@@ -6,13 +6,11 @@ from uuid import uuid4
 import pandas as pd
 import streamlit as st
 
+from backend.app.services import AnalyzeMatchService, ComputePlayerPropsService
 from backend.app.services.value_pick_ranking import build_value_pick_ranking
 from core.model import (
     SIMULACIONES,
-    construir_insights,
-    construir_probabilidades_jugadores,
     cuota_justa,
-    guardar_analisis,
     stake_kelly,
 )
 from data.sources import (
@@ -58,6 +56,9 @@ from ui.components import (
 
 
 st.set_page_config(page_title="Gordon BetScanner", layout="wide")
+
+analyze_match_service = AnalyzeMatchService()
+compute_player_props_service = ComputePlayerPropsService()
 
 
 LEAGUE_COUNTRIES = {
@@ -173,7 +174,7 @@ def construir_ranking_liga(df: pd.DataFrame, liga: str, league_id: str, partidos
     for partido in partidos_serializados:
         if not partido.get("EventId"):
             continue
-        analisis = guardar_analisis(
+        analisis = analyze_match_service.analyze(
             df,
             liga,
             partido["HomeTeam"],
@@ -493,7 +494,7 @@ else:
     )
     if st.session_state.get("analysis_signature") != firma_actual:
         with st.spinner("Cargando..."):
-            st.session_state["analysis"] = guardar_analisis(
+            st.session_state["analysis"] = analyze_match_service.analyze(
                 df,
                 liga_seleccionada,
                 local,
@@ -525,7 +526,7 @@ with layout_right:
             away_team_raw,
             token_hint=st.session_state.get("sportmonks_api_token", ""),
         )
-        player_probabilities = construir_probabilidades_jugadores(player_logs_payload)
+        player_probabilities = compute_player_props_service.compute(player_logs_payload)
         render_summary_band(analisis)
 
         overview_left, overview_right = st.columns([1.45, 1])
@@ -580,7 +581,7 @@ with layout_right:
             )
             insight_left, insight_right = st.columns([1.3, 1])
             with insight_left:
-                render_insight_panel(construir_insights(analisis))
+                render_insight_panel(analyze_match_service.insights(analisis))
             with insight_right:
                 render_h2h_summary_card(analisis["h2h"], analisis["local"], analisis["visitante"])
             st.markdown("### Forma reciente")

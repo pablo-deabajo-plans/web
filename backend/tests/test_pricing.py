@@ -9,8 +9,16 @@ def test_expected_edge_matches_existing_formula() -> None:
     assert round(expected_edge(0.55, 2.10), 4) == 0.155
 
 
+def test_expected_edge_is_negative_when_price_is_bad() -> None:
+    assert expected_edge(0.40, 2.00) < 0
+
+
 def test_kelly_fraction_returns_zero_for_negative_ev() -> None:
     assert kelly_fraction(0.40, 1.80) == 0.0
+
+
+def test_kelly_fraction_is_positive_for_positive_ev() -> None:
+    assert kelly_fraction(0.56, 2.10) > 0.0
 
 
 def test_build_pick_computes_fair_odds_edge_and_half_kelly() -> None:
