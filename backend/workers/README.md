@@ -1,11 +1,17 @@
 # Workers
 
-This folder is intentionally empty in migration step 01.
+These jobs are the path away from request-time recomputation.
 
-Target responsibilities for future steps:
-- match ingestion jobs
-- odds ingestion jobs
-- prediction precompute jobs
-- player prop precompute jobs
+Target behavior:
 
-The API should eventually read precomputed outputs instead of running expensive analysis on request.
+- fetch matches on a schedule
+- fetch odds on a schedule
+- precompute picks and player props ahead of API reads
+
+The API layer should only read stored outputs. It should not call heavy model logic on request.
+
+Implemented worker entrypoints:
+
+- [ingest_matches.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/workers/ingest_matches.py:1)
+- [ingest_odds.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/workers/ingest_odds.py:1)
+- [precompute_analyses.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/workers/precompute_analyses.py:1)

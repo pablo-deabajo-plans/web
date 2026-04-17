@@ -32,6 +32,7 @@ from storage.favorites import (
     agregar_favorito,
     cargar_favoritos,
     eliminar_favorito,
+    resumir_favoritos,
     vaciar_favoritos,
 )
 from data.teams import nombre_visual_equipo
@@ -324,6 +325,15 @@ with st.expander("Configuracion de Sportmonks", expanded=False):
     st.session_state["sportmonks_api_token"] = token_input.strip()
     if st.session_state["sportmonks_api_token"]:
         st.caption("Token cargado en memoria para esta sesion.")
+
+with st.expander("Backend y pipeline", expanded=False):
+    backend_m1, backend_m2, backend_m3, backend_m4 = st.columns(4)
+    backend_m1.metric("Persistencia picks", "Repositorio")
+    backend_m2.metric("API FastAPI", "4 rutas")
+    backend_m3.metric("Workers", "3 jobs")
+    backend_m4.metric("Favoritos locales", str(resumir_favoritos()["count"]))
+    st.caption("Lectura prevista por API: /picks, /matches, /match/{id}, /history")
+    st.caption("Pipeline previsto: ingesta de partidos, ingesta de cuotas y precomputo de picks/props.")
 
 hoy = datetime.now(LOCAL_TIMEZONE).date()
 liga_activa = st.session_state.get("selected_league")
@@ -734,6 +744,13 @@ with layout_right:
                 st.rerun()
 
             favoritos = cargar_favoritos()
+            resumen_favoritos = resumir_favoritos()
+            if resumen_favoritos["count"] > 0:
+                fav_m1, fav_m2, fav_m3 = st.columns(3)
+                fav_m1.metric("Picks guardados", str(resumen_favoritos["count"]))
+                fav_m2.metric("Stake total", f"{resumen_favoritos['total_stake_units']:.2f} u")
+                fav_m3.metric("Edge medio", f"{resumen_favoritos['average_edge'] * 100:.2f}%")
+                st.caption("Persistencia local activa mediante repositorio JSON legado; backend PostgreSQL y API listos para el siguiente salto.")
             if favoritos:
                 for favorito in favoritos:
                     cols = st.columns([5, 1])

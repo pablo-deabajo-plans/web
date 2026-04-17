@@ -3,16 +3,28 @@ from __future__ import annotations
 from datetime import date
 from typing import Protocol, Sequence
 
-from backend.app.domain.models import Match, OddsQuote, Pick
+from backend.app.domain.models import Match, OddsQuote, Pick, PlayerProp, Result
 
 
 class MatchRepository(Protocol):
+    def list_matches_for_day(self, target_date: date) -> Sequence[Match]:
+        ...
+
     def get_match(self, match_id: str) -> Match | None:
+        ...
+
+    def upsert_matches(self, matches: Sequence[Match]) -> None:
         ...
 
 
 class OddsRepository(Protocol):
+    def list_latest_odds_for_day(self, target_date: date) -> Sequence[OddsQuote]:
+        ...
+
     def list_odds_for_match(self, match_id: str) -> Sequence[OddsQuote]:
+        ...
+
+    def upsert_odds(self, quotes: Sequence[OddsQuote]) -> None:
         ...
 
 
@@ -20,7 +32,25 @@ class PickRepository(Protocol):
     def list_picks_for_day(self, target_date: date) -> Sequence[Pick]:
         ...
 
+    def list_picks_for_match(self, match_id: str) -> Sequence[Pick]:
+        ...
+
+    def get_pick(self, pick_id: str) -> Pick | None:
+        ...
+
+    def save_pick(self, pick: Pick) -> None:
+        ...
+
+    def save_player_props(self, props: Sequence[PlayerProp]) -> None:
+        ...
+
 
 class ResultRepository(Protocol):
-    def settle_pick(self, pick_id: str, profit_units: float) -> None:
+    def list_results_for_day(self, target_date: date) -> Sequence[Result]:
+        ...
+
+    def list_results_for_pick(self, pick_id: str) -> Sequence[Result]:
+        ...
+
+    def settle_pick(self, pick_id: str, stake_units: float, profit_units: float, status: str) -> Result:
         ...

@@ -5,17 +5,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from backend.app.repositories.in_memory import InMemoryPickRepository
+from backend.app.api.dependencies import get_daily_picks_service
 from backend.app.schemas.picks import PickRead
 from backend.app.services.get_daily_picks import GetDailyPicksService
 
 
 router = APIRouter()
-
-
-def get_daily_picks_service() -> GetDailyPicksService:
-    repository = InMemoryPickRepository()
-    return GetDailyPicksService(repository)
 
 
 @router.get("", response_model=list[PickRead])
