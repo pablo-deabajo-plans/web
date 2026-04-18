@@ -1,15 +1,19 @@
 from fastapi import FastAPI
 
 from backend.app.core import configure_logging, settings
+from backend.app.api.routes.health import router as health_router
 from backend.app.api.routes.history import router as history_router
 from backend.app.api.routes.match import router as match_router
 from backend.app.api.routes.matches import router as matches_router
+from backend.app.api.routes.performance import router as performance_router
 from backend.app.api.routes.picks import router as picks_router
 
 
 def create_app() -> FastAPI:
     configure_logging()
     app = FastAPI(title="Gordon BetScanner Backend", version="0.1.0")
+    app.include_router(health_router, prefix="/health", tags=["health"])
+    app.include_router(performance_router, prefix="/performance", tags=["performance"])
     app.include_router(picks_router, prefix="/picks", tags=["picks"])
     app.include_router(matches_router, prefix="/matches", tags=["matches"])
     app.include_router(match_router, prefix="/match", tags=["match"])

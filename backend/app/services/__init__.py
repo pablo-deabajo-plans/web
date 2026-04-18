@@ -7,6 +7,7 @@ from backend.app.services.get_history import GetHistoryService
 from backend.app.services.get_match_detail import GetMatchDetailService
 from backend.app.services.get_matches import GetMatchesService
 from backend.app.services.match_ingestion import AnalyzedMatch, MatchIngestionService
+from backend.app.services.roi_service import ROIGroupResult, ROIQuery, ROIResult, ROIService
 from backend.app.services.value_pick_ranking import build_value_pick_ranking
 
 __all__ = [
@@ -18,5 +19,9 @@ __all__ = [
     "GetMatchDetailService",
     "GetMatchesService",
     "MatchIngestionService",
+    "ROIGroupResult",
+    "ROIQuery",
+    "ROIResult",
+    "ROIService",
     "build_value_pick_ranking",
 ]
