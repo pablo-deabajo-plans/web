@@ -33,7 +33,7 @@ from backend.workers.runtime import resolve_target_date
 
 
 LOGGER = get_logger(__name__)
-ANALYZABLE_MATCH_STATUSES = {"scheduled", "live"}
+ANALYZABLE_MATCH_STATUSES = {"scheduled", "live", "finished"}
 SKIP_CATEGORIES = ("missing_history", "missing_odds", "insufficient_data", "non_actionable")
 
 ANALYSIS_UPSERT_QUERY = """
