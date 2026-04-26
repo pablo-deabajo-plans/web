@@ -73,9 +73,9 @@ def home(
     selected_league = service.get_league_dashboard(league=league, target_date=target_day) if league else None
     search_results = service.search_matches(target_date=target_day, query=q) if q and q.strip() else []
     return templates.TemplateResponse(
+        request,
         "index.html",
         {
-            "request": request,
             "day": target_day.isoformat(),
             "competition_view": competition_view,
             "league_rows": league_rows,
@@ -97,9 +97,9 @@ def daily_value(
     competition_view = _normalize_competition_view(competition_view)
     ranking_groups = service.get_daily_value_ranking(target_date=target_day, competition_view=competition_view)
     return templates.TemplateResponse(
+        request,
         "daily_value.html",
         {
-            "request": request,
             "day": target_day.isoformat(),
             "competition_view": competition_view,
             "ranking_groups": ranking_groups,
@@ -122,9 +122,9 @@ def match_detail(
     top_edges = top_value_rows(payload["odds_rows"])
     player_rows = flatten_player_rows(payload["player_probabilities"])
     return templates.TemplateResponse(
+        request,
         "match_detail.html",
         {
-            "request": request,
             "day": day.isoformat(),
             "league": league,
             "match_id": match_id,
