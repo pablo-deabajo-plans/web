@@ -1,0 +1,73 @@
+services:
+  - type: web
+    name: gordon-betscanner-backend
+    runtime: python
+    plan: free
+    region: oregon
+    repo: https://github.com/pablo-deabajo-plans/web
+    branch: main
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: EMBEDDED_SCHEDULER_ENABLED
+        value: "true"
+      - key: API_AUTH_KEY
+        sync: false
+      - key: POSTGRES_HOST
+        sync: false
+      - key: POSTGRES_PORT
+        value: "5432"
+      - key: POSTGRES_DB
+        sync: false
+      - key: POSTGRES_USER
+        sync: false
+      - key: POSTGRES_PASSWORD
+        sync: false
+      - key: POSTGRES_SSLMODE
+        value: disable
+      - key: MATCH_INGESTION_INTERVAL_MINUTES
+        value: "30"
+      - key: ODDS_INGESTION_INTERVAL_MINUTES
+        value: "30"
+      - key: ANALYSIS_INTERVAL_MINUTES
+        value: "30"
+      - key: SETTLEMENT_INTERVAL_MINUTES
+        value: "60"
+
+  - type: worker
+    name: gordon-betscanner-pipeline
+    runtime: python
+    plan: starter
+    region: oregon
+    repo: https://github.com/pablo-deabajo-plans/web
+    branch: main
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: python -m backend.workers.scheduler
+    autoDeploy: false
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: POSTGRES_HOST
+        sync: false
+      - key: POSTGRES_PORT
+        value: "5432"
+      - key: POSTGRES_DB
+        sync: false
+      - key: POSTGRES_USER
+        sync: false
+      - key: POSTGRES_PASSWORD
+        sync: false
+      - key: POSTGRES_SSLMODE
+        value: disable
+      - key: MATCH_INGESTION_INTERVAL_MINUTES
+        value: "15"
+      - key: ODDS_INGESTION_INTERVAL_MINUTES
+        value: "15"
+      - key: ANALYSIS_INTERVAL_MINUTES
+        value: "15"
+      - key: SETTLEMENT_INTERVAL_MINUTES
+        value: "15"

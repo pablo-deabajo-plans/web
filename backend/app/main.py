@@ -1,11 +1,13 @@
 from contextlib import asynccontextmanager
-
+import os
 from pathlib import Path
+from threading import Thread
 
 from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from backend.app.core import configure_logging, settings
+from backend.app.core.logging import get_logger
 from backend.app.api.dependencies import require_authenticated_request
 from backend.app.api.routes.health import router as health_router
 from backend.app.api.routes.history import router as history_router
@@ -19,12 +21,41 @@ from backend.app.api.routes.picks import router as picks_router
 from backend.app.repositories.postgres.bootstrap import ensure_postgres_schema
 from backend.app.repositories.postgres.connection import create_postgres_connection_factory
 from backend.app.web import router as web_router
+from backend.workers import scheduler as embedded_scheduler
+
+
+LOGGER = get_logger(__name__)
+
+
+def _embedded_scheduler_enabled() -> bool:
+    return os.getenv("EMBEDDED_SCHEDULER_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _start_embedded_scheduler(app: FastAPI) -> None:
+    if not _embedded_scheduler_enabled():
+        return
+    worker_thread = getattr(app.state, "embedded_scheduler_thread", None)
+    if worker_thread and worker_thread.is_alive():
+        return
+    embedded_scheduler.STOP_REQUESTED = False
+    worker_thread = Thread(
+        target=embedded_scheduler.run_forever,
+        name="embedded-render-scheduler",
+        daemon=True,
+    )
+    worker_thread.start()
+    app.state.embedded_scheduler_thread = worker_thread
+    LOGGER.info("Embedded scheduler started inside FastAPI process")
 
 
 @asynccontextmanager
-async def _lifespan(_: FastAPI):
+async def _lifespan(app: FastAPI):
     ensure_postgres_schema(create_postgres_connection_factory())
+    _start_embedded_scheduler(app)
     yield
+    if _embedded_scheduler_enabled():
+        embedded_scheduler.STOP_REQUESTED = True
+        LOGGER.info("Embedded scheduler stop requested")
 
 
 def create_app() -> FastAPI:
