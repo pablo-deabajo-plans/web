@@ -1964,6 +1964,7 @@ def build_match_executive_summary(analisis: dict, odds_rows: list[dict]) -> str:
 
 
 def render_match_executive_summary(analisis: dict, odds_rows: list[dict]) -> None:
+    # Small dedicated renderer for the first-glance trader read on match detail.
     resumen = build_match_executive_summary(analisis, odds_rows)
     st.markdown(
         f"""
