@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import date, datetime, timezone
+from typing import Sequence
 
+from backend.app.core.time import ensure_utc_datetime
 from backend.app.domain.models import Match, OddsQuote, Pick, PlayerProp, Result
 from backend.app.domain.pricing import build_pick
 from backend.app.repositories.contracts import MatchRepository, OddsRepository, PickRepository, ResultRepository
@@ -13,7 +15,30 @@ class InMemoryMatchRepository(MatchRepository):
         self._matches = {match.id: match for match in (matches or self._seed())}
 
     def list_matches_for_day(self, target_date: date) -> list[Match]:
-        return [match for match in self._matches.values() if match.kickoff_at.date() == target_date]
+        return [match for match in self._matches.values() if ensure_utc_datetime(match.kickoff_at).date() == target_date]
+
+    def list_finished_matches(
+        self,
+        competition: str,
+        before_date: date,
+        teams: Sequence[str] | None = None,
+    ) -> list[Match]:
+        selected_teams = set(teams or [])
+        matches: list[Match] = []
+        for match in self._matches.values():
+            if match.competition != competition:
+                continue
+            if ensure_utc_datetime(match.kickoff_at).date() >= before_date:
+                continue
+            if str(match.status or "").strip().lower() != "finished":
+                continue
+            if match.home_score is None or match.away_score is None:
+                continue
+            if selected_teams and match.home_team not in selected_teams and match.away_team not in selected_teams:
+                continue
+            matches.append(match)
+        matches.sort(key=lambda item: item.kickoff_at, reverse=True)
+        return matches
 
     def get_match(self, match_id: str) -> Match | None:
         return self._matches.get(match_id)
@@ -26,8 +51,8 @@ class InMemoryMatchRepository(MatchRepository):
     def _seed() -> list[Match]:
         now = datetime.now(timezone.utc)
         return [
-            Match(id="match-001", competition="LaLiga", kickoff_at=now, home_team="Alpha FC", away_team="Beta FC", source="seed"),
-            Match(id="match-002", competition="Premier League", kickoff_at=now, home_team="Gamma FC", away_team="Delta FC", source="seed"),
+            Match(id="match-001", external_id="match-001", competition="LaLiga", kickoff_at=now, home_team="Alpha FC", away_team="Beta FC", source="seed"),
+            Match(id="match-002", external_id="match-002", competition="Premier League", kickoff_at=now, home_team="Gamma FC", away_team="Delta FC", source="seed"),
         ]
 
 
@@ -36,7 +61,11 @@ class InMemoryOddsRepository(OddsRepository):
         self._quotes = quotes or self._seed()
 
     def list_latest_odds_for_day(self, target_date: date) -> list[OddsQuote]:
-        return [quote for quote in self._quotes if quote.captured_at is not None and quote.captured_at.date() == target_date]
+        return [
+            quote
+            for quote in self._quotes
+            if quote.captured_at is not None and ensure_utc_datetime(quote.captured_at).date() == target_date
+        ]
 
     def list_odds_for_match(self, match_id: str) -> list[OddsQuote]:
         return [quote for quote in self._quotes if quote.match_id == match_id]
@@ -54,8 +83,8 @@ class InMemoryOddsRepository(OddsRepository):
     def _seed() -> list[OddsQuote]:
         now = datetime.now(timezone.utc)
         return [
-            OddsQuote(id="odds-001", match_id="match-001", market="1X2", selection="Home", decimal_odds=2.10, sportsbook="seed", captured_at=now),
-            OddsQuote(id="odds-002", match_id="match-002", market="BTTS", selection="Yes", decimal_odds=1.90, sportsbook="seed", captured_at=now),
+            OddsQuote(id="odds-001", match_id="match-001", market="1X2", selection="HOME", decimal_odds=2.10, sportsbook="seed", captured_at=now),
+            OddsQuote(id="odds-002", match_id="match-002", market="1X2", selection="AWAY", decimal_odds=1.90, sportsbook="seed", captured_at=now),
         ]
 
 
@@ -65,7 +94,11 @@ class InMemoryPickRepository(PickRepository):
         self._player_props = list(player_props or [])
 
     def list_picks_for_day(self, target_date: date) -> list[Pick]:
-        return [pick for pick in self._picks.values() if pick.created_at is not None and pick.created_at.date() == target_date]
+        return [
+            pick
+            for pick in self._picks.values()
+            if pick.created_at is not None and ensure_utc_datetime(pick.created_at).date() == target_date
+        ]
 
     def list_picks_for_match(self, match_id: str) -> list[Pick]:
         return [pick for pick in self._picks.values() if pick.match_id == match_id]
@@ -83,8 +116,8 @@ class InMemoryPickRepository(PickRepository):
     def _seed() -> list[Pick]:
         now = datetime.now(timezone.utc)
         return [
-            build_pick(match_id="match-001", market="1X2", selection="Home", probability=0.56, offered_odds=2.10, provider="seed", pick_id="pick-match-001-1x2-home", created_at=now),
-            build_pick(match_id="match-002", market="BTTS", selection="Yes", probability=0.48, offered_odds=1.90, provider="seed", pick_id="pick-match-002-btts-yes", created_at=now),
+            build_pick(match_id="match-001", market="1X2", selection="HOME", probability=0.56, offered_odds=2.10, provider="seed", pick_id="pick-match-001-1x2-home", created_at=now),
+            build_pick(match_id="match-002", market="1X2", selection="AWAY", probability=0.48, offered_odds=1.90, provider="seed", pick_id="pick-match-002-1x2-away", created_at=now),
         ]
 
 
@@ -93,7 +126,11 @@ class InMemoryResultRepository(ResultRepository):
         self._results = {result.id: result for result in (results or self._seed())}
 
     def list_results_for_day(self, target_date: date) -> list[Result]:
-        return [result for result in self._results.values() if result.settled_at is not None and result.settled_at.date() == target_date]
+        return [
+            result
+            for result in self._results.values()
+            if result.settled_at is not None and ensure_utc_datetime(result.settled_at).date() == target_date
+        ]
 
     def list_results_for_pick(self, pick_id: str) -> list[Result]:
         return [result for result in self._results.values() if result.pick_id == pick_id]
@@ -111,6 +148,7 @@ class InMemoryResultRepository(ResultRepository):
             status=status,
             stake_units=stake_units,
             profit_units=profit_units,
+            settled_selection=None,
             settled_at=settled,
         )
         self._results[result.id] = result
@@ -126,6 +164,7 @@ class InMemoryResultRepository(ResultRepository):
                 status="won",
                 stake_units=5.0,
                 profit_units=5.5,
+                settled_selection="home",
                 settled_at=now,
             )
         ]

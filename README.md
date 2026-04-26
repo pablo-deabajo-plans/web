@@ -183,6 +183,8 @@ Esto funciona, pero a medio plazo conviene dividirlo en modulos.
 
 - Python 3.11 o superior recomendado
 - pip
+- PostgreSQL accesible con las variables `POSTGRES_*`
+- secretos cargados via variables de entorno; no se deben hardcodear en el repo
 
 ### 6.2 Instalar dependencias
 
@@ -196,7 +198,50 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+### 6.4 Ejecutar backend local end-to-end
+
+Antes de arrancar backend o Docker, crea un `.env` a partir de `.env.example` y define como minimo:
+
+- `POSTGRES_DB`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `API_AUTH_KEY`
+
+El proyecto incluye un entrypoint local para backend en Windows PowerShell:
+
+```powershell
+.\run-local.ps1 setup
+.\run-local.ps1 pipeline
+.\run-local.ps1 api
+.\run-local.ps1 test
+.\run-local.ps1 all
+```
+
+`all` hace:
+- crear `.venv` si no existe;
+- instalar dependencias desde `requirements.local.txt`;
+- asegurar el esquema de base de datos;
+- ejecutar el pipeline;
+- arrancar FastAPI en `127.0.0.1:8000`.
+
+Tambien puedes usar el runner Python directamente:
+
+```bash
+python -m backend.tools.local_runner setup
+python -m backend.tools.local_runner pipeline
+python -m backend.tools.local_runner api --host 127.0.0.1 --port 8000
+python -m backend.tools.local_runner test
+python -m backend.tools.local_runner all --host 127.0.0.1 --port 8000
+```
+
 ## 7. Despliegue
+
+### 7.0 Seguridad minima de despliegue
+
+- la API protegida requiere `API_AUTH_KEY`
+- el cliente puede enviar la clave por `X-API-Key` o `Authorization: Bearer <API_AUTH_KEY>`
+- PostgreSQL no debe publicarse hacia Internet; en Docker queda solo en la red interna
+- el mapeo por defecto de la API se limita a `127.0.0.1`
 
 ### 7.1 Streamlit Community Cloud
 

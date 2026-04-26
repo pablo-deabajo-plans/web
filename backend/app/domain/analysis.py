@@ -5,6 +5,7 @@ import math
 
 import pandas as pd
 
+from backend.app.domain.models import Analysis, AnalysisMarket, AnalysisResult
 from data.teams import clave_equipo, nombre_visual_equipo
 from backend.app.domain.stats import calcular_h2h, calcular_stats, extraer_historico
 
@@ -76,7 +77,18 @@ def build_top_scores(home_mean: float, away_mean: float) -> list[tuple[str, int]
     return [(score, int(round(probability * SIMULACIONES))) for score, probability in score_probs[:3]]
 
 
-def simulate_match(xg_local: float, xg_visitante: float, xc_local: float, xc_visitante: float, xt_local: float, xt_visitante: float, xs_local: float, xs_visitante: float, xst_local: float, xst_visitante: float) -> dict:
+def simulate_match(
+    xg_local: float,
+    xg_visitante: float,
+    xc_local: float,
+    xc_visitante: float,
+    xt_local: float,
+    xt_visitante: float,
+    xs_local: float,
+    xs_visitante: float,
+    xst_local: float,
+    xst_visitante: float,
+) -> AnalysisResult:
     max_goals = max(poisson_score_limit(xg_local), poisson_score_limit(xg_visitante))
     home_goal_probs = poisson_probability_series(xg_local, max_goals)
     away_goal_probs = poisson_probability_series(xg_visitante, max_goals)
@@ -96,40 +108,49 @@ def simulate_match(xg_local: float, xg_visitante: float, xc_local: float, xc_vis
     goal_total_mean = xg_local + xg_visitante
     corner_total_mean = xc_local + xc_visitante
     top_scores = build_top_scores(xg_local, xg_visitante)
-    return {
-        "1": home_win,
-        "X": draw,
-        "2": away_win,
-        "BTTS": (1.0 - math.exp(-xg_local)) * (1.0 - math.exp(-xg_visitante)),
-        "O25": poisson_probability_over(goal_total_mean, 2.5),
-        "U25": poisson_cdf(goal_total_mean, 2),
-        "Home_Over15": poisson_probability_over(xg_local, 1.5),
-        "Away_Over15": poisson_probability_over(xg_visitante, 1.5),
-        "Home_CleanSheet": math.exp(-xg_visitante),
-        "Away_CleanSheet": math.exp(-xg_local),
-        "Corn_Home": xc_local,
-        "Corn_Away": xc_visitante,
-        "Over9.5_Corn": poisson_probability_over(corner_total_mean, 9.5),
-        "Cards_Home": xt_local,
-        "Cards_Away": xt_visitante,
-        "Total_Cards": xt_local + xt_visitante,
-        "Shots_Home": xs_local,
-        "Shots_Away": xs_visitante,
-        "ShotsOnTarget_Home": min(xs_local, xst_local),
-        "ShotsOnTarget_Away": min(xs_visitante, xst_visitante),
-        "Home_Over35_Corn": poisson_probability_over(xc_local, 3.5),
-        "Away_Over35_Corn": poisson_probability_over(xc_visitante, 3.5),
-        "Home_Over45_Corn": poisson_probability_over(xc_local, 4.5),
-        "Away_Over45_Corn": poisson_probability_over(xc_visitante, 4.5),
-        "Total_Goals": goal_total_mean,
-        "Total_Corners": corner_total_mean,
-        "TopScores": top_scores,
-        "Marcador": top_scores[0][0] if top_scores else "0-0",
-    }
+    return AnalysisResult(
+        home_win=home_win,
+        draw=draw,
+        away_win=away_win,
+        both_teams_score=(1.0 - math.exp(-xg_local)) * (1.0 - math.exp(-xg_visitante)),
+        over_2_5_goals=poisson_probability_over(goal_total_mean, 2.5),
+        under_2_5_goals=poisson_cdf(goal_total_mean, 2),
+        home_over_1_5_goals=poisson_probability_over(xg_local, 1.5),
+        away_over_1_5_goals=poisson_probability_over(xg_visitante, 1.5),
+        home_clean_sheet=math.exp(-xg_visitante),
+        away_clean_sheet=math.exp(-xg_local),
+        home_corners=xc_local,
+        away_corners=xc_visitante,
+        over_9_5_corners=poisson_probability_over(corner_total_mean, 9.5),
+        home_cards=xt_local,
+        away_cards=xt_visitante,
+        total_cards=xt_local + xt_visitante,
+        home_shots=xs_local,
+        away_shots=xs_visitante,
+        home_shots_on_target=min(xs_local, xst_local),
+        away_shots_on_target=min(xs_visitante, xst_visitante),
+        home_over_3_5_corners=poisson_probability_over(xc_local, 3.5),
+        away_over_3_5_corners=poisson_probability_over(xc_visitante, 3.5),
+        home_over_4_5_corners=poisson_probability_over(xc_local, 4.5),
+        away_over_4_5_corners=poisson_probability_over(xc_visitante, 4.5),
+        total_goals=goal_total_mean,
+        total_corners=corner_total_mean,
+        top_scores=tuple(top_scores),
+        most_likely_score=top_scores[0][0] if top_scores else "0-0",
+    )
 
 
-def build_markets(resultado: dict, local: str, visitante: str) -> list[dict]:
-    return [{"nombre": f"Victoria {local}", "prob": resultado["1"]}, {"nombre": "Empate", "prob": resultado["X"]}, {"nombre": f"Victoria {visitante}", "prob": resultado["2"]}, {"nombre": "Ambos marcan", "prob": resultado["BTTS"]}, {"nombre": "Over 2.5 goles", "prob": resultado["O25"]}, {"nombre": "Over 9.5 corners", "prob": resultado["Over9.5_Corn"]}]
+def build_markets(resultado: AnalysisResult, local: str, visitante: str) -> tuple[AnalysisMarket, ...]:
+    return (
+        AnalysisMarket(nombre=f"Victoria {local}", prob=resultado.home_win),
+        AnalysisMarket(nombre="Empate", prob=resultado.draw),
+        AnalysisMarket(nombre=f"Victoria {visitante}", prob=resultado.away_win),
+        AnalysisMarket(nombre="Ambos marcan", prob=resultado.both_teams_score),
+        AnalysisMarket(nombre="No marcan ambos", prob=max(0.0, min(1.0, 1.0 - resultado.both_teams_score))),
+        AnalysisMarket(nombre="Over 2.5 goles", prob=resultado.over_2_5_goals),
+        AnalysisMarket(nombre="Under 2.5 goles", prob=resultado.under_2_5_goals),
+        AnalysisMarket(nombre="Over 9.5 corners", prob=resultado.over_9_5_corners),
+    )
 
 
 def is_home_knockout_bonus_applicable(league: str, match_date) -> bool:
@@ -152,24 +173,24 @@ def calculate_knockout_home_bonus(stats_local: dict, stats_visitante: dict) -> t
     return local_bonus, away_penalty
 
 
-def build_insights(analysis: dict) -> list[str]:
-    resultado = analysis["resultado"]
-    local_home = analysis["stats_local"]["home"]
-    visitante_away = analysis["stats_visitante"]["away"]
-    h2h = analysis["h2h"]
+def build_insights(analysis: Analysis) -> list[str]:
+    resultado = analysis.resultado
+    local_home = analysis.stats_local["home"]
+    visitante_away = analysis.stats_visitante["away"]
+    h2h = analysis.h2h
     insights = []
-    if resultado["1"] > resultado["2"]:
-        insights.append(f"El sesgo base favorece al local con {resultado['1'] * 100:.1f}% de victoria.")
+    if resultado.home_win > resultado.away_win:
+        insights.append(f"El sesgo base favorece al local con {resultado.home_win * 100:.1f}% de victoria.")
     else:
-        insights.append(f"El sesgo base favorece al visitante con {resultado['2'] * 100:.1f}% de victoria.")
+        insights.append(f"El sesgo base favorece al visitante con {resultado.away_win * 100:.1f}% de victoria.")
     if local_home["gf"] > visitante_away["gc"]:
-        insights.append(f"El ataque en casa de {analysis['local']} ({local_home['gf']:.2f}) supera la defensa fuera de {analysis['visitante']} ({visitante_away['gc']:.2f}).")
-    if resultado["BTTS"] >= VALUE_BET_THRESHOLD:
+        insights.append(f"El ataque en casa de {analysis.local} ({local_home['gf']:.2f}) supera la defensa fuera de {analysis.visitante} ({visitante_away['gc']:.2f}).")
+    if resultado.both_teams_score >= VALUE_BET_THRESHOLD:
         insights.append("Ambos marcan entra en zona caliente del modelo por encima del 65%.")
-    if resultado["Over9.5_Corn"] >= 0.55:
+    if resultado.over_9_5_corners >= 0.55:
         insights.append("El partido proyecta un volumen de corners alto y consistente con trading en vivo.")
     if h2h["matches"] == 0:
-        insights.append(f"Sin H2H disponible, el contexto se apoya en los ultimos {analysis['stats_local']['comparison_window']} partidos generales.")
+        insights.append(f"Sin H2H disponible, el contexto se apoya en los ultimos {analysis.stats_local['comparison_window']} partidos generales.")
     return insights[:4]
 
 
@@ -206,7 +227,14 @@ def build_fallback_h2h(historico: pd.DataFrame, local: str, visitante: str) -> t
     return calcular_stats(h2h_history, local), calcular_stats(h2h_history, visitante), calcular_h2h(h2h_history, local, visitante, 8)
 
 
-def build_match_analysis(df: pd.DataFrame, liga: str, local: str, visitante: str, match_date=None, match_label: str = "") -> dict | None:
+def build_match_analysis(
+    df: pd.DataFrame,
+    liga: str,
+    local: str,
+    visitante: str,
+    match_date=None,
+    match_label: str = "",
+) -> Analysis | None:
     historico = extraer_historico(df)
     stats_local = calcular_stats(historico, local)
     stats_visitante = calcular_stats(historico, visitante)
@@ -243,4 +271,40 @@ def build_match_analysis(df: pd.DataFrame, liga: str, local: str, visitante: str
     visitante_display = nombre_visual_equipo(visitante)
     resultado = simulate_match(xg_local, xg_visitante, xc_local, xc_visitante, xt_local, xt_visitante, xs_local, xs_visitante, xst_local, xst_visitante)
     mercados = build_markets(resultado, local_display, visitante_display)
-    return {"liga": liga, "local": local_display, "visitante": visitante_display, "local_raw": local, "visitante_raw": visitante, "match_date": match_date, "match_label": match_label, "resultado": resultado, "stats_local": stats_local, "stats_visitante": stats_visitante, "h2h": h2h, "xg_local": xg_local, "xg_visitante": xg_visitante, "xc_local": xc_local, "xc_visitante": xc_visitante, "xt_local": xt_local, "xt_visitante": xt_visitante, "bonus_eliminatoria_local": bonus_eliminatoria_local, "penalizacion_eliminatoria_visitante": penalizacion_eliminatoria_visitante, "mercados": mercados, "trace": build_traceability(stats_local, stats_visitante, h2h, ataque_local, defensa_visitante, ataque_visitante, defensa_local, ajuste_forma, ajuste_h2h, detalle_h2h, xg_local, xg_visitante), "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")}
+    return Analysis(
+        liga=liga,
+        local=local_display,
+        visitante=visitante_display,
+        local_raw=local,
+        visitante_raw=visitante,
+        match_date=match_date,
+        match_label=match_label,
+        resultado=resultado,
+        stats_local=stats_local,
+        stats_visitante=stats_visitante,
+        h2h=h2h,
+        xg_local=xg_local,
+        xg_visitante=xg_visitante,
+        xc_local=xc_local,
+        xc_visitante=xc_visitante,
+        xt_local=xt_local,
+        xt_visitante=xt_visitante,
+        bonus_eliminatoria_local=bonus_eliminatoria_local,
+        penalizacion_eliminatoria_visitante=penalizacion_eliminatoria_visitante,
+        mercados=mercados,
+        trace=build_traceability(
+            stats_local,
+            stats_visitante,
+            h2h,
+            ataque_local,
+            defensa_visitante,
+            ataque_visitante,
+            defensa_local,
+            ajuste_forma,
+            ajuste_h2h,
+            detalle_h2h,
+            xg_local,
+            xg_visitante,
+        ),
+        timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+    )

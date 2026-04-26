@@ -12,7 +12,7 @@ class PostgresOddsRepository(PostgresRepository, OddsRepository):
         query = """
         SELECT id, match_id, market, selection, decimal_odds, sportsbook, captured_at
         FROM odds
-        WHERE DATE(captured_at) = %s
+        WHERE (captured_at AT TIME ZONE 'UTC')::date = %s
         ORDER BY captured_at DESC
         """
         with self._connection() as conn:

@@ -255,6 +255,14 @@ Pydantic schemas:
 API dependency wiring:
 - [backend/app/api/dependencies.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/api/dependencies.py:1)
 
+## Security Baseline
+
+- configure `API_AUTH_KEY` through environment variables
+- protected endpoints accept `X-API-Key` or `Authorization: Bearer <API_AUTH_KEY>`
+- when `APP_ENV` is `production` or `staging`, the backend now fails fast if `API_AUTH_KEY` is missing
+- PostgreSQL credentials must come from `POSTGRES_*` environment variables
+- Docker deployment should keep PostgreSQL on the internal network only
+
 ## Performance Improvements
 
 The first performance pass is now implemented in two places:

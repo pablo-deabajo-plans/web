@@ -30,7 +30,7 @@ def test_odds_ingestion_persists_quotes() -> None:
     repository = InMemoryOddsRepository(quotes=[])
     count = run_odds_ingestion(
         target_date=now.date(),
-        fetch_odds=lambda _: [OddsQuote(id="o-1", match_id="m-1", market="1X2", selection="Home", decimal_odds=2.0, sportsbook="test", captured_at=now)],
+        fetch_odds=lambda _: [OddsQuote(id="o-1", match_id="m-1", market="1X2", selection="HOME", decimal_odds=2.0, sportsbook="test", captured_at=now)],
         repository=repository,
     )
 
@@ -50,7 +50,7 @@ def test_precompute_predictions_saves_picks() -> None:
         match_repository=match_repository,
         pick_repository=pick_repository,
         compute_for_match=lambda _: (
-            [build_pick(match_id="m-1", market="1X2", selection="Home", probability=0.55, offered_odds=2.1, pick_id="pick-1", created_at=now)],
+            [build_pick(match_id="m-1", market="1X2", selection="HOME", probability=0.55, offered_odds=2.1, pick_id="pick-1", created_at=now)],
             [PlayerProp(match_id="m-1", player_id="7", player_name="Player A", metric="shots_on_target", line=0.5, probability=0.61, expected_value=0.9, confidence_label="Media", generated_at=now)],
         ),
     )

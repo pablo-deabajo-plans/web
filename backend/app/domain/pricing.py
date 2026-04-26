@@ -25,6 +25,14 @@ def kelly_fraction(probability: float, decimal_odds: float) -> float:
     return max(0.0, stake)
 
 
+def closing_line_value(offered_odds: float, closing_odds: float) -> tuple[float, float]:
+    if offered_odds <= 0 or closing_odds <= 0:
+        return 0.0, 0.0
+    absolute = offered_odds - closing_odds
+    percent = ((offered_odds / closing_odds) - 1.0) * 100
+    return absolute, percent
+
+
 def build_pick(
     *,
     match_id: str,
@@ -34,6 +42,12 @@ def build_pick(
     offered_odds: float,
     provider: str | None = None,
     kelly_multiplier: float = 0.5,
+    stake_units: float | None = None,
+    closing_odds: float | None = None,
+    clv_absolute: float | None = None,
+    clv_percent: float | None = None,
+    status: str = "open",
+    analysis_id: str | None = None,
     pick_id: str | None = None,
     created_at: datetime | None = None,
 ) -> Pick:
@@ -50,7 +64,13 @@ def build_pick(
         offered_odds=offered_odds,
         edge=edge,
         stake_fraction=stake,
+        stake_units=stake_units,
+        closing_odds=closing_odds,
+        clv_absolute=clv_absolute,
+        clv_percent=clv_percent,
+        status=status,
         provider=provider,
+        analysis_id=analysis_id,
         created_at=created_at or datetime.now(timezone.utc),
     )
 

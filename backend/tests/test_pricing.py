@@ -25,7 +25,7 @@ def test_build_pick_computes_fair_odds_edge_and_half_kelly() -> None:
     pick = build_pick(
         match_id="match-001",
         market="1X2",
-        selection="Home",
+        selection="HOME",
         probability=0.56,
         offered_odds=2.10,
         provider="test-book",

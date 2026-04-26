@@ -1,3 +1,6 @@
 __pycache__/
 data/favorite_picks.json
 .streamlit/secrets.toml
+.env
+.env.*
+!.env.example

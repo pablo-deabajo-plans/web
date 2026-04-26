@@ -1,13 +1,13 @@
-CREATE TABLE users (
-    id UUID PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
     hashed_password TEXT NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE matches (
-    id UUID PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS matches (
+    id TEXT PRIMARY KEY,
     external_id TEXT,
     competition TEXT NOT NULL,
     kickoff_at TIMESTAMPTZ NOT NULL,
@@ -15,16 +15,25 @@ CREATE TABLE matches (
     away_team TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'scheduled',
     source TEXT,
+    home_score INTEGER,
+    away_score INTEGER,
+    home_corners NUMERIC(10,4),
+    away_corners NUMERIC(10,4),
+    home_shots NUMERIC(10,4),
+    away_shots NUMERIC(10,4),
+    home_shots_on_target NUMERIC(10,4),
+    away_shots_on_target NUMERIC(10,4),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_matches_kickoff_at ON matches (kickoff_at);
-CREATE INDEX idx_matches_competition_kickoff ON matches (competition, kickoff_at);
+CREATE INDEX IF NOT EXISTS idx_matches_kickoff_at ON matches (kickoff_at);
+CREATE INDEX IF NOT EXISTS idx_matches_competition_kickoff ON matches (competition, kickoff_at);
+CREATE INDEX IF NOT EXISTS idx_matches_status_kickoff ON matches (status, kickoff_at);
 
-CREATE TABLE odds (
-    id UUID PRIMARY KEY,
-    match_id UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS odds (
+    id TEXT PRIMARY KEY,
+    match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
     market TEXT NOT NULL,
     selection TEXT NOT NULL,
     sportsbook TEXT,
@@ -33,13 +42,13 @@ CREATE TABLE odds (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_odds_match_id ON odds (match_id);
-CREATE INDEX idx_odds_match_market_selection ON odds (match_id, market, selection);
-CREATE INDEX idx_odds_captured_at ON odds (captured_at);
+CREATE INDEX IF NOT EXISTS idx_odds_match_id ON odds (match_id);
+CREATE INDEX IF NOT EXISTS idx_odds_match_market_selection ON odds (match_id, market, selection);
+CREATE INDEX IF NOT EXISTS idx_odds_captured_at ON odds (captured_at);
 
-CREATE TABLE analyses (
-    id UUID PRIMARY KEY,
-    match_id UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS analyses (
+    id TEXT PRIMARY KEY,
+    match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
     model_version TEXT NOT NULL,
     home_win_prob NUMERIC(8,6) NOT NULL,
     draw_prob NUMERIC(8,6) NOT NULL,
@@ -51,14 +60,14 @@ CREATE TABLE analyses (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX idx_analyses_match_model_generated
+CREATE UNIQUE INDEX IF NOT EXISTS idx_analyses_match_model_generated
     ON analyses (match_id, model_version, generated_at);
 
-CREATE TABLE picks (
-    id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    match_id UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-    analysis_id UUID REFERENCES analyses(id) ON DELETE SET NULL,
+CREATE TABLE IF NOT EXISTS picks (
+    id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+    analysis_id TEXT REFERENCES analyses(id) ON DELETE SET NULL,
     market TEXT NOT NULL,
     selection TEXT NOT NULL,
     probability NUMERIC(8,6) NOT NULL,
@@ -67,18 +76,24 @@ CREATE TABLE picks (
     edge NUMERIC(10,6) NOT NULL,
     stake_fraction NUMERIC(10,6) NOT NULL,
     stake_units NUMERIC(10,4),
+    closing_odds NUMERIC(10,4),
+    clv_absolute NUMERIC(10,4),
+    clv_percent NUMERIC(10,6),
     provider TEXT,
     status TEXT NOT NULL DEFAULT 'open',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_picks_match_id ON picks (match_id);
-CREATE INDEX idx_picks_user_created_at ON picks (user_id, created_at);
-CREATE INDEX idx_picks_status_created_at ON picks (status, created_at);
+CREATE INDEX IF NOT EXISTS idx_picks_match_id ON picks (match_id);
+CREATE INDEX IF NOT EXISTS idx_picks_user_created_at ON picks (user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_picks_status_created_at ON picks (status, created_at);
+ALTER TABLE IF EXISTS picks ADD COLUMN IF NOT EXISTS closing_odds NUMERIC(10,4);
+ALTER TABLE IF EXISTS picks ADD COLUMN IF NOT EXISTS clv_absolute NUMERIC(10,4);
+ALTER TABLE IF EXISTS picks ADD COLUMN IF NOT EXISTS clv_percent NUMERIC(10,6);
 
-CREATE TABLE results (
-    id UUID PRIMARY KEY,
-    pick_id UUID NOT NULL UNIQUE REFERENCES picks(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS results (
+    id TEXT PRIMARY KEY,
+    pick_id TEXT NOT NULL UNIQUE REFERENCES picks(id) ON DELETE CASCADE,
     status TEXT NOT NULL,
     settled_selection TEXT,
     stake_units NUMERIC(10,4) NOT NULL,
@@ -93,13 +108,13 @@ CREATE TABLE results (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_results_settled_at ON results (settled_at);
-CREATE INDEX idx_results_status_settled_at ON results (status, settled_at);
+CREATE INDEX IF NOT EXISTS idx_results_settled_at ON results (settled_at);
+CREATE INDEX IF NOT EXISTS idx_results_status_settled_at ON results (status, settled_at);
 
-CREATE TABLE player_props (
-    id UUID PRIMARY KEY,
-    match_id UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
-    analysis_id UUID REFERENCES analyses(id) ON DELETE SET NULL,
+CREATE TABLE IF NOT EXISTS player_props (
+    id TEXT PRIMARY KEY,
+    match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+    analysis_id TEXT REFERENCES analyses(id) ON DELETE SET NULL,
     player_id TEXT NOT NULL,
     player_name TEXT NOT NULL,
     metric TEXT NOT NULL,
@@ -111,5 +126,109 @@ CREATE TABLE player_props (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_player_props_match_metric ON player_props (match_id, metric);
-CREATE INDEX idx_player_props_generated_at ON player_props (generated_at);
+CREATE INDEX IF NOT EXISTS idx_player_props_match_metric ON player_props (match_id, metric);
+CREATE INDEX IF NOT EXISTS idx_player_props_generated_at ON player_props (generated_at);
+
+CREATE TABLE IF NOT EXISTS pipeline_metrics (
+    id BIGSERIAL NOT NULL,
+    metric_name TEXT NOT NULL,
+    worker_name TEXT NOT NULL,
+    pipeline_run_id TEXT NOT NULL,
+    target_date DATE,
+    metric_value BIGINT,
+    json_value JSONB,
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE IF EXISTS pipeline_metrics DROP CONSTRAINT IF EXISTS pipeline_metrics_pkey;
+ALTER TABLE IF EXISTS pipeline_metrics ADD COLUMN IF NOT EXISTS id BIGSERIAL;
+ALTER TABLE IF EXISTS pipeline_metrics ADD COLUMN IF NOT EXISTS pipeline_run_id TEXT;
+ALTER TABLE IF EXISTS pipeline_metrics ADD COLUMN IF NOT EXISTS recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE IF EXISTS pipeline_metrics ALTER COLUMN metric_name SET NOT NULL;
+ALTER TABLE IF EXISTS pipeline_metrics ALTER COLUMN worker_name SET NOT NULL;
+UPDATE pipeline_metrics
+SET pipeline_run_id = CONCAT('legacy-', metric_name, '-', EXTRACT(EPOCH FROM COALESCE(updated_at, NOW()))::BIGINT)
+WHERE pipeline_run_id IS NULL;
+ALTER TABLE IF EXISTS pipeline_metrics ALTER COLUMN pipeline_run_id SET NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pipeline_metrics_id ON pipeline_metrics (id);
+CREATE INDEX IF NOT EXISTS idx_pipeline_metrics_worker_recorded_at ON pipeline_metrics (worker_name, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pipeline_metrics_metric_recorded_at ON pipeline_metrics (metric_name, recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pipeline_metrics_run_recorded_at ON pipeline_metrics (pipeline_run_id, recorded_at DESC);
+
+CREATE TABLE IF NOT EXISTS backtest_runs (
+    id TEXT PRIMARY KEY,
+    model_version TEXT NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    filters JSONB NOT NULL DEFAULT '{}'::jsonb,
+    total_matches INTEGER NOT NULL DEFAULT 0,
+    analyzed_matches INTEGER NOT NULL DEFAULT 0,
+    total_picks INTEGER NOT NULL DEFAULT 0,
+    resolved_bets INTEGER NOT NULL DEFAULT 0,
+    wins INTEGER NOT NULL DEFAULT 0,
+    losses INTEGER NOT NULL DEFAULT 0,
+    pushes INTEGER NOT NULL DEFAULT 0,
+    voids INTEGER NOT NULL DEFAULT 0,
+    hit_rate NUMERIC(10,6),
+    total_stake NUMERIC(12,4) NOT NULL DEFAULT 0,
+    total_profit NUMERIC(12,4) NOT NULL DEFAULT 0,
+    roi NUMERIC(12,6),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_backtest_runs_created_at ON backtest_runs (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_backtest_runs_date_range ON backtest_runs (start_date, end_date);
+
+CREATE TABLE IF NOT EXISTS backtest_run_groups (
+    id BIGSERIAL PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES backtest_runs(id) ON DELETE CASCADE,
+    group_type TEXT NOT NULL,
+    group_key TEXT NOT NULL,
+    league TEXT,
+    market TEXT,
+    total_bets INTEGER NOT NULL DEFAULT 0,
+    wins INTEGER NOT NULL DEFAULT 0,
+    losses INTEGER NOT NULL DEFAULT 0,
+    pushes INTEGER NOT NULL DEFAULT 0,
+    voids INTEGER NOT NULL DEFAULT 0,
+    hit_rate NUMERIC(10,6),
+    total_stake NUMERIC(12,4) NOT NULL DEFAULT 0,
+    total_profit NUMERIC(12,4) NOT NULL DEFAULT 0,
+    roi NUMERIC(12,6),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_backtest_run_groups_unique
+    ON backtest_run_groups (run_id, group_type, group_key);
+CREATE INDEX IF NOT EXISTS idx_backtest_run_groups_run_id ON backtest_run_groups (run_id);
+
+CREATE TABLE IF NOT EXISTS backtest_picks (
+    id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES backtest_runs(id) ON DELETE CASCADE,
+    match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+    analysis_id TEXT,
+    competition TEXT NOT NULL,
+    kickoff_at TIMESTAMPTZ NOT NULL,
+    market TEXT NOT NULL,
+    selection TEXT NOT NULL,
+    probability NUMERIC(8,6) NOT NULL,
+    fair_odds NUMERIC(10,4) NOT NULL,
+    offered_odds NUMERIC(10,4) NOT NULL,
+    edge NUMERIC(10,6) NOT NULL,
+    stake_units NUMERIC(10,4) NOT NULL,
+    closing_odds NUMERIC(10,4),
+    clv_absolute NUMERIC(10,4),
+    clv_percent NUMERIC(10,6),
+    provider TEXT,
+    result_status TEXT NOT NULL,
+    settled_selection TEXT,
+    profit_units NUMERIC(10,4) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_backtest_picks_run_id ON backtest_picks (run_id);
+CREATE INDEX IF NOT EXISTS idx_backtest_picks_match_id ON backtest_picks (match_id);
+CREATE INDEX IF NOT EXISTS idx_backtest_picks_league_market ON backtest_picks (competition, market);

@@ -2,12 +2,13 @@ from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 
-from backend.app.api.dependencies import get_health_service, get_roi_service
+from backend.app.api.dependencies import get_health_service, get_roi_service, require_authenticated_request
 from backend.app.main import app
 from backend.app.services.get_health import HealthCheck, HealthMetrics, HealthSnapshot
 from backend.app.services.roi_service import ROIGroupResult, ROIResult
 
 
+app.dependency_overrides[require_authenticated_request] = lambda: None
 client = TestClient(app)
 
 

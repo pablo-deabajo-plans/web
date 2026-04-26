@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import signal
 import sys
@@ -16,6 +17,7 @@ if str(REPO_ROOT) not in sys.path:
 from backend.app.core.logging import configure_logging, get_logger
 from backend.workers.analysis_worker import run_once as run_analysis_once
 from backend.workers.match_ingestion_worker import run_once as run_match_ingestion_once
+from backend.workers.odds_ingestion_worker import run_once as run_odds_ingestion_once
 from backend.workers.settlement_worker import run_once as run_settlement_once
 
 
@@ -28,6 +30,25 @@ class ScheduledJob:
     name: str
     interval_seconds: int
     runner: Callable[[], int]
+
+
+def _log_scheduler_error(*, context: str, error: Exception, source: str | None = None) -> None:
+    LOGGER.exception(
+        json.dumps(
+            {
+                "event": "worker_failure",
+                "worker": "scheduler",
+                "context": context,
+                "source": source or "scheduler",
+                "league": None,
+                "match_id": None,
+                "error_type": type(error).__name__,
+                "error": str(error),
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+        )
+    )
 
 
 def _read_interval_seconds(env_name: str, default_minutes: int) -> int:
@@ -49,6 +70,11 @@ def _build_jobs() -> list[ScheduledJob]:
             name="match_ingestion",
             interval_seconds=_read_interval_seconds("MATCH_INGESTION_INTERVAL_MINUTES", 15),
             runner=run_match_ingestion_once,
+        ),
+        ScheduledJob(
+            name="odds_ingestion",
+            interval_seconds=_read_interval_seconds("ODDS_INGESTION_INTERVAL_MINUTES", 15),
+            runner=run_odds_ingestion_once,
         ),
         ScheduledJob(
             name="analysis",
@@ -85,12 +111,12 @@ def _run_job(job: ScheduledJob) -> None:
             processed,
             elapsed,
         )
-    except Exception:
+    except (RuntimeError, ValueError) as exc:
         elapsed = time.monotonic() - started_at
-        LOGGER.exception(
-            "Scheduler job failed job=%s duration_seconds=%.2f",
-            job.name,
-            elapsed,
+        _log_scheduler_error(
+            context=f"run_job job={job.name} duration_seconds={elapsed:.2f}",
+            error=exc,
+            source=job.name,
         )
 
 
@@ -123,8 +149,8 @@ def main() -> int:
     _install_signal_handlers()
     try:
         return run_forever()
-    except Exception:
-        LOGGER.exception("Scheduler crashed")
+    except (RuntimeError, ValueError) as exc:
+        _log_scheduler_error(context="main", error=exc)
         return 1
 
 

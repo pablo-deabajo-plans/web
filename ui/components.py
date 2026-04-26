@@ -6,13 +6,6 @@ import textwrap
 import pandas as pd
 import streamlit as st
 
-from core.model import VALUE_BET_THRESHOLD, cuota_justa
-from data.sources import (
-    extraer_contexto_mercado_espn,
-    extraer_detalles_forma_espn,
-    extraer_disponibilidad_espn,
-    extraer_head_to_head_espn,
-)
 from data.teams import nombre_visual_equipo
 
 
@@ -25,277 +18,6 @@ def safe_key(texto: str) -> str:
         .replace("/", "_")
         .replace("-", "_")
     )
-
-
-def inyectar_estilos_clasico() -> None:
-    st.markdown(
-        """
-        <style>
-            :root {
-                --bg-panel: linear-gradient(145deg, rgba(7,16,29,0.96), rgba(14,24,42,0.96));
-                --bg-card: linear-gradient(180deg, rgba(16,29,54,0.98), rgba(9,16,29,0.98));
-                --line: rgba(96, 165, 250, 0.18);
-                --text: #e8f1ff;
-                --muted: #90a6c8;
-                --warning: #ffd166;
-            }
-
-            .stApp {
-                background:
-                    radial-gradient(circle at top left, rgba(0, 229, 168, 0.14), transparent 28%),
-                    radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 24%),
-                    linear-gradient(180deg, #07101d 0%, #0b1425 100%);
-                color: var(--text);
-            }
-
-            .block-container {
-                max-width: 1500px;
-                padding-top: 1.1rem;
-                padding-bottom: 2.2rem;
-                padding-left: 1rem;
-                padding-right: 1rem;
-            }
-
-            .hero, .search-shell, .panel, .radar-card, .h2h-detail-card, .ranking-card, .trace-card {
-                box-shadow: 0 18px 42px rgba(0, 0, 0, 0.16);
-            }
-
-            .hero {
-                background: var(--bg-panel);
-                border: 1px solid var(--line);
-                border-radius: 24px;
-                padding: 1.8rem;
-                margin-bottom: 1.1rem;
-            }
-
-            .hero h1 { margin: 0; font-size: 2.35rem; color: #ffffff; }
-            .hero p { margin: 0.55rem 0 0 0; color: var(--muted); font-size: 1rem; }
-
-            .search-shell {
-                background: rgba(7, 16, 29, 0.74);
-                border: 1px solid rgba(96, 165, 250, 0.16);
-                border-radius: 22px;
-                padding: 1rem 1rem 0.25rem 1rem;
-                margin-bottom: 1rem;
-                backdrop-filter: blur(14px);
-            }
-
-            .search-shell h3 { color: #ffffff; margin: 0 0 0.2rem 0; font-size: 1.02rem; }
-            .search-shell p { color: var(--muted); margin: 0 0 0.75rem 0; font-size: 0.9rem; }
-
-            .section-title {
-                margin: 1rem 0 0.8rem 0;
-                font-size: 1rem;
-                font-weight: 800;
-                letter-spacing: 0.08em;
-                color: #ffffff;
-                text-transform: uppercase;
-            }
-
-            .panel, .radar-card, .h2h-detail-card, .ranking-card, .trace-card {
-                background: var(--bg-card);
-                border: 1px solid var(--line);
-                border-radius: 22px;
-                padding: 1.15rem;
-            }
-
-            .signal-card, .summary-chip, .split-card, .favorite-card, .fixture-card, .detail-card, .form-card, .h2h-card, .h2h-kpi {
-                background: rgba(255,255,255,0.03);
-                border: 1px solid rgba(255,255,255,0.08);
-                box-shadow: 0 14px 34px rgba(0, 0, 0, 0.12);
-            }
-
-            .signal-card {
-                border-radius: 18px;
-                padding: 1.05rem;
-                min-height: 168px;
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-            }
-
-            .signal-card.value-bet {
-                border: 1px solid rgba(0, 229, 168, 0.62);
-                box-shadow: 0 0 0 1px rgba(0,229,168,0.18), 0 0 24px rgba(0,229,168,0.16);
-                background: linear-gradient(180deg, rgba(0,229,168,0.14), rgba(9,16,29,0.98));
-            }
-
-            .signal-label {
-                color: var(--muted);
-                font-size: 0.84rem;
-                text-transform: uppercase;
-                letter-spacing: 0.06em;
-            }
-
-            .signal-value { font-size: 2rem; font-weight: 800; color: #ffffff; margin-top: 0.25rem; }
-            .signal-quote { color: #9bd7ff; font-size: 0.95rem; margin-top: 0.35rem; }
-
-            .signal-tag, .trace-tag {
-                display: inline-block;
-                margin-top: 0.7rem;
-                padding: 0.28rem 0.6rem;
-                border-radius: 999px;
-                font-size: 0.78rem;
-                font-weight: 800;
-                color: #04111d;
-                background: var(--warning);
-            }
-
-            .summary-band {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-                gap: 0.85rem;
-                margin: 0.7rem 0 1.15rem 0;
-            }
-
-            .summary-chip { border-radius: 18px; padding: 1rem 1.1rem; min-height: 108px; }
-            .summary-chip strong { color: #ffffff; display: block; font-size: 1.1rem; }
-            .summary-chip span { color: var(--muted); font-size: 0.86rem; }
-
-            .split-card { border-radius: 18px; padding: 1rem; margin-bottom: 0.9rem; }
-            .split-card h4 { color: #ffffff; margin: 0 0 0.65rem 0; }
-            .split-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 0.6rem; }
-            .mini-stat { border-radius: 14px; padding: 0.75rem 0.85rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); min-height: 86px; }
-            .mini-stat strong { display: block; color: #ffffff; font-size: 0.96rem; }
-            .mini-stat span { color: var(--muted); font-size: 0.82rem; }
-
-            .odds-row, .odds-head {
-                display: grid;
-                grid-template-columns: 1.6fr 0.8fr 0.8fr 0.8fr 0.8fr;
-                gap: 0.75rem;
-                align-items: center;
-            }
-
-            .odds-row {
-                padding: 0.9rem 1rem;
-                border-radius: 16px;
-                border: 1px solid rgba(255,255,255,0.07);
-                margin-bottom: 0.65rem;
-                background: rgba(255,255,255,0.03);
-            }
-
-            .odds-row.value { border-color: rgba(0,229,168,0.45); background: linear-gradient(90deg, rgba(0,229,168,0.12), rgba(255,255,255,0.03)); }
-            .odds-row.flat { border-color: rgba(59,130,246,0.45); background: linear-gradient(90deg, rgba(59,130,246,0.12), rgba(255,255,255,0.03)); }
-            .odds-row.bad { border-color: rgba(255,107,107,0.35); background: linear-gradient(90deg, rgba(255,107,107,0.10), rgba(255,255,255,0.03)); }
-            .odds-head { padding: 0 1rem 0.45rem 1rem; color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; }
-
-            .favorite-card { border-radius: 18px; padding: 1rem; margin-bottom: 0.8rem; }
-            .favorite-card strong { color: #ffffff; font-size: 1rem; }
-            .favorite-card p { color: var(--muted); margin: 0.35rem 0 0 0; font-size: 0.9rem; }
-
-            .fixture-card, .detail-card, .form-card, .h2h-card { border-radius: 20px; padding: 1rem; }
-            .fixture-card { min-height: 188px; margin-bottom: 0.85rem; }
-            .fixture-card.active { border-color: rgba(0,229,168,0.45); background: linear-gradient(180deg, rgba(0,229,168,0.10), rgba(9,16,29,0.98)); box-shadow: 0 0 0 1px rgba(0,229,168,0.12), 0 22px 44px rgba(0, 0, 0, 0.2); }
-            .fixture-meta, .form-head, .h2h-meta, .h2h-detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
-            .fixture-meta { align-items: center; color: var(--muted); font-size: 0.82rem; margin-bottom: 0.7rem; }
-            .fixture-teams { color: #ffffff; font-size: 1.06rem; font-weight: 800; line-height: 1.35; margin-bottom: 0.6rem; }
-            .fixture-sub { color: var(--muted); font-size: 0.88rem; line-height: 1.45; }
-            .source-pill { display: inline-block; padding: 0.24rem 0.58rem; border-radius: 999px; background: rgba(59,130,246,0.16); border: 1px solid rgba(59,130,246,0.24); color: #cfe3ff; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
-
-            .detail-card { margin-bottom: 0.85rem; min-height: 170px; }
-            .detail-card h4, .radar-card h3, .insight-box h3, .ranking-card h3, .trace-card h3 { margin: 0 0 0.75rem 0; color: #ffffff; font-size: 1.05rem; }
-            .detail-card p, .detail-card li { color: var(--muted); font-size: 0.9rem; margin: 0.3rem 0; }
-            .detail-note { border-radius: 16px; padding: 0.9rem 1rem; background: rgba(255, 209, 102, 0.10); border: 1px solid rgba(255, 209, 102, 0.22); color: #fff4c2; margin-bottom: 0.8rem; }
-
-            .radar-grid, .h2h-detail-grid, .trace-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 0.65rem; }
-            .radar-stat, .h2h-kpi, .trace-kpi, .ranking-item { border-radius: 16px; padding: 0.85rem 0.9rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); }
-            .radar-stat span, .h2h-kpi span, .trace-kpi span { display: block; color: var(--muted); font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.2rem; }
-            .radar-stat strong, .h2h-kpi strong, .trace-kpi strong { color: #ffffff; font-size: 1rem; line-height: 1.35; }
-
-            .insight-box { border-radius: 22px; padding: 1.15rem; background: linear-gradient(135deg, rgba(59,130,246,0.13), rgba(0,229,168,0.08)); border: 1px solid rgba(96, 165, 250, 0.2); height: 100%; }
-            .insight-list { margin: 0; padding-left: 1rem; color: #d7e5fb; }
-            .insight-list li { margin: 0 0 0.55rem 0; line-height: 1.45; }
-
-            .form-card { min-height: 180px; }
-            .form-head h4 { margin: 0.2rem 0 0 0; color: #ffffff; font-size: 1.1rem; }
-            .form-ppg { min-width: 84px; text-align: right; color: #ffffff; font-size: 1.45rem; font-weight: 800; }
-            .form-ppg span { display: block; color: var(--muted); font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; }
-            .pill-row { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0.9rem 0 0.8rem 0; }
-            .result-chip { min-width: 34px; text-align: center; border-radius: 999px; padding: 0.3rem 0.6rem; font-size: 0.8rem; font-weight: 800; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: #ffffff; }
-            .result-chip.win { background: rgba(0,229,168,0.14); border-color: rgba(0,229,168,0.32); color: #ccfff1; }
-            .result-chip.draw { background: rgba(255,209,102,0.16); border-color: rgba(255,209,102,0.34); color: #fff4c2; }
-            .result-chip.loss { background: rgba(255,107,107,0.14); border-color: rgba(255,107,107,0.30); color: #ffd9d9; }
-            .form-meta { display: flex; flex-wrap: wrap; gap: 0.55rem; color: var(--muted); font-size: 0.84rem; }
-            .form-meta span { padding: 0.25rem 0.55rem; border-radius: 999px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); }
-
-            .h2h-card { min-height: 190px; margin-bottom: 0.8rem; }
-            .h2h-card.active { border-color: rgba(59,130,246,0.46); background: linear-gradient(180deg, rgba(59,130,246,0.12), rgba(9,16,29,0.98)); box-shadow: 0 0 0 1px rgba(59,130,246,0.12), 0 18px 40px rgba(0, 0, 0, 0.18); }
-            .h2h-meta { color: var(--muted); font-size: 0.8rem; margin-bottom: 0.65rem; }
-            .h2h-score { color: #ffffff; font-size: 1.2rem; font-weight: 800; line-height: 1.35; margin-bottom: 0.75rem; }
-            .tag-pill { display: inline-block; margin-right: 0.4rem; margin-bottom: 0.4rem; padding: 0.26rem 0.58rem; border-radius: 999px; font-size: 0.76rem; font-weight: 700; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #d8e7ff; }
-            .h2h-detail-head p { margin: 0.2rem 0 0 0; color: var(--muted); font-size: 0.9rem; }
-
-            .score-pill { display: inline-block; margin: 0 0.5rem 0.5rem 0; padding: 0.5rem 0.8rem; border-radius: 999px; background: rgba(59,130,246,0.14); border: 1px solid rgba(59,130,246,0.28); color: #e7f0ff; font-size: 0.86rem; font-weight: 700; }
-            .kelly-box { border-radius: 20px; padding: 1.2rem; background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(0,229,168,0.08)); border: 1px solid rgba(96, 165, 250, 0.22); margin-top: 1rem; }
-            .kelly-main { font-size: 1.7rem; font-weight: 800; color: #ffffff; }
-            .kelly-sub { color: var(--muted); margin-top: 0.3rem; }
-
-            .ranking-shell { display: grid; gap: 0.9rem; }
-            .ranking-head { display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; margin-bottom: 0.25rem; }
-            .ranking-head-copy h3 { margin: 0; }
-            .ranking-head-copy p { margin: 0.2rem 0 0 0; color: var(--muted); font-size: 0.92rem; }
-            .ranking-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 110px; padding: 0.48rem 0.8rem; border-radius: 999px; background: rgba(0,229,168,0.12); border: 1px solid rgba(0,229,168,0.28); color: #cbfff2; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
-            .ranking-top3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
-            .ranking-spotlight { border-radius: 18px; padding: 1rem; border: 1px solid rgba(255,255,255,0.07); background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); min-height: 168px; }
-            .ranking-spotlight.top-1 { border-color: rgba(0,229,168,0.34); box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); }
-            .ranking-rank { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.28rem 0.62rem; border-radius: 999px; background: rgba(59,130,246,0.14); color: #d9e8ff; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
-            .ranking-market { margin: 0.65rem 0 0.2rem 0; color: #ffffff; font-size: 1rem; font-weight: 800; line-height: 1.3; }
-            .ranking-match { color: var(--muted); font-size: 0.9rem; line-height: 1.4; min-height: 2.5em; }
-            .ranking-edge { margin: 0.9rem 0 0.2rem 0; color: #00e5a8; font-size: 1.7rem; font-weight: 900; line-height: 1; }
-            .ranking-edge.negative { color: #ff8f8f; }
-            .ranking-odds-meta { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
-            .ranking-odds-meta span { padding: 0.28rem 0.56rem; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); color: var(--muted); font-size: 0.78rem; }
-            .ranking-subtable { margin-top: 0.35rem; }
-            .ranking-subhead { display: grid; grid-template-columns: minmax(0, 2.2fr) repeat(4, minmax(0, 1fr)); gap: 0.7rem; padding: 0 0.2rem 0.35rem 0.2rem; color: #dcebff; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
-            .ranking-row-card { border-radius: 16px; padding: 0.85rem 0.95rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); margin-bottom: 0.55rem; }
-            .ranking-cell-main strong { display: block; color: #ffffff; font-size: 0.95rem; line-height: 1.3; }
-            .ranking-cell-main span { display: block; color: var(--muted); font-size: 0.82rem; margin-top: 0.14rem; }
-            .ranking-pill { display: inline-flex; justify-content: center; align-items: center; padding: 0.36rem 0.56rem; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #ffffff; font-size: 0.83rem; font-weight: 700; }
-            .ranking-pill.edge-pos { background: rgba(0,229,168,0.12); border-color: rgba(0,229,168,0.26); color: #ccfff2; }
-            .ranking-pill.edge-neg { background: rgba(255,107,107,0.12); border-color: rgba(255,107,107,0.26); color: #ffd4d4; }
-            .ranking-provider { color: var(--muted); font-size: 0.8rem; text-align: right; }
-            .ranking-footer-note { color: var(--muted); font-size: 0.82rem; margin-top: 0.1rem; }
-            .trace-grid { margin-top: 0.75rem; }
-            .trace-subtitle { color: #ffffff; font-size: 0.95rem; font-weight: 700; margin: 0.9rem 0 0.45rem 0; }
-
-            .stTabs [data-baseweb="tab-list"] { gap: 0.4rem; flex-wrap: wrap; }
-            .stTabs [data-baseweb="tab"] { background: rgba(255,255,255,0.04); border-radius: 14px; padding: 0.55rem 0.9rem; color: var(--muted); }
-            .stTabs [aria-selected="true"] { background: linear-gradient(90deg, rgba(0,229,168,0.18), rgba(59,130,246,0.18)); color: #ffffff; }
-
-            div[data-testid="stMetric"] { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 0.8rem; min-height: 110px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.10); }
-            div[data-baseweb="select"] > div, div[data-testid="stDateInput"] input, div[data-testid="stNumberInput"] input { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10); border-radius: 16px; }
-            div[data-testid="stDataFrame"] { border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; overflow: hidden; }
-            .stButton > button { border-radius: 14px; border: none; background: linear-gradient(90deg, #00e5a8, #3b82f6); color: #03111d; font-weight: 800; min-height: 3rem; }
-
-            @media (max-width: 1100px) {
-                .hero h1 { font-size: 2rem; }
-                .summary-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-                .odds-row, .odds-head { grid-template-columns: 1.4fr repeat(4, minmax(0, 1fr)); }
-                .ranking-top3 { grid-template-columns: 1fr; }
-                .ranking-subhead { grid-template-columns: minmax(0, 1.8fr) repeat(4, minmax(0, 1fr)); gap: 0.55rem; }
-            }
-
-            @media (max-width: 780px) {
-                .block-container { padding-left: 0.7rem; padding-right: 0.7rem; }
-                div[data-testid="stHorizontalBlock"] { gap: 0.7rem; }
-                div[data-testid="column"] { width: 100% !important; flex: 1 1 100% !important; }
-                .hero, .search-shell, .h2h-detail-card, .radar-card, .panel, .trace-card, .ranking-card { padding: 1rem; }
-                .hero h1 { font-size: 1.7rem; }
-                .summary-band { grid-template-columns: 1fr; }
-                .signal-card, .fixture-card, .form-card, .detail-card, .h2h-card { min-height: unset; }
-                .h2h-detail-head, .form-head, .fixture-meta { flex-direction: column; align-items: flex-start; }
-                .ranking-head { align-items: flex-start; flex-direction: column; }
-                .ranking-subhead { display: none; }
-                .ranking-provider { text-align: left; }
-                .ranking-market { margin-top: 0.55rem; }
-                .ranking-edge { font-size: 1.45rem; }
-            }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def inyectar_estilos() -> None:
     st.markdown(
         """
@@ -2112,9 +1834,8 @@ def inyectar_estilos() -> None:
     )
 
 
-def render_signal_card(titulo: str, probabilidad: float) -> None:
-    es_value = probabilidad >= VALUE_BET_THRESHOLD
-    clase = "signal-card value-bet" if es_value else "signal-card"
+def render_signal_card(titulo: str, probabilidad: float, *, highlight: bool = False) -> None:
+    clase = "signal-card value-bet" if highlight else "signal-card"
     st.markdown(
         f"""
         <div class="{clase}">
@@ -2160,6 +1881,95 @@ def render_summary_band(analisis: dict) -> None:
                 <strong>{resultado['Total_Corners']:.2f}</strong>
                 <span>Corners totales esperados</span>
             </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def build_match_executive_summary(analisis: dict, odds_rows: list[dict]) -> str:
+    resultado = analisis["resultado"]
+    local = analisis["local"]
+    visitante = analisis["visitante"]
+
+    probs = {
+        "1": float(resultado["1"]),
+        "X": float(resultado["X"]),
+        "2": float(resultado["2"]),
+    }
+    ordered_probs = sorted(probs.items(), key=lambda item: item[1], reverse=True)
+    lead_key, lead_prob = ordered_probs[0]
+    second_prob = ordered_probs[1][1]
+    margin = lead_prob - second_prob
+
+    lead_label = {"1": local, "X": "empate", "2": visitante}[lead_key]
+    if margin >= 0.12:
+        conviction = "sesgo claro"
+    elif margin >= 0.06:
+        conviction = "sesgo moderado"
+    else:
+        conviction = "partido abierto"
+
+    xg_local = float(analisis["xg_local"])
+    xg_visitante = float(analisis["xg_visitante"])
+    xg_total = xg_local + xg_visitante
+    xg_diff = xg_local - xg_visitante
+
+    if xg_diff >= 0.3:
+        xg_read = f"{local} genera la ventaja principal en volumen ({xg_local:.2f} xG vs {xg_visitante:.2f})."
+    elif xg_diff <= -0.3:
+        xg_read = f"{visitante} genera la ventaja principal en volumen ({xg_visitante:.2f} xG vs {xg_local:.2f})."
+    else:
+        xg_read = f"El reparto de xG es corto ({xg_local:.2f} vs {xg_visitante:.2f}), sin superioridad ofensiva amplia."
+
+    corners = float(resultado["Total_Corners"])
+    corners_read = f"El modelo proyecta {corners:.2f} corners."
+    if corners >= 10:
+        corners_read += " El ritmo esperado de llegadas es suficiente para sostener un partido activo en volumen."
+    elif corners <= 8:
+        corners_read += " El volumen esperado es contenido y deja menos margen para mercados altos."
+    else:
+        corners_read += " La lectura de volumen es intermedia, sin exceso de conviccion en ese mercado."
+
+    positive_edges = sorted((fila for fila in odds_rows if float(fila["edge"]) > 0), key=lambda item: item["edge"], reverse=True)
+    if positive_edges:
+        top_edges = positive_edges[:2]
+        markets = ", ".join(f"{fila['market']} ({fila['edge'] * 100:+.2f}%)" for fila in top_edges)
+        edge_read = f"Hay edge positivo en {markets}."
+        if float(top_edges[0]["edge"]) < 0.03:
+            edge_read += " La ventaja existe, pero es fina y sensible a cualquier ajuste de precio."
+        else:
+            edge_read += " El precio supera la cuota justa del modelo y da argumento de entrada."
+    else:
+        edge_read = "No hay edge positivo claro en las cuotas detectadas; el principal riesgo es forzar una entrada sin ventaja de precio."
+
+    advantage = f"Ventaja: 1X2 con {conviction} hacia {lead_label} ({lead_prob * 100:.1f}%) y xG total de {xg_total:.2f}."
+    risk = (
+        f"Riesgo: el segundo escenario del 1X2 queda en {second_prob * 100:.1f}%"
+        if margin < 0.1
+        else f"Riesgo: aun con sesgo definido, el empate sigue vivo en {probs['X'] * 100:.1f}%"
+    )
+    risk += " y el valor final depende de que la cuota mantenga ventaja frente al precio justo."
+
+    return " ".join(
+        [
+            f"Lectura base: el 1X2 apunta a {lead_label} con {lead_prob * 100:.1f}% y deja un {conviction}.",
+            xg_read,
+            corners_read,
+            edge_read,
+            advantage,
+            risk,
+        ]
+    )
+
+
+def render_match_executive_summary(analisis: dict, odds_rows: list[dict]) -> None:
+    resumen = build_match_executive_summary(analisis, odds_rows)
+    st.markdown(
+        f"""
+        <div class="panel">
+            <div class="signal-label">Resumen trader</div>
+            <p>{escape(resumen)}</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -2673,83 +2483,6 @@ def render_fixture_cards(partidos: pd.DataFrame, fecha_objetivo, hoy) -> pd.Seri
     return partidos[partidos["FixtureLabel"] == seleccion_fixture].iloc[0]
 
 
-def render_contexto_feed_espn(resumen: dict, analisis: dict) -> None:
-    if not resumen:
-        st.markdown('<div class="detail-note">No hay feed enriquecido disponible para este partido. El panel sigue funcionando con el modelo historico y las cuotas manuales.</div>', unsafe_allow_html=True)
-        return
-    contexto_mercado = extraer_contexto_mercado_espn(resumen)
-    forma_espn = extraer_detalles_forma_espn(resumen)
-    h2h_espn = extraer_head_to_head_espn(resumen)
-    disponibilidad = extraer_disponibilidad_espn(resumen)
-    if not all(disponibilidad.values()):
-        avisos = []
-        if not disponibilidad["lineups"]:
-            avisos.append("alineaciones")
-        if not disponibilidad["injuries"]:
-            avisos.append("lesiones/sanciones")
-        if not disponibilidad["xg_shots"]:
-            avisos.append("xG por disparo")
-        st.markdown(
-            f'<div class="detail-note">La fuente abierta del partido no expone ahora mismo {escape(", ".join(avisos))}. Cuando el feed no lo trae, la app lo marca como no disponible en lugar de inventarlo.</div>',
-            unsafe_allow_html=True,
-        )
-
-    top_left, top_mid, top_right = st.columns(3)
-    with top_left:
-        lineas = []
-        if contexto_mercado["available"]:
-            lineas.append(f"<p>Proveedor: {escape(str(contexto_mercado['provider']))}</p>")
-            lineas.append(f"<p>Mercado: {escape(str(contexto_mercado['details']))}</p>")
-            if contexto_mercado["home_ml"] is not None:
-                texto = f"1 local: ML {contexto_mercado['home_ml']}"
-                if contexto_mercado["home_decimal"] is not None:
-                    texto += f" | Decimal @{contexto_mercado['home_decimal']:.2f}"
-                lineas.append(f"<p>{escape(texto)}</p>")
-            if contexto_mercado["draw_ml"] is not None:
-                texto = f"X empate: ML {contexto_mercado['draw_ml']}"
-                if contexto_mercado["draw_decimal"] is not None:
-                    texto += f" | Decimal @{contexto_mercado['draw_decimal']:.2f}"
-                lineas.append(f"<p>{escape(texto)}</p>")
-            if contexto_mercado["away_ml"] is not None:
-                texto = f"2 visitante: ML {contexto_mercado['away_ml']}"
-                if contexto_mercado["away_decimal"] is not None:
-                    texto += f" | Decimal @{contexto_mercado['away_decimal']:.2f}"
-                lineas.append(f"<p>{escape(texto)}</p>")
-            if contexto_mercado["over_under"] is not None:
-                linea_total = f"Linea total: {contexto_mercado['over_under']:.2f}"
-                lineas.append(f"<p>{escape(linea_total)}</p>")
-        else:
-            lineas.append("<p>Sin cuotas abiertas en este feed.</p>")
-        st.markdown(f'<div class="detail-card"><h4>Mercado en tiempo real</h4>{"".join(lineas)}</div>', unsafe_allow_html=True)
-
-    with top_mid:
-        lineas = []
-        lineas.append("<p>El feed abierto puede o no traer alineaciones reales segun liga y evento.</p>")
-        lineas.append("<p>Alineaciones: disponibles.</p>" if disponibilidad["lineups"] else "<p>Alineaciones confirmadas/probables no disponibles.</p>")
-        lineas.append("<p>Lesiones/sanciones: detectadas.</p>" if disponibilidad["injuries"] else "<p>Lesiones y sanciones no publicadas en este feed.</p>")
-        st.markdown(f'<div class="detail-card"><h4>Alineaciones y bajas</h4>{"".join(lineas)}</div>', unsafe_allow_html=True)
-
-    with top_right:
-        lineas = []
-        lineas.append("<p>El feed trae referencias a xG o shot map para este partido.</p>" if disponibilidad["xg_shots"] else "<p>No hay xG shot-by-shot en abierto para este evento.</p>")
-        lineas.append(f"<p>xG estimado del modelo: {analisis['local']} {analisis['xg_local']:.2f} | {analisis['visitante']} {analisis['xg_visitante']:.2f}</p>")
-        lineas.append("<p>El motor prepartido usa temporada, casa/fuera, forma y H2H.</p>")
-        st.markdown(f'<div class="detail-card"><h4>xG por disparo</h4>{"".join(lineas)}</div>', unsafe_allow_html=True)
-
-    bottom_left, bottom_right = st.columns(2)
-    with bottom_left:
-        lineas = [f"<p>{escape(str(entrada['team']))}: {escape(str(entrada['summary']))}</p>" for entrada in forma_espn] or ["<p>Sin resumen de forma extra en la fuente abierta.</p>"]
-        st.markdown(f'<div class="detail-card"><h4>Lectura de forma del feed</h4>{"".join(lineas)}</div>', unsafe_allow_html=True)
-    with bottom_right:
-        lineas = [f"<p>{escape(str(item))}</p>" for item in h2h_espn] or ["<p>Sin head to head adicional en el feed abierto.</p>"]
-        if contexto_mercado["pickcenter"]:
-            lineas.append("<p>Consenso del mercado:</p>")
-            for pick in contexto_mercado["pickcenter"]:
-                detalle = pick.get("details") or pick.get("summary") or "Sin detalle"
-                lineas.append(f"<p>- {escape(str(detalle))}</p>")
-        st.markdown(f'<div class="detail-card"><h4>Head to head del feed</h4>{"".join(lineas)}</div>', unsafe_allow_html=True)
-
-
 def render_form_card(team: str, form: dict) -> None:
     resultado_clase = {"W": "win", "D": "draw", "L": "loss"}
     resultados_html = "".join(
@@ -2895,206 +2628,6 @@ def render_h2h_explorer(h2h: dict) -> None:
         for col, (titulo, valor) in zip(cols, bloque):
             with col:
                 st.markdown(f'<div class="h2h-kpi"><span>{titulo}</span><strong>{valor}</strong></div>', unsafe_allow_html=True)
-
-
-def _fmt_comparativa(valor: float, porcentaje: bool = False, sufijo: str = "") -> str:
-    if porcentaje:
-        return f"{valor * 100:.1f}%"
-    return f"{valor:.2f}{sufijo}"
-
-
-def _fmt_comparativa_condicional(valor: float, disponible: bool, porcentaje: bool = False) -> str:
-    if not disponible:
-        return "-"
-    return _fmt_comparativa(valor, porcentaje=porcentaje)
-
-
-def _leer_ventaja(local: str, visitante: str, valor_local: float, valor_visitante: float, invertido: bool = False, porcentaje: bool = False) -> str:
-    diferencia_real = valor_local - valor_visitante
-    diferencia_lectura = -diferencia_real if invertido else diferencia_real
-    umbral = 0.02 if porcentaje else 0.05
-    if abs(diferencia_lectura) < umbral:
-        return "Muy parejo"
-
-    ganador = local if diferencia_lectura > 0 else visitante
-    magnitud = abs(diferencia_real) * (100 if porcentaje else 1)
-    sufijo = " pp" if porcentaje else ""
-    return f"Ventaja {ganador} ({magnitud:.1f}{sufijo})"
-
-
-def _leer_ventaja_si_hay_datos(
-    local: str,
-    visitante: str,
-    valor_local: float,
-    valor_visitante: float,
-    disponible_local: bool,
-    disponible_visitante: bool,
-    invertido: bool = False,
-    porcentaje: bool = False,
-) -> str:
-    if not (disponible_local and disponible_visitante):
-        return "Sin datos suficientes"
-    return _leer_ventaja(local, visitante, valor_local, valor_visitante, invertido=invertido, porcentaje=porcentaje)
-
-
-def tabla_comparativa(local: str, visitante: str, stats_local: dict, stats_visitante: dict, h2h: dict) -> pd.DataFrame:
-    local_home = stats_local["home"]
-    visitante_away = stats_visitante["away"]
-    local_overall = stats_local["overall"]
-    visitante_overall = stats_visitante["overall"]
-    local_recent = stats_local["recent_overall"]
-    visitante_recent = stats_visitante["recent_overall"]
-    local_context = stats_local["comparison_form"]
-    visitante_context = stats_visitante["comparison_form"]
-    recent_window = stats_local.get("recent_window", 10)
-    context_window = stats_local.get("comparison_window", 8)
-    contexto_h2h = (
-        f"{h2h['matches']} H2H + otros partidos recientes"
-        if h2h["matches"] > 0
-        else f"Sin H2H: fallback a ultimos {context_window} partidos generales"
-    )
-
-    filas = [
-        {
-            "Metric": "GF escenario casa/fuera",
-            f"{local}": _fmt_comparativa(local_home["gf"]),
-            f"{visitante}": _fmt_comparativa(visitante_away["gf"]),
-            "Lectura": _leer_ventaja(local, visitante, local_home["gf"], visitante_away["gf"]),
-        },
-        {
-            "Metric": "GC escenario casa/fuera",
-            f"{local}": _fmt_comparativa(local_home["gc"]),
-            f"{visitante}": _fmt_comparativa(visitante_away["gc"]),
-            "Lectura": _leer_ventaja(local, visitante, local_home["gc"], visitante_away["gc"], invertido=True),
-        },
-        {
-            "Metric": "Corners escenario casa/fuera",
-            f"{local}": _fmt_comparativa_condicional(local_home["corners_for"], local_home.get("has_corners", False)),
-            f"{visitante}": _fmt_comparativa_condicional(visitante_away["corners_for"], visitante_away.get("has_corners", False)),
-            "Lectura": _leer_ventaja_si_hay_datos(
-                local,
-                visitante,
-                local_home["corners_for"],
-                visitante_away["corners_for"],
-                local_home.get("has_corners", False),
-                visitante_away.get("has_corners", False),
-            ),
-        },
-        {
-            "Metric": "Remates escenario casa/fuera",
-            f"{local}": _fmt_comparativa_condicional(local_home["shots_for"], local_home.get("has_shots", False)),
-            f"{visitante}": _fmt_comparativa_condicional(visitante_away["shots_for"], visitante_away.get("has_shots", False)),
-            "Lectura": _leer_ventaja_si_hay_datos(
-                local,
-                visitante,
-                local_home["shots_for"],
-                visitante_away["shots_for"],
-                local_home.get("has_shots", False),
-                visitante_away.get("has_shots", False),
-            ),
-        },
-        {
-            "Metric": "Remates a puerta escenario",
-            f"{local}": _fmt_comparativa_condicional(local_home["shots_on_target_for"], local_home.get("has_shots_on_target", False)),
-            f"{visitante}": _fmt_comparativa_condicional(visitante_away["shots_on_target_for"], visitante_away.get("has_shots_on_target", False)),
-            "Lectura": _leer_ventaja_si_hay_datos(
-                local,
-                visitante,
-                local_home["shots_on_target_for"],
-                visitante_away["shots_on_target_for"],
-                local_home.get("has_shots_on_target", False),
-                visitante_away.get("has_shots_on_target", False),
-            ),
-        },
-        {
-            "Metric": "GF global temporada",
-            f"{local}": _fmt_comparativa(local_overall["gf"]),
-            f"{visitante}": _fmt_comparativa(visitante_overall["gf"]),
-            "Lectura": _leer_ventaja(local, visitante, local_overall["gf"], visitante_overall["gf"]),
-        },
-        {
-            "Metric": "GC global temporada",
-            f"{local}": _fmt_comparativa(local_overall["gc"]),
-            f"{visitante}": _fmt_comparativa(visitante_overall["gc"]),
-            "Lectura": _leer_ventaja(local, visitante, local_overall["gc"], visitante_overall["gc"], invertido=True),
-        },
-        {
-            "Metric": f"GF ultimos {recent_window} generales",
-            f"{local}": _fmt_comparativa(local_recent["gf"]),
-            f"{visitante}": _fmt_comparativa(visitante_recent["gf"]),
-            "Lectura": _leer_ventaja(local, visitante, local_recent["gf"], visitante_recent["gf"]),
-        },
-        {
-            "Metric": f"GC ultimos {recent_window} generales",
-            f"{local}": _fmt_comparativa(local_recent["gc"]),
-            f"{visitante}": _fmt_comparativa(visitante_recent["gc"]),
-            "Lectura": _leer_ventaja(local, visitante, local_recent["gc"], visitante_recent["gc"], invertido=True),
-        },
-        {
-            "Metric": f"Corners ultimos {recent_window}",
-            f"{local}": _fmt_comparativa_condicional(local_recent["corners_for"], local_recent.get("has_corners", False)),
-            f"{visitante}": _fmt_comparativa_condicional(visitante_recent["corners_for"], visitante_recent.get("has_corners", False)),
-            "Lectura": _leer_ventaja_si_hay_datos(
-                local,
-                visitante,
-                local_recent["corners_for"],
-                visitante_recent["corners_for"],
-                local_recent.get("has_corners", False),
-                visitante_recent.get("has_corners", False),
-            ),
-        },
-        {
-            "Metric": f"Remates ultimos {recent_window}",
-            f"{local}": _fmt_comparativa_condicional(local_recent["shots_for"], local_recent.get("has_shots", False)),
-            f"{visitante}": _fmt_comparativa_condicional(visitante_recent["shots_for"], visitante_recent.get("has_shots", False)),
-            "Lectura": _leer_ventaja_si_hay_datos(
-                local,
-                visitante,
-                local_recent["shots_for"],
-                visitante_recent["shots_for"],
-                local_recent.get("has_shots", False),
-                visitante_recent.get("has_shots", False),
-            ),
-        },
-        {
-            "Metric": f"Remates a puerta ultimos {recent_window}",
-            f"{local}": _fmt_comparativa_condicional(local_recent["shots_on_target_for"], local_recent.get("has_shots_on_target", False)),
-            f"{visitante}": _fmt_comparativa_condicional(visitante_recent["shots_on_target_for"], visitante_recent.get("has_shots_on_target", False)),
-            "Lectura": _leer_ventaja_si_hay_datos(
-                local,
-                visitante,
-                local_recent["shots_on_target_for"],
-                visitante_recent["shots_on_target_for"],
-                local_recent.get("has_shots_on_target", False),
-                visitante_recent.get("has_shots_on_target", False),
-            ),
-        },
-        {
-            "Metric": f"BTTS ultimos {recent_window}",
-            f"{local}": _fmt_comparativa(local_recent["btts_pct"], porcentaje=True),
-            f"{visitante}": _fmt_comparativa(visitante_recent["btts_pct"], porcentaje=True),
-            "Lectura": _leer_ventaja(local, visitante, local_recent["btts_pct"], visitante_recent["btts_pct"], porcentaje=True),
-        },
-        {
-            "Metric": f"Over 2.5 ultimos {recent_window}",
-            f"{local}": _fmt_comparativa(local_recent["over25_pct"], porcentaje=True),
-            f"{visitante}": _fmt_comparativa(visitante_recent["over25_pct"], porcentaje=True),
-            "Lectura": _leer_ventaja(local, visitante, local_recent["over25_pct"], visitante_recent["over25_pct"], porcentaje=True),
-        },
-        {
-            "Metric": f"Forma ultimos {recent_window}",
-            f"{local}": f"{stats_local['form']['streak']} ({stats_local['form']['ppg']:.2f} ppg)",
-            f"{visitante}": f"{stats_visitante['form']['streak']} ({stats_visitante['form']['ppg']:.2f} ppg)",
-            "Lectura": _leer_ventaja(local, visitante, stats_local["form"]["ppg"], stats_visitante["form"]["ppg"]),
-        },
-        {
-            "Metric": f"Contexto extra ultimos {context_window}",
-            f"{local}": f"{local_context['streak']} ({local_context['ppg']:.2f} ppg)",
-            f"{visitante}": f"{visitante_context['streak']} ({visitante_context['ppg']:.2f} ppg)",
-            "Lectura": contexto_h2h,
-        },
-    ]
-    return pd.DataFrame(filas)
 
 
 def render_traceability_panel(analisis: dict) -> None:

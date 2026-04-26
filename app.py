@@ -1,40 +1,25 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from uuid import uuid4
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import streamlit as st
 
-from backend.app.services.analyze_match import AnalyzeMatchService
-from backend.app.services.compute_player_props import ComputePlayerPropsService
-from backend.app.services.match_ingestion import MatchIngestionService
-from backend.app.services.value_pick_ranking import build_value_pick_ranking
-from core.model import (
-    SIMULACIONES,
-    cuota_justa,
-    stake_kelly,
+from ui.api_client import (
+    BackendApiError,
+    calculate_kelly,
+    clear_favorites,
+    compare_odds,
+    create_favorite,
+    delete_favorite,
+    get_daily_value_ranking,
+    get_favorites,
+    get_league_dashboard,
+    get_leagues,
+    get_match_dashboard,
+    search_matches,
 )
-from data.sources import (
-    ESPN_LEAGUE_IDS,
-    LEAGUE_CONFIGS,
-    LOCAL_TIMEZONE,
-    construir_cuotas_automaticas,
-    descargar_datos_liga,
-    obtener_logs_jugadores_sportmonks,
-    descargar_resumen_espn,
-    extraer_contexto_mercado_espn,
-    fusionar_calendarios,
-    preparar_calendario,
-)
-from storage.favorites import (
-    agregar_favorito,
-    cargar_favoritos,
-    eliminar_favorito,
-    resumir_favoritos,
-    vaciar_favoritos,
-)
-from data.teams import nombre_visual_equipo
 from ui.components import (
     inyectar_estilos,
     render_comparador_cuotas,
@@ -48,305 +33,709 @@ from ui.components import (
     render_player_props_panel,
     render_radar_panel,
     render_ranking_value_panel,
+    render_match_executive_summary,
     render_signal_card,
     render_split_panel,
     render_summary_band,
+    render_traceability_panel,
     safe_key,
-    tabla_comparativa,
 )
 
 
 st.set_page_config(page_title="Gordon BetScanner", layout="wide")
-
-analyze_match_service = AnalyzeMatchService()
-compute_player_props_service = ComputePlayerPropsService()
-match_ingestion_service = MatchIngestionService()
+inyectar_estilos()
 
 
-LEAGUE_COUNTRIES = {
-    "Premier League": "Inglaterra",
-    "League One": "Inglaterra",
-    "League Two": "Inglaterra",
-    "Escocia Premiership": "Escocia",
-    "Escocia Championship": "Escocia",
-    "Escocia League One": "Escocia",
-    "Escocia League Two": "Escocia",
-    "Eliteserien": "Noruega",
-    "Allsvenskan": "Suecia",
-    "Superliga Dinamarca": "Dinamarca",
-    "LaLiga": "Espana",
-    "Segunda Division": "Espana",
-    "Serie A": "Italia",
-    "Serie B": "Italia",
-    "Bundesliga": "Alemania",
-    "Ligue 1": "Francia",
-    "Ligue 2": "Francia",
-    "Holanda": "Paises Bajos",
-    "Belgica": "Belgica",
-    "Liga de Portugal": "Portugal",
-    "Liga Portugal 2": "Portugal",
-    "Super League Suiza": "Suiza",
-    "Bundesliga Austria": "Austria",
-    "Grecia": "Grecia",
-    "Ekstraklasa": "Polonia",
-    "Champions League": "Europa",
-    "Europa League": "Europa",
-    "Conference League": "Europa",
-    "Copa del Rey": "Espana",
-    "Turquia": "Turquia",
-    "Segunda Inglesa": "Inglaterra",
-    "Arabia Saudi": "Arabia Saudi",
-    "Australia": "Australia",
-    "Internacionales": "Internacional",
-    "Segunda Alemana": "Alemania",
-    "Chile": "Chile",
-    "MLS": "Estados Unidos",
-    "Brasil": "Brasil",
-    "Serie B Brasil": "Brasil",
-    "Primera B Nacional": "Argentina",
-    "Liga MX": "Mexico",
-    "Primera A Colombia": "Colombia",
-    "J1 League": "Japon",
-    "J2 League": "Japon",
-    "K League 1": "Corea del Sur",
-    "WSL Femenina": "Inglaterra",
-    "Liga F": "Espana",
-    "Premiere Ligue Femenina": "Francia",
-    "Frauen-Bundesliga": "Alemania",
-    "Serie A Femenina": "Italia",
-}
-
-COMPETITION_TYPES = {
-    "Premier League": "Liga",
-    "League One": "Liga",
-    "League Two": "Liga",
-    "Escocia Premiership": "Liga",
-    "Escocia Championship": "Liga",
-    "Escocia League One": "Liga",
-    "Escocia League Two": "Liga",
-    "Eliteserien": "Liga",
-    "Allsvenskan": "Liga",
-    "Superliga Dinamarca": "Liga",
-    "LaLiga": "Liga",
-    "Segunda Division": "Liga",
-    "Serie A": "Liga",
-    "Serie B": "Liga",
-    "Bundesliga": "Liga",
-    "Ligue 1": "Liga",
-    "Ligue 2": "Liga",
-    "Holanda": "Liga",
-    "Belgica": "Liga",
-    "Liga de Portugal": "Liga",
-    "Liga Portugal 2": "Liga",
-    "Super League Suiza": "Liga",
-    "Bundesliga Austria": "Liga",
-    "Grecia": "Liga",
-    "Ekstraklasa": "Liga",
-    "Turquia": "Liga",
-    "Segunda Inglesa": "Liga",
-    "Arabia Saudi": "Liga",
-    "Australia": "Liga",
-    "Segunda Alemana": "Liga",
-    "Chile": "Liga",
-    "MLS": "Liga",
-    "Brasil": "Liga",
-    "Serie B Brasil": "Liga",
-    "Primera B Nacional": "Liga",
-    "Liga MX": "Liga",
-    "Primera A Colombia": "Liga",
-    "J1 League": "Liga",
-    "J2 League": "Liga",
-    "K League 1": "Liga",
-    "WSL Femenina": "Liga",
-    "Liga F": "Liga",
-    "Premiere Ligue Femenina": "Liga",
-    "Frauen-Bundesliga": "Liga",
-    "Serie A Femenina": "Liga",
-    "Champions League": "Torneo",
-    "Europa League": "Torneo",
-    "Conference League": "Torneo",
-    "Copa del Rey": "Torneo",
-    "Internacionales": "Torneo",
-}
+APP_TIMEZONE = ZoneInfo("Europe/Madrid")
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def cargar_partidos_espn_analizados(liga: str, league_id: str, fecha_objetivo) -> tuple[pd.DataFrame, dict[str, dict]]:
-    if not league_id:
-        return pd.DataFrame(), {}
+def build_match_confidence_label(analisis: dict, odds_rows: list[dict]) -> tuple[str, str]:
+    resultado = analisis["resultado"]
+    probs = sorted([float(resultado["1"]), float(resultado["X"]), float(resultado["2"])], reverse=True)
+    lead_margin = probs[0] - probs[1]
+    best_edge = max((float(fila["edge"]) for fila in odds_rows), default=0.0)
 
-    history = (LEAGUE_CONFIGS.get(liga, {}) or {}).get("history", {})
-    season_type = history.get("season", "calendar")
-    try:
-        analyzed_matches = match_ingestion_service.get_analyzed_matches(
-            league_id,
-            liga,
-            fecha_objetivo,
-            season_type=season_type,
-        )
-    except Exception:
-        return pd.DataFrame(), {}
-
-    filas = []
-    analysis_map: dict[str, dict] = {}
-    for item in analyzed_matches:
-        match = item.match
-        filas.append(
-            {
-                "EventId": match.id,
-                "Date": match.kickoff_at.strftime("%d/%m/%Y"),
-                "MatchDate": match.kickoff_at.date(),
-                "Time": match.kickoff_at.strftime("%H:%M"),
-                "HomeTeamRaw": match.raw_home_team,
-                "AwayTeamRaw": match.raw_away_team,
-                "HomeTeam": match.home_team,
-                "AwayTeam": match.away_team,
-                "FTHG": match.home_score,
-                "FTAG": match.away_score,
-                "HC": match.home_corners,
-                "AC": match.away_corners,
-                "HS": match.home_shots,
-                "AS": match.away_shots,
-                "HST": match.home_shots_on_target,
-                "AST": match.away_shots_on_target,
-                "FixtureLabel": match.fixture_label,
-                "Source": match.source,
-            }
-        )
-        if item.analysis is not None:
-            analysis_map[match.id] = item.analysis
-
-    return pd.DataFrame(filas), analysis_map
+    if lead_margin >= 0.12 and best_edge >= 0.04:
+        return "Alta", "sesgo 1X2 claro y edge utilizable"
+    if lead_margin >= 0.06 and best_edge > 0:
+        return "Media", "hay sesgo de partido y precio por encima de la justa"
+    if lead_margin >= 0.06:
+        return "Media-baja", "hay lectura de partido, pero sin ventaja clara de precio"
+    if best_edge > 0.04:
+        return "Media", "el valor viene mas del precio que del sesgo base del partido"
+    return "Baja", "partido abierto o mercado sin ventaja clara"
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def construir_ranking_liga(
-    df: pd.DataFrame,
-    liga: str,
-    league_id: str,
-    partidos_serializados: list[dict],
-    analysis_map: dict[str, dict] | None = None,
-) -> list[dict]:
-    items = []
-    analysis_map = analysis_map or {}
-    for partido in partidos_serializados:
-        if not partido.get("EventId"):
-            continue
-        analisis = analysis_map.get(str(partido["EventId"]))
-        if analisis is None:
-            analisis = analyze_match_service.analyze(
-                df,
-                liga,
-                partido["HomeTeam"],
-                partido["AwayTeam"],
-                match_date=partido.get("MatchDate"),
-                match_label=partido.get("FixtureLabel", ""),
-            )
-        if analisis is None:
-            continue
-        resumen = descargar_resumen_espn(league_id, str(partido["EventId"]))
-        contexto = extraer_contexto_mercado_espn(resumen) if resumen else {}
-        auto_odds = construir_cuotas_automaticas(contexto, analisis["local"], analisis["visitante"])
-        items.append({"analysis": analisis, "auto_odds": auto_odds})
-    return build_value_pick_ranking(items, limit=10)
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def resumir_liga_para_portada(liga: str, fecha_objetivo, hoy) -> dict:
-    config = LEAGUE_CONFIGS.get(liga, {})
-    history = config.get("history", {})
-    source_type = history.get("type", "")
-    league_id = ESPN_LEAGUE_IDS.get(liga, "")
-
-    df = descargar_datos_liga(liga) if source_type in {"football_data", "footystats_fixtures"} else None
-    calendario_csv = preparar_calendario(df) if df is not None else pd.DataFrame()
-    equipos_csv = sorted(df["HomeTeam"].dropna().unique()) if df is not None and "HomeTeam" in df.columns else []
-    partidos_csv = calendario_csv[calendario_csv["MatchDate"] == fecha_objetivo].copy() if not calendario_csv.empty else pd.DataFrame()
-
-    partidos_espn = pd.DataFrame()
-    if league_id and (source_type == "espn_scoreboard" or fecha_objetivo >= hoy or partidos_csv.empty):
-        partidos_espn, _ = cargar_partidos_espn_analizados(liga, league_id, fecha_objetivo)
-
-    base_csv = partidos_csv if source_type != "espn_scoreboard" else pd.DataFrame()
-    partidos = fusionar_calendarios(base_csv, partidos_espn, equipos_csv)
-    return {
-        "league": liga,
-        "country": LEAGUE_COUNTRIES.get(liga, "Internacional"),
-        "match_count": len(partidos),
+def render_match_decision_snapshot(analisis: dict, odds_rows: list[dict]) -> None:
+    resultado = analisis["resultado"]
+    local = analisis["local"]
+    visitante = analisis["visitante"]
+    probs = {
+        local: float(resultado["1"]),
+        "Empate": float(resultado["X"]),
+        visitante: float(resultado["2"]),
     }
+    ordered_probs = sorted(probs.items(), key=lambda item: item[1], reverse=True)
+    lead_name, lead_prob = ordered_probs[0]
+    second_prob = ordered_probs[1][1]
+    confidence_label, confidence_reason = build_match_confidence_label(analisis, odds_rows)
+    positive_edges = sorted((fila for fila in odds_rows if float(fila["edge"]) > 0), key=lambda item: item["edge"], reverse=True)
 
+    markets_text = "<p>Sin value claro en precios actuales.</p>"
+    if positive_edges:
+        markets_text = "".join(
+            f"<p><strong>{fila['market']}</strong> | edge {float(fila['edge']) * 100:+.2f}% | cuota justa @{float(fila['fair_odds']):.2f} vs casa @{float(fila['offered_odds']):.2f}</p>"
+            for fila in positive_edges[:3]
+        )
 
-@st.cache_data(ttl=300, show_spinner=False)
-def construir_portada_ligas(fecha_objetivo, hoy) -> list[dict]:
-    filas = [resumir_liga_para_portada(liga, fecha_objetivo, hoy) for liga in LEAGUE_CONFIGS]
-    return sorted(filas, key=lambda item: (-item["match_count"], item["league"]))
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def buscar_partidos_global(fecha_objetivo, hoy, query: str) -> list[dict]:
-    termino = query.strip().lower()
-    if not termino:
-        return []
-
-    resultados = []
-    for liga in LEAGUE_CONFIGS:
-        config = LEAGUE_CONFIGS.get(liga, {})
-        history = config.get("history", {})
-        source_type = history.get("type", "")
-        league_id = ESPN_LEAGUE_IDS.get(liga, "")
-
-        df = descargar_datos_liga(liga) if source_type in {"football_data", "footystats_fixtures"} else None
-        calendario_csv = preparar_calendario(df) if df is not None else pd.DataFrame()
-        equipos_csv = sorted(df["HomeTeam"].dropna().unique()) if df is not None and "HomeTeam" in df.columns else []
-        partidos_csv = calendario_csv[calendario_csv["MatchDate"] == fecha_objetivo].copy() if not calendario_csv.empty else pd.DataFrame()
-
-        partidos_espn = pd.DataFrame()
-        if league_id and (source_type == "espn_scoreboard" or fecha_objetivo >= hoy or partidos_csv.empty):
-            partidos_espn, _ = cargar_partidos_espn_analizados(liga, league_id, fecha_objetivo)
-
-        base_csv = partidos_csv if source_type != "espn_scoreboard" else pd.DataFrame()
-        partidos = fusionar_calendarios(base_csv, partidos_espn, equipos_csv)
-        if partidos.empty:
-            continue
-
-        if "EventId" not in partidos.columns:
-            partidos["EventId"] = ""
-
-        for partido in partidos.to_dict("records"):
-            local = nombre_visual_equipo(partido.get("HomeTeam", "TBD"))
-            visitante = nombre_visual_equipo(partido.get("AwayTeam", "TBD"))
-            match_text = f"{local} vs {visitante}".lower()
-            if termino not in match_text and termino not in local.lower() and termino not in visitante.lower():
-                continue
-            resultados.append(
-                {
-                    "league": liga,
-                    "country": LEAGUE_COUNTRIES.get(liga, "Internacional"),
-                    "match": f"{local} vs {visitante}",
-                    "time": str(partido.get("Time", "")).strip(),
-                    "fixture_label": partido.get("FixtureLabel", ""),
-                    "event_id": partido.get("EventId", ""),
-                }
-            )
-    return resultados
+    st.markdown(
+        f"""
+        <div class="panel">
+            <div class="signal-label">Decision en 30-60 segundos</div>
+            <p><strong>Ventaja base:</strong> {lead_name} lidera el 1X2 con {lead_prob * 100:.1f}% y deja al segundo escenario en {second_prob * 100:.1f}%.</p>
+            <p><strong>Mercados accionables:</strong></p>
+            {markets_text}
+            <p><strong>Confianza:</strong> {confidence_label}. Motivo: {confidence_reason}.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def limpiar_contexto_partido() -> None:
-    for key in ["fixture_label", "analysis", "analysis_signature", "selected_h2h_match"]:
+    for key in ["fixture_label", "selected_h2h_match", "match_dashboard", "selected_match_context"]:
         st.session_state[key] = None
 
 
-inyectar_estilos()
+def ir_a_detalle_partido(*, league: str, match_id: str, fixture_label: str, target_date: date) -> None:
+    st.session_state["selected_league"] = league
+    st.session_state["fixture_label"] = fixture_label
+    st.session_state["selected_h2h_match"] = None
+    st.session_state["match_dashboard"] = None
+    st.session_state["selected_match_context"] = {
+        "league": league,
+        "match_id": str(match_id),
+        "target_date": target_date.isoformat(),
+    }
+    st.session_state["current_view"] = "match_detail"
+
+
+def volver_a_liga() -> None:
+    st.session_state["selected_h2h_match"] = None
+    st.session_state["match_dashboard"] = None
+    st.session_state["current_view"] = "league"
+
+
+def volver_a_ligas() -> None:
+    st.session_state["selected_league"] = None
+    st.session_state["current_view"] = "league"
+    limpiar_contexto_partido()
+
+
+def ir_a_ranking_diario() -> None:
+    st.session_state["current_view"] = "daily_value"
+    st.session_state["selected_league"] = None
+    limpiar_contexto_partido()
+
+
+def render_search_results(resultados_busqueda: list[dict], fecha_objetivo: date) -> None:
+    if resultados_busqueda:
+        st.subheader("Resultados de busqueda")
+        for resultado in resultados_busqueda[:8]:
+            cols = st.columns([3.1, 1.2, 0.9])
+            with cols[0]:
+                hora_label = resultado["time"] if resultado["time"] else "Sin hora"
+                st.write(resultado["match"])
+                st.caption(f"{resultado['league']} | {resultado['country']} | {hora_label}")
+            with cols[1]:
+                st.write(resultado["league"])
+                st.caption(resultado["country"])
+            with cols[2]:
+                if st.button(
+                    "Abrir",
+                    key=f"search_open_{safe_key(resultado['league'])}_{safe_key(resultado['fixture_label'])}",
+                    use_container_width=True,
+                ):
+                    ir_a_detalle_partido(
+                        league=resultado["league"],
+                        match_id=resultado["match_id"],
+                        fixture_label=resultado["fixture_label"],
+                        target_date=fecha_objetivo,
+                    )
+                    st.session_state["search_results"] = []
+                    st.session_state["search_executed"] = False
+                    st.rerun()
+    elif st.session_state.get("search_executed") and st.session_state.get("match_search", "").strip():
+        st.markdown(
+            """
+            <div class="empty-panel">
+                <h3>No he encontrado partidos con esa busqueda</h3>
+                <p>Prueba con el nombre de un equipo o una parte del cruce en la fecha seleccionada.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+
+def render_match_detail_header(match_dashboard: dict, selected_context: dict) -> None:
+    match = match_dashboard["match"]
+    analysis = match_dashboard["analysis"]
+    fecha_label = match.get("match_date") or selected_context["target_date"]
+    hora_label = match.get("time") or "Sin hora"
+    fuente_label = match.get("source") or "Backend"
+    st.markdown(
+        f"""
+        <div class="toolbar-shell">
+            <div class="toolbar-kicker">Match detail</div>
+            <div class="toolbar-title">{analysis['local']} vs {analysis['visitante']}</div>
+            <div class="toolbar-meta">{analysis['liga']} | {fecha_label} | {hora_label} | Fuente {fuente_label}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_league_selected_match_card(selected_match: pd.Series | None) -> None:
+    if selected_match is None:
+        st.markdown(
+            """
+            <div class="empty-panel">
+                <h3>Selecciona un partido para abrir su match detail</h3>
+                <p>La vista dedicada concentra resumen ejecutivo, comparativa, proyeccion, jugadores y cuotas sin cargar el analisis completo dentro de la liga.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        return
+
+    hora_label = str(selected_match.get("Time", "") or "").strip() or "Sin hora"
+    source_label = selected_match.get("Source") or "Backend"
+    match_date = selected_match.get("MatchDate")
+    fecha_label = match_date.strftime("%d/%m/%Y") if match_date else "Sin fecha"
+    st.markdown(
+        f"""
+        <div class="panel">
+            <div class="signal-label">Partido seleccionado</div>
+            <h3>{selected_match['HomeTeam']} vs {selected_match['AwayTeam']}</h3>
+            <p>{fecha_label} | {hora_label} | Fuente {source_label}</p>
+            <p>Abre la pagina dedicada para ver el detalle completo por tabs y mantener la vista de liga ligera.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_match_detail_view() -> None:
+    selected_context = st.session_state.get("selected_match_context")
+    if not selected_context:
+        st.session_state["current_view"] = "league"
+        st.rerun()
+
+    target_date = date.fromisoformat(selected_context["target_date"])
+    league = selected_context["league"]
+    match_dashboard = get_match_dashboard(
+        league,
+        target_date,
+        selected_context["match_id"],
+        st.session_state.get("sportmonks_api_token", ""),
+    )
+    st.session_state["match_dashboard"] = match_dashboard
+
+    render_match_detail_header(match_dashboard, selected_context)
+
+    action_cols = st.columns([1.1, 1.1, 1.1, 0.8, 0.8])
+    with action_cols[0]:
+        if st.button("Volver a la liga", use_container_width=True):
+            volver_a_liga()
+            st.rerun()
+    with action_cols[1]:
+        if st.button("Ver todas las ligas", use_container_width=True):
+            volver_a_ligas()
+            st.rerun()
+    with action_cols[2]:
+        if st.button("Ranking diario", use_container_width=True):
+            ir_a_ranking_diario()
+            st.rerun()
+    with action_cols[3]:
+        st.metric("Liga", league)
+    with action_cols[4]:
+        st.metric("Partido", selected_context["match_id"])
+
+    analisis = match_dashboard["analysis"]
+    resultado = analisis["resultado"]
+    odds_rows = match_dashboard["odds_rows"]
+    signal_flags = match_dashboard["signal_flags"]
+
+    tab_executive, tab_season, tab_compare, tab_projection, tab_players, tab_odds = st.tabs(
+        [
+            "Resumen ejecutivo",
+            "Estadisticas de temporada",
+            "Comparativa & H2H",
+            "Proyeccion del partido",
+            "Jugadores",
+            "Cuotas y valor",
+        ]
+    )
+
+    with tab_executive:
+        render_summary_band(analisis)
+        render_match_decision_snapshot(analisis, odds_rows)
+        render_match_executive_summary(analisis, odds_rows)
+        overview_left, overview_right = st.columns([1.25, 1])
+        with overview_left:
+            st.markdown('<div class="section-title">Quien tiene ventaja</div>', unsafe_allow_html=True)
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                render_signal_card(f"Victoria {analisis['local']}", resultado["1"], highlight=signal_flags["1"]["highlight"])
+            with c2:
+                render_signal_card("Empate", resultado["X"], highlight=signal_flags["X"]["highlight"])
+            with c3:
+                render_signal_card(f"Victoria {analisis['visitante']}", resultado["2"], highlight=signal_flags["2"]["highlight"])
+        with overview_right:
+            render_radar_panel(analisis)
+        if st.toggle("Ver lectura ampliada", value=False, key=f"show_exec_insights_{selected_context['match_id']}"):
+            render_insight_panel(match_dashboard["insights"])
+
+    with tab_season:
+        recent_window = analisis["stats_local"].get("recent_window", 10)
+        mostrar_overlay_forma = st.toggle(
+            f"Mostrar overlay de forma reciente ({recent_window} partidos)",
+            value=True,
+            key=f"season_overlay_{selected_context['match_id']}",
+        )
+        st.markdown('<div class="section-title">Base de temporada jugada</div>', unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div class="panel">
+                <div class="signal-label">Lectura base</div>
+                <p>Por defecto se muestra el escenario que mas pesa en la decision del partido: local en casa y visitante fuera. El resto de despieces queda detras de un toggle para no duplicar lectura.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        eq_1, eq_2 = st.columns(2)
+        with eq_1:
+            st.markdown(f"### {analisis['local']}")
+            render_split_panel("Temporada completa | En casa", analisis["stats_local"]["home"])
+        with eq_2:
+            st.markdown(f"### {analisis['visitante']}")
+            render_split_panel("Temporada completa | Fuera", analisis["stats_visitante"]["away"])
+
+        if st.toggle("Ver despiece completo de temporada", value=False, key=f"season_full_{selected_context['match_id']}"):
+            full_left, full_right = st.columns(2)
+            with full_left:
+                st.markdown(f"### {analisis['local']}")
+                render_split_panel("Temporada completa | Global", analisis["stats_local"]["overall"])
+                render_split_panel("Temporada completa | Fuera", analisis["stats_local"]["away"])
+            with full_right:
+                st.markdown(f"### {analisis['visitante']}")
+                render_split_panel("Temporada completa | Global", analisis["stats_visitante"]["overall"])
+                render_split_panel("Temporada completa | En casa", analisis["stats_visitante"]["home"])
+
+        if mostrar_overlay_forma:
+            st.markdown('<div class="section-title">Overlay de forma reciente</div>', unsafe_allow_html=True)
+            st.markdown(
+                f"""
+                <div class="panel">
+                    <div class="signal-label">Capa de timing</div>
+                    <p>Este overlay no sustituye la temporada. Relee el cruce con la ventana reciente de {recent_window} partidos para detectar aceleracion, enfriamiento o divergencias frente a la base anual.</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            recent_left, recent_right = st.columns(2)
+            with recent_left:
+                st.markdown(f"### {analisis['local']}")
+                render_split_panel(
+                    f"Forma reciente | Ultimos {analisis['stats_local'].get('recent_window', recent_window)}",
+                    analisis["stats_local"]["recent_overall"],
+                )
+                render_form_card(analisis["local"], analisis["stats_local"]["form"])
+            with recent_right:
+                st.markdown(f"### {analisis['visitante']}")
+                render_split_panel(
+                    f"Forma reciente | Ultimos {analisis['stats_visitante'].get('recent_window', recent_window)}",
+                    analisis["stats_visitante"]["recent_overall"],
+                )
+                render_form_card(analisis["visitante"], analisis["stats_visitante"]["form"])
+
+    with tab_compare:
+        st.markdown('<div class="section-title">Comparativa & H2H</div>', unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div class="panel">
+                <div class="signal-label">Uso recomendado</div>
+                <p>Esta tab sirve para validar si la ventaja base del partido se sostiene al comparar contexto casa/fuera y precedentes. H2H es contexto secundario, no driver principal de entrada.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        compare_left, compare_right = st.columns([1.2, 1])
+        with compare_left:
+            st.dataframe(pd.DataFrame(match_dashboard["comparison_table"]), use_container_width=True, hide_index=True)
+        with compare_right:
+            render_h2h_summary_card(analisis["h2h"], analisis["local"], analisis["visitante"])
+        if st.toggle("Ver H2H partido a partido", value=False, key=f"h2h_explorer_{selected_context['match_id']}"):
+            render_h2h_explorer(analisis["h2h"])
+
+    with tab_projection:
+        st.markdown('<div class="section-title">Mercados que cambian decision</div>', unsafe_allow_html=True)
+        m1, m2, m3 = st.columns(3)
+        with m1:
+            render_signal_card("Ambos marcan", resultado["BTTS"], highlight=signal_flags["BTTS"]["highlight"])
+        with m2:
+            render_signal_card("Over 2.5 goles", resultado["O25"], highlight=signal_flags["O25"]["highlight"])
+        with m3:
+            render_signal_card("Over 9.5 corners", resultado["Over9.5_Corn"], highlight=signal_flags["Over9.5_Corn"]["highlight"])
+        expected_cols = st.columns(2)
+        with expected_cols[0]:
+            render_expected_card("Total goals", resultado["Total_Goals"], "Media servida por backend")
+        with expected_cols[1]:
+            render_expected_card("Total corners", resultado["Total_Corners"], "Volumen total esperado")
+        if st.toggle("Ver mercados secundarios", value=False, key=f"projection_secondary_{selected_context['match_id']}"):
+            s1, s2, s3, s4 = st.columns(4)
+            s1.metric(f"{analisis['local']} +1.5 goles", f"{resultado['Home_Over15'] * 100:.1f}%")
+            s2.metric(f"{analisis['visitante']} +1.5 goles", f"{resultado['Away_Over15'] * 100:.1f}%")
+            s3.metric(f"{analisis['local']} puerta a cero", f"{resultado['Home_CleanSheet'] * 100:.1f}%")
+            s4.metric(f"{analisis['visitante']} puerta a cero", f"{resultado['Away_CleanSheet'] * 100:.1f}%")
+        if st.toggle("Ver trazabilidad del modelo", value=False, key=f"projection_trace_{selected_context['match_id']}"):
+            render_traceability_panel(analisis)
+
+    with tab_players:
+        st.markdown('<div class="section-title">Probabilidad de jugadores</div>', unsafe_allow_html=True)
+        render_player_props_panel(match_dashboard["player_probabilities"])
+
+    with tab_odds:
+        st.markdown('<div class="section-title">Cuotas y valor</div>', unsafe_allow_html=True)
+        odds_cols = st.columns(3)
+        cuotas_usuario: dict[str, float] = {}
+        match_key = safe_key(f"{analisis['local']}_{analisis['visitante']}_{analisis['match_date']}")
+        for indice, fila in enumerate(odds_rows):
+            with odds_cols[indice % 3]:
+                cuotas_usuario[fila["market"]] = st.number_input(
+                    f"Cuota {fila['market']}",
+                    min_value=1.01,
+                    value=float(fila["offered_odds"]),
+                    step=0.01,
+                    key=f"odd_{match_key}_{safe_key(fila['market'])}",
+                )
+
+        filas_comparador = compare_odds(
+            [
+                {"market": fila["market"], "prob": fila["prob"], "offered_odds": cuotas_usuario[fila["market"]]}
+                for fila in odds_rows
+            ]
+        )
+        render_comparador_cuotas(filas_comparador)
+
+        if st.toggle("Ver staking y favoritos", value=False, key=f"odds_advanced_{selected_context['match_id']}"):
+            st.markdown("### Stake con Kelly")
+            nombres_mercado = [fila["market"] for fila in odds_rows]
+            mercado_kelly = st.selectbox("Mercado para stake", nombres_mercado)
+            mercado_seleccionado = next(item for item in filas_comparador if item["market"] == mercado_kelly)
+            k_left, k_mid, k_right = st.columns(3)
+            with k_left:
+                bankroll = st.number_input("Bankroll disponible", min_value=1.0, value=100.0, step=10.0)
+            with k_mid:
+                modo_kelly = st.selectbox("Intensidad Kelly", ["Full Kelly", "Half Kelly", "Quarter Kelly"], index=1)
+            with k_right:
+                cuota_input = st.number_input(
+                    "Cuota usada en Kelly",
+                    min_value=1.01,
+                    value=float(mercado_seleccionado["offered_odds"]),
+                    step=0.01,
+                    key=f"kelly_custom_odd_{match_key}_{safe_key(mercado_kelly)}",
+                )
+
+            resultado_kelly = calculate_kelly(
+                market=mercado_kelly,
+                probability=float(mercado_seleccionado["prob"]),
+                offered_odds=float(cuota_input),
+                bankroll=float(bankroll),
+                mode=modo_kelly,
+            )
+            st.markdown(
+                f"""
+                <div class="kelly-box">
+                    <div class="signal-label">Mercado seleccionado</div>
+                    <div class="kelly-main">{mercado_kelly}</div>
+                    <div class="kelly-sub">Prob IA {resultado_kelly['probability'] * 100:.2f}% | Cuota justa @{resultado_kelly['fair_odds']:.2f} | Cuota casa @{resultado_kelly['offered_odds']:.2f}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            r1, r2, r3 = st.columns(3)
+            r1.metric("% bankroll a invertir", f"{resultado_kelly['stake_fraction'] * 100:.2f}%")
+            r2.metric("Stake recomendado", f"{resultado_kelly['stake_units']:.2f} u")
+            r3.metric("Edge esperado", f"{resultado_kelly['edge'] * 100:.2f}%")
+
+            st.markdown("### Picks favoritos")
+            favorite_state = get_favorites()
+            acciones_fav = st.columns([1, 1.2, 2])
+            with acciones_fav[0]:
+                guardar_pick = st.button("Guardar pick favorito", use_container_width=True)
+            with acciones_fav[1]:
+                limpiar_picks = st.button("Vaciar favoritos", use_container_width=True)
+            if guardar_pick:
+                create_favorite(
+                    {
+                        "liga": analisis["liga"],
+                        "match": f"{analisis['local']} vs {analisis['visitante']}",
+                        "market": mercado_kelly,
+                        "prob": resultado_kelly["probability"],
+                        "fair_odds": resultado_kelly["fair_odds"],
+                        "offered_odds": resultado_kelly["offered_odds"],
+                        "edge": resultado_kelly["edge"],
+                        "kelly_pct": resultado_kelly["stake_fraction"],
+                        "stake_units": resultado_kelly["stake_units"],
+                    }
+                )
+                st.rerun()
+            if limpiar_picks:
+                clear_favorites()
+                st.rerun()
+
+            favoritos = favorite_state["items"]
+            resumen_favoritos = favorite_state["summary"]
+            if resumen_favoritos["count"] > 0:
+                fav_m1, fav_m2, fav_m3 = st.columns(3)
+                fav_m1.metric("Picks guardados", str(resumen_favoritos["count"]))
+                fav_m2.metric("Stake total", f"{resumen_favoritos['total_stake_units']:.2f} u")
+                fav_m3.metric("Edge medio", f"{resumen_favoritos['average_edge'] * 100:.2f}%")
+            if favoritos:
+                for favorito in favoritos:
+                    cols = st.columns([5, 1])
+                    with cols[0]:
+                        with st.container(border=True):
+                            st.write(favorito["market"])
+                            st.caption(f"{favorito['match']} | {favorito['liga']}")
+                            st.caption(
+                                f"Prob IA {favorito['prob'] * 100:.2f}% | Justa @{favorito['fair_odds']:.2f} | Casa @{favorito['offered_odds']:.2f}"
+                            )
+                            st.caption(
+                                f"Edge {favorito['edge'] * 100:.2f}% | Kelly {favorito['kelly_pct'] * 100:.2f}% | Stake {favorito['stake_units']:.2f} u | {favorito['saved_at']}"
+                            )
+                    with cols[1]:
+                        if st.button("Eliminar", key=f"delete_{favorito['id']}", use_container_width=True):
+                            delete_favorite(favorito["id"])
+                            st.rerun()
+
+
+def render_daily_value_view(fecha_objetivo: date) -> None:
+    competition_view = st.radio(
+        "Universo del ranking",
+        ["Ligas", "Torneos"],
+        key="competition_view",
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+    ranking_groups = get_daily_value_ranking(fecha_objetivo, competition_view)
+
+    st.markdown(
+        f"""
+        <div class="toolbar-shell">
+            <div class="toolbar-kicker">Ranking diario independiente</div>
+            <div class="toolbar-title">Value bets del {fecha_objetivo.strftime("%d/%m/%Y")}</div>
+            <div class="toolbar-meta">Orden interno por edge %, confianza del modelo y tamano de muestra. El tablero separa ligas para no mezclar universos sin normalizar.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        """
+        <div class="panel">
+            <div class="signal-label">Criterio operativo</div>
+            <p>La ordenacion se hace dentro de cada liga por edge %, despues por confianza del modelo y despues por tamano de muestra. La confianza se aproxima con la distancia de la probabilidad al punto neutro y la muestra usa el minimo de partidos acumulados entre ambos equipos para mantener un criterio conservador.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    top_cols = st.columns([1.1, 0.9, 0.9])
+    with top_cols[0]:
+        if st.button("Volver al explorador", use_container_width=True):
+            volver_a_ligas()
+            st.rerun()
+    with top_cols[1]:
+        st.metric("Ligas con picks", len(ranking_groups))
+    with top_cols[2]:
+        st.metric("Fecha", fecha_objetivo.strftime("%d/%m"))
+
+    if not ranking_groups:
+        st.markdown(
+            """
+            <div class="empty-panel">
+                <h3>No hay value bets clasificadas para este universo</h3>
+                <p>Prueba con otra fecha o cambia entre ligas y torneos para revisar un conjunto distinto de competiciones.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        return
+
+    for grupo in ranking_groups:
+        st.markdown(
+            f"""
+            <div class="ranking-card">
+                <div class="ranking-head">
+                    <div class="ranking-head-copy">
+                        <h3>{grupo['league']}</h3>
+                    </div>
+                    <div class="ranking-badge">{grupo['country']} | {grupo['match_count']} partidos</div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        for posicion, fila in enumerate(grupo["picks"], start=1):
+            edge_pct = float(fila["edge"]) * 100
+            confidence_pct = float(fila.get("confidence", 0.0)) * 100
+            sample_size = int(fila.get("sample_size") or 0)
+            metric_cols = st.columns([0.65, 2.6, 1, 1, 1, 0.9])
+            with metric_cols[0]:
+                st.metric("#", str(posicion))
+            with metric_cols[1]:
+                with st.container(border=True):
+                    st.write(f"{fila['match']} | {fila['market']}")
+                    st.caption(
+                        f"Edge {edge_pct:+.2f}% | Confianza {fila.get('confidence_label', 'N/D')} ({confidence_pct:.1f}%) | Muestra conservadora {sample_size} partidos"
+                    )
+                    st.caption(
+                        f"Prob {float(fila['prob']) * 100:.1f}% | Justa @{float(fila['fair_odds']):.2f} | Casa @{float(fila['offered_odds']):.2f} | {fila.get('provider') or 'Proveedor no informado'}"
+                    )
+            with metric_cols[2]:
+                st.metric("Edge %", f"{edge_pct:+.2f}%")
+            with metric_cols[3]:
+                st.metric("Confianza", f"{confidence_pct:.1f}%")
+            with metric_cols[4]:
+                st.metric("Muestra", str(sample_size))
+            with metric_cols[5]:
+                if st.button(
+                    "Abrir",
+                    key=f"daily_value_open_{safe_key(grupo['league'])}_{safe_key(fila['match'])}_{safe_key(fila['market'])}_{posicion}",
+                    use_container_width=True,
+                ):
+                    ir_a_detalle_partido(
+                        league=grupo["league"],
+                        match_id=str(fila["match_id"]),
+                        fixture_label=str(fila["match"]),
+                        target_date=fecha_objetivo,
+                    )
+                    st.rerun()
+
+
+def render_league_view(fecha_objetivo: date, hoy: date) -> None:
+    if not st.session_state.get("selected_league"):
+        competition_view = st.radio(
+            "Tipo de competicion",
+            ["Ligas", "Torneos"],
+            key="competition_view",
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+        portada_ligas = get_leagues(fecha_objetivo, competition_view)
+        liga_elegida = render_league_hub(portada_ligas, fecha_objetivo, hoy)
+        if liga_elegida:
+            st.session_state["selected_league"] = liga_elegida
+            st.session_state["current_view"] = "league"
+            limpiar_contexto_partido()
+            st.rerun()
+        st.stop()
+
+    liga_seleccionada = st.session_state["selected_league"]
+    league_dashboard = get_league_dashboard(liga_seleccionada, fecha_objetivo)
+    st.session_state["league_dashboard"] = league_dashboard
+
+    st.markdown(
+        f"""
+        <div class="toolbar-shell">
+            <div class="toolbar-kicker">Liga activa</div>
+            <div class="toolbar-title">{league_dashboard['league']}</div>
+            <div class="toolbar-meta">{league_dashboard['country']} | Vista ligera para {fecha_objetivo.strftime("%d/%m/%Y")}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    top_1, top_2, top_3, top_4 = st.columns([1.1, 1.1, 0.7, 0.7])
+    with top_1:
+        if st.button("Ver todas las ligas", use_container_width=True):
+            volver_a_ligas()
+            st.rerun()
+    with top_2:
+        if st.button("Ranking diario", use_container_width=True):
+            ir_a_ranking_diario()
+            st.rerun()
+    with top_3:
+        st.metric("Partidos", league_dashboard["match_count"])
+    with top_4:
+        st.metric("Pais", league_dashboard["country"])
+
+    st.markdown('<div class="layout-divider"></div>', unsafe_allow_html=True)
+    layout_left, layout_right = st.columns([1.05, 1.45], gap="large")
+
+    partidos_df = pd.DataFrame(
+        [
+            {
+                "MatchId": item["match_id"],
+                "EventId": item["event_id"],
+                "Date": item["date"],
+                "MatchDate": pd.to_datetime(item["match_date"]).date() if item["match_date"] else fecha_objetivo,
+                "Time": item["time"],
+                "HomeTeam": item["home_team"],
+                "AwayTeam": item["away_team"],
+                "HomeTeamRaw": item["home_team_raw"],
+                "AwayTeamRaw": item["away_team_raw"],
+                "FixtureLabel": item["fixture_label"],
+                "Source": item["source"],
+            }
+            for item in league_dashboard["matches"]
+        ]
+    )
+
+    with layout_left:
+        if not partidos_df.empty:
+            partido_seleccionado = render_fixture_cards(partidos_df, fecha_objetivo, hoy)
+        else:
+            partido_seleccionado = None
+            st.markdown(
+                """
+                <div class="empty-panel">
+                    <h3>No hay partidos cargados para esta liga en la fecha elegida</h3>
+                    <p>Cambia la fecha o vuelve al explorador de ligas para entrar por otra competicion con mas actividad.</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+    with layout_right:
+        render_league_selected_match_card(partido_seleccionado)
+        if partido_seleccionado is not None:
+            if st.button("Abrir match detail", key=f"open_detail_{partido_seleccionado['MatchId']}", use_container_width=True):
+                ir_a_detalle_partido(
+                    league=liga_seleccionada,
+                    match_id=str(partido_seleccionado["MatchId"]),
+                    fixture_label=str(partido_seleccionado["FixtureLabel"]),
+                    target_date=fecha_objetivo,
+                )
+                st.rerun()
+        if league_dashboard["ranking"]:
+            render_ranking_value_panel(league_dashboard["ranking"], fecha_objetivo.strftime("%d/%m/%Y"))
+
 
 for key, default in {
-    "analysis": None,
-    "analysis_signature": None,
     "solo_hoy_toggle": True,
     "selected_league": None,
     "competition_view": "Ligas",
+    "current_view": "league",
     "match_search": "",
     "search_results": [],
+    "search_executed": False,
     "sportmonks_api_token": "",
+    "match_dashboard": None,
+    "league_dashboard": None,
+    "selected_match_context": None,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -363,7 +752,7 @@ st.markdown(
 )
 
 with st.expander("Configuracion de Sportmonks", expanded=False):
-    st.caption("Pega aqui tu token para activar probabilidades de jugadores en esta sesion.")
+    st.caption("El token se envia al backend para que resuelva la capa de jugadores; Streamlit ya no consulta proveedores externos.")
     token_cols = st.columns([3.2, 0.8])
     with token_cols[0]:
         token_input = st.text_input(
@@ -372,7 +761,6 @@ with st.expander("Configuracion de Sportmonks", expanded=False):
             type="password",
             value=st.session_state.get("sportmonks_api_token", ""),
             placeholder="Introduce tu token de Sportmonks",
-            help="Se usa solo en la sesion actual de Streamlit si no esta definida la variable de entorno.",
         )
     with token_cols[1]:
         st.markdown('<div class="search-icon-spacer"></div>', unsafe_allow_html=True)
@@ -384,20 +772,8 @@ with st.expander("Configuracion de Sportmonks", expanded=False):
         st.rerun()
 
     st.session_state["sportmonks_api_token"] = token_input.strip()
-    if st.session_state["sportmonks_api_token"]:
-        st.caption("Token cargado en memoria para esta sesion.")
 
-with st.expander("Backend y pipeline", expanded=False):
-    backend_m1, backend_m2, backend_m3, backend_m4 = st.columns(4)
-    backend_m1.metric("Persistencia picks", "Repositorio")
-    backend_m2.metric("API FastAPI", "4 rutas")
-    backend_m3.metric("Workers", "3 jobs")
-    backend_m4.metric("Favoritos locales", str(resumir_favoritos()["count"]))
-    st.caption("Lectura prevista por API: /picks, /matches, /match/{id}, /history")
-    st.caption("Pipeline previsto: ingesta de partidos, ingesta de cuotas y precomputo de picks/props.")
-
-hoy = datetime.now(LOCAL_TIMEZONE).date()
-liga_activa = st.session_state.get("selected_league")
+hoy = datetime.now(APP_TIMEZONE).date()
 filtros_toggle, filtros_fecha, filtros_busqueda, filtros_lupa = st.columns([0.8, 1.05, 1.3, 0.18])
 with filtros_toggle:
     solo_hoy = st.toggle("Partidos de hoy", key="solo_hoy_toggle")
@@ -410,425 +786,31 @@ with filtros_lupa:
     buscar_click = st.button("\U0001F50D", key="match_search_button", use_container_width=True)
 
 fecha_objetivo = hoy if solo_hoy else fecha_partido
-if buscar_click:
-    st.session_state["search_results"] = buscar_partidos_global(fecha_objetivo, hoy, busqueda_partido)
 
-resultados_busqueda = st.session_state.get("search_results", [])
-if busqueda_partido.strip():
-    resultados_busqueda = buscar_partidos_global(fecha_objetivo, hoy, busqueda_partido)
-    st.session_state["search_results"] = resultados_busqueda
-else:
-    resultados_busqueda = []
-    st.session_state["search_results"] = []
+try:
+    if buscar_click:
+        st.session_state["search_executed"] = True
+        if busqueda_partido.strip():
+            st.session_state["search_results"] = search_matches(fecha_objetivo, busqueda_partido)
+        else:
+            st.session_state["search_results"] = []
 
-if resultados_busqueda:
-    st.subheader("Resultados de busqueda")
-    for resultado in resultados_busqueda[:8]:
-        cols = st.columns([3.1, 1.2, 0.9])
-        with cols[0]:
-            hora_label = resultado["time"] if resultado["time"] else "Sin hora"
-            st.write(resultado["match"])
-            st.caption(f"{resultado['league']} | {resultado['country']} | {hora_label}")
-        with cols[1]:
-            st.write(resultado["league"])
-            st.caption(resultado["country"])
-        with cols[2]:
-            if st.button("Abrir", key=f"search_open_{safe_key(resultado['league'])}_{safe_key(resultado['fixture_label'])}", use_container_width=True):
-                st.session_state["selected_league"] = resultado["league"]
-                st.session_state["fixture_label"] = resultado["fixture_label"]
-                st.session_state["search_results"] = []
-                st.session_state["analysis"] = None
-                st.session_state["analysis_signature"] = None
-                st.rerun()
-elif busqueda_partido.strip():
+    render_search_results(st.session_state.get("search_results", []), fecha_objetivo)
+
+    if st.session_state.get("current_view") == "match_detail" and st.session_state.get("selected_match_context"):
+        render_match_detail_view()
+    elif st.session_state.get("current_view") == "daily_value":
+        render_daily_value_view(fecha_objetivo)
+    else:
+        render_league_view(fecha_objetivo, hoy)
+except BackendApiError as exc:
     st.markdown(
-        """
+        f"""
         <div class="empty-panel">
-            <h3>No he encontrado partidos con esa busqueda</h3>
-            <p>Prueba con el nombre de un equipo o una parte del cruce en la fecha seleccionada.</p>
+            <h3>Backend no disponible</h3>
+            <p>{exc}</p>
+            <p>Configura `BACKEND_API_URL` y `API_AUTH_KEY` para usar Streamlit como cliente fino del backend.</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
-if not liga_activa:
-    with st.spinner("Cargando panorama de ligas..."):
-        portada_ligas = construir_portada_ligas(fecha_objetivo, hoy)
-    tipo_competicion = st.radio(
-        "Tipo de competicion",
-        ["Ligas", "Torneos"],
-        key="competition_view",
-        horizontal=True,
-        label_visibility="collapsed",
-    )
-    competiciones_filtradas = [
-        item for item in portada_ligas
-        if COMPETITION_TYPES.get(item["league"], "Liga") == ("Liga" if tipo_competicion == "Ligas" else "Torneo")
-    ]
-    liga_elegida = render_league_hub(competiciones_filtradas, fecha_objetivo, hoy)
-    if liga_elegida:
-        st.session_state["selected_league"] = liga_elegida
-        limpiar_contexto_partido()
-        st.rerun()
-    st.stop()
-
-liga_seleccionada = st.session_state.get("selected_league")
-st.markdown(
-    f"""
-    <div class="toolbar-shell">
-        <div class="toolbar-kicker">Liga activa</div>
-        <div class="toolbar-title">{liga_seleccionada}</div>
-        <div class="toolbar-meta">{LEAGUE_COUNTRIES.get(liga_seleccionada, "Internacional")} | Analisis disponible para {fecha_objetivo.strftime("%d/%m/%Y")}</div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-top_1, top_2, top_3 = st.columns([1.1, 0.7, 0.7])
-with top_1:
-    if st.button("Ver todas las ligas", use_container_width=True):
-        st.session_state["selected_league"] = None
-        limpiar_contexto_partido()
-        st.rerun()
-
-df = descargar_datos_liga(liga_seleccionada) if liga_seleccionada else None
-calendario_csv = preparar_calendario(df) if df is not None else pd.DataFrame()
-equipos_csv = sorted(df["HomeTeam"].dropna().unique()) if df is not None and "HomeTeam" in df.columns else []
-league_id = ESPN_LEAGUE_IDS.get(liga_seleccionada, "")
-
-partidos_csv = calendario_csv[calendario_csv["MatchDate"] == fecha_objetivo].copy() if not calendario_csv.empty else pd.DataFrame()
-usar_fallback_espn = fecha_objetivo >= hoy or partidos_csv.empty
-partidos_espn, analysis_map_espn = (
-    cargar_partidos_espn_analizados(liga_seleccionada, league_id, fecha_objetivo)
-    if usar_fallback_espn and league_id
-    else (pd.DataFrame(), {})
-)
-partidos_filtrados = fusionar_calendarios(partidos_csv, partidos_espn, equipos_csv)
-if not partidos_filtrados.empty and "EventId" not in partidos_filtrados.columns:
-    partidos_filtrados["EventId"] = ""
-
-with top_2:
-    st.metric("Partidos", len(partidos_filtrados))
-with top_3:
-    st.metric("Pais", LEAGUE_COUNTRIES.get(liga_seleccionada, "Internacional"))
-st.markdown('<div class="layout-divider"></div>', unsafe_allow_html=True)
-
-layout_left, layout_right = st.columns([0.92, 1.58], gap="large")
-
-with layout_left:
-    if not partidos_filtrados.empty:
-        partido_seleccionado = render_fixture_cards(partidos_filtrados, fecha_objetivo, hoy)
-    else:
-        partido_seleccionado = None
-        st.markdown(
-            """
-            <div class="empty-panel">
-                <h3>No hay partidos cargados para esta liga en la fecha elegida</h3>
-                <p>Cambia la fecha o vuelve al explorador de ligas para entrar por otra competicion con mas actividad.</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-local = partido_seleccionado["HomeTeam"] if partido_seleccionado is not None else None
-visitante = partido_seleccionado["AwayTeam"] if partido_seleccionado is not None else None
-
-ranking = []
-if df is not None and not partidos_filtrados.empty and league_id:
-    ranking = construir_ranking_liga(
-        df,
-        liga_seleccionada,
-        league_id,
-        partidos_filtrados[["HomeTeam", "AwayTeam", "MatchDate", "FixtureLabel", "EventId"]].fillna("").to_dict("records"),
-        analysis_map_espn,
-    )
-
-if df is None:
-    st.session_state["analysis"] = None
-    st.session_state["analysis_signature"] = None
-elif partido_seleccionado is None:
-    st.session_state["analysis"] = None
-    st.session_state["analysis_signature"] = None
-else:
-    firma_actual = (
-        liga_seleccionada,
-        partido_seleccionado["MatchDate"],
-        local,
-        visitante,
-        partido_seleccionado.get("Source", ""),
-    )
-    if st.session_state.get("analysis_signature") != firma_actual:
-        with st.spinner("Cargando..."):
-            analisis_espn = analysis_map_espn.get(str(partido_seleccionado.get("EventId", "")))
-            if analisis_espn is not None:
-                st.session_state["analysis"] = analisis_espn
-            else:
-                st.session_state["analysis"] = analyze_match_service.analyze(
-                    df,
-                    liga_seleccionada,
-                    local,
-                    visitante,
-                    match_date=partido_seleccionado["MatchDate"],
-                    match_label=partido_seleccionado["FixtureLabel"],
-                )
-        st.session_state["analysis_signature"] = firma_actual
-analisis = st.session_state.get("analysis")
-resumen_espn = {}
-if partido_seleccionado is not None and league_id and partido_seleccionado.get("EventId"):
-    resumen_espn = descargar_resumen_espn(league_id, str(partido_seleccionado["EventId"]))
-
-with layout_left:
-    if ranking:
-        render_ranking_value_panel(ranking, fecha_objetivo.strftime("%d/%m/%Y"))
-
-with layout_right:
-    if analisis is not None:
-        resultado = analisis["resultado"]
-        mercados = analisis["mercados"]
-        home_team_raw = str(partido_seleccionado.get("HomeTeamRaw", local) or local)
-        away_team_raw = str(partido_seleccionado.get("AwayTeamRaw", visitante) or visitante)
-        player_logs_payload = obtener_logs_jugadores_sportmonks(
-            partido_seleccionado["MatchDate"],
-            local,
-            visitante,
-            home_team_raw,
-            away_team_raw,
-            token_hint=st.session_state.get("sportmonks_api_token", ""),
-        )
-        player_probabilities = compute_player_props_service.compute(player_logs_payload)
-        render_summary_band(analisis)
-
-        overview_left, overview_right = st.columns([1.45, 1])
-        with overview_left:
-            st.markdown('<div class="section-title">Senales rapidas</div>', unsafe_allow_html=True)
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                render_signal_card(f"Victoria {analisis['local']}", resultado["1"])
-            with c2:
-                render_signal_card("Empate", resultado["X"])
-            with c3:
-                render_signal_card(f"Victoria {analisis['visitante']}", resultado["2"])
-        with overview_right:
-            render_radar_panel(analisis)
-
-        tab_stats, tab_compare, tab_match, tab_players, tab_odds = st.tabs(
-            [
-                "Estadisticas generales",
-                "Comparativa equipos",
-                "Posibles estadisticas del partido",
-                "Probabilidad jugadores",
-                "Comparador cuota real vs cuota justa",
-            ]
-        )
-
-        with tab_stats:
-            st.markdown('<div class="section-title">Radiografia de cada equipo</div>', unsafe_allow_html=True)
-            eq_1, eq_2 = st.columns(2)
-            with eq_1:
-                st.markdown(f"### {analisis['local']}")
-                render_split_panel("Global", analisis["stats_local"]["overall"])
-                render_split_panel("En casa", analisis["stats_local"]["home"])
-                render_split_panel("Fuera", analisis["stats_local"]["away"])
-            with eq_2:
-                st.markdown(f"### {analisis['visitante']}")
-                render_split_panel("Global", analisis["stats_visitante"]["overall"])
-                render_split_panel("En casa", analisis["stats_visitante"]["home"])
-                render_split_panel("Fuera", analisis["stats_visitante"]["away"])
-
-        with tab_compare:
-            st.markdown('<div class="section-title">Escenario + forma reciente + H2H</div>', unsafe_allow_html=True)
-            st.dataframe(
-                tabla_comparativa(
-                    analisis["local"],
-                    analisis["visitante"],
-                    analisis["stats_local"],
-                    analisis["stats_visitante"],
-                    analisis["h2h"],
-                ),
-                use_container_width=True,
-                hide_index=True,
-            )
-            insight_left, insight_right = st.columns([1.3, 1])
-            with insight_left:
-                render_insight_panel(analyze_match_service.insights(analisis))
-            with insight_right:
-                render_h2h_summary_card(analisis["h2h"], analisis["local"], analisis["visitante"])
-            st.markdown("### Forma reciente")
-            form_left, form_right = st.columns(2)
-            with form_left:
-                render_form_card(analisis["local"], analisis["stats_local"]["form"])
-            with form_right:
-                render_form_card(analisis["visitante"], analisis["stats_visitante"]["form"])
-            render_h2h_explorer(analisis["h2h"])
-
-        with tab_match:
-            st.markdown('<div class="section-title">Posibles estadisticas del partido</div>', unsafe_allow_html=True)
-            m1, m2, m3, m4 = st.columns(4)
-            with m1:
-                render_signal_card("Ambos marcan", resultado["BTTS"])
-            with m2:
-                render_signal_card("Over 2.5 goles", resultado["O25"])
-            with m3:
-                render_signal_card("Over 9.5 corners", resultado["Over9.5_Corn"])
-            with m4:
-                render_expected_card("Total goals", resultado["Total_Goals"], "Media simulada")
-            s1, s2, s3, s4 = st.columns(4)
-            s1.metric(f"{analisis['local']} +1.5 goles", f"{resultado['Home_Over15'] * 100:.1f}%")
-            s2.metric(f"{analisis['visitante']} +1.5 goles", f"{resultado['Away_Over15'] * 100:.1f}%")
-            s3.metric(f"{analisis['local']} puerta a cero", f"{resultado['Home_CleanSheet'] * 100:.1f}%")
-            s4.metric(f"{analisis['visitante']} puerta a cero", f"{resultado['Away_CleanSheet'] * 100:.1f}%")
-            c_a, c_b, c_c = st.columns(3)
-            c_a.metric(f"Corners {analisis['local']}", f"{resultado['Corn_Home']:.2f}")
-            c_b.metric("Corners totales", f"{resultado['Total_Corners']:.2f}")
-            c_c.metric(f"Corners {analisis['visitante']}", f"{resultado['Corn_Away']:.2f}")
-            cp_a, cp_b, cp_c, cp_d = st.columns(4)
-            cp_a.metric(f"{analisis['local']} 4+ corners", f"{resultado['Home_Over35_Corn'] * 100:.1f}%")
-            cp_b.metric(f"{analisis['local']} 5+ corners", f"{resultado['Home_Over45_Corn'] * 100:.1f}%")
-            cp_c.metric(f"{analisis['visitante']} 4+ corners", f"{resultado['Away_Over35_Corn'] * 100:.1f}%")
-            cp_d.metric(f"{analisis['visitante']} 5+ corners", f"{resultado['Away_Over45_Corn'] * 100:.1f}%")
-            r_a, r_b, r_c, r_d = st.columns(4)
-            r_a.metric(f"Remates {analisis['local']}", f"{resultado['Shots_Home']:.2f}")
-            r_b.metric(f"Remates {analisis['visitante']}", f"{resultado['Shots_Away']:.2f}")
-            r_c.metric(f"A puerta {analisis['local']}", f"{resultado['ShotsOnTarget_Home']:.2f}")
-            r_d.metric(f"A puerta {analisis['visitante']}", f"{resultado['ShotsOnTarget_Away']:.2f}")
-            t_a, t_b, t_c = st.columns(3)
-            t_a.metric(f"Tarjetas {analisis['local']}", f"{resultado['Cards_Home']:.2f}")
-            t_b.metric("Tarjetas totales", f"{resultado['Total_Cards']:.2f}")
-            t_c.metric(f"Tarjetas {analisis['visitante']}", f"{resultado['Cards_Away']:.2f}")
-            st.markdown("### Marcadores mas probables")
-            marcador_html = "".join(
-                f"<span class='score-pill'>{marcador} - {prob * 100:.2f}%</span>"
-                for marcador, prob in [(item[0], item[1] / SIMULACIONES) for item in resultado["TopScores"]]
-            )
-            st.markdown(marcador_html, unsafe_allow_html=True)
-
-        with tab_players:
-            st.markdown('<div class="section-title">Probabilidad de jugadores</div>', unsafe_allow_html=True)
-            render_player_props_panel(player_probabilities)
-
-        with tab_odds:
-            st.markdown('<div class="section-title">Comparador de cuotas, Kelly y favoritos</div>', unsafe_allow_html=True)
-            contexto_mercado = extraer_contexto_mercado_espn(resumen_espn) if resumen_espn else {}
-            auto_odds = construir_cuotas_automaticas(contexto_mercado, analisis["local"], analisis["visitante"])
-
-            odds_cols = st.columns(3)
-            cuotas_usuario: dict[str, float] = {}
-            match_key = safe_key(f"{analisis['local']}_{analisis['visitante']}_{analisis['match_date']}")
-            for indice, mercado in enumerate(mercados):
-                clave = safe_key(mercado["nombre"])
-                cuota_default = auto_odds.get(mercado["nombre"], {}).get("odds", max(1.05, round(cuota_justa(mercado["prob"]), 2)))
-                etiqueta = mercado["nombre"]
-                if mercado["nombre"] in auto_odds:
-                    etiqueta = f"{mercado['nombre']} ({auto_odds[mercado['nombre']]['provider']})"
-                with odds_cols[indice % 3]:
-                    cuotas_usuario[mercado["nombre"]] = st.number_input(
-                        f"Cuota {etiqueta}",
-                        min_value=1.01,
-                        value=float(cuota_default),
-                        step=0.01,
-                        key=f"odd_{match_key}_{clave}",
-                    )
-
-            filas_comparador = []
-            for mercado in mercados:
-                cuota_real = cuotas_usuario[mercado["nombre"]]
-                cuota_fair = cuota_justa(mercado["prob"])
-                edge = (mercado["prob"] * cuota_real) - 1
-                filas_comparador.append({"market": mercado["nombre"], "prob": mercado["prob"], "fair_odds": cuota_fair, "offered_odds": cuota_real, "edge": edge})
-            render_comparador_cuotas(filas_comparador)
-
-            st.markdown("### Stake con Kelly")
-            nombres_mercado = [mercado["nombre"] for mercado in mercados]
-            mercado_kelly = st.selectbox("Mercado para stake", nombres_mercado)
-            mercado_seleccionado = next(item for item in mercados if item["nombre"] == mercado_kelly)
-            cuota_seleccionada = cuotas_usuario[mercado_kelly]
-            k_left, k_mid, k_right = st.columns(3)
-            with k_left:
-                bankroll = st.number_input("Bankroll disponible", min_value=1.0, value=100.0, step=10.0)
-            with k_mid:
-                modo_kelly = st.selectbox("Intensidad Kelly", ["Full Kelly", "Half Kelly", "Quarter Kelly"], index=1)
-            with k_right:
-                cuota_input = st.number_input("Cuota usada en Kelly", min_value=1.01, value=float(cuota_seleccionada), step=0.01, key=f"kelly_custom_odd_{match_key}_{safe_key(mercado_kelly)}")
-
-            factor_kelly = {"Full Kelly": 1.0, "Half Kelly": 0.5, "Quarter Kelly": 0.25}[modo_kelly]
-            porcentaje_kelly_bruto = stake_kelly(mercado_seleccionado["prob"], cuota_input)
-            porcentaje_kelly = porcentaje_kelly_bruto * factor_kelly
-            stake_recomendado = bankroll * porcentaje_kelly
-            edge_kelly = (mercado_seleccionado["prob"] * cuota_input) - 1
-            st.markdown(
-                f"""
-                <div class="kelly-box">
-                    <div class="signal-label">Mercado seleccionado</div>
-                    <div class="kelly-main">{mercado_kelly}</div>
-                    <div class="kelly-sub">Prob IA {mercado_seleccionado['prob'] * 100:.2f}% | Cuota justa @{cuota_justa(mercado_seleccionado['prob']):.2f} | Cuota casa @{cuota_input:.2f}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            r1, r2, r3 = st.columns(3)
-            r1.metric("% bankroll a invertir", f"{porcentaje_kelly * 100:.2f}%")
-            r2.metric("Stake recomendado", f"{stake_recomendado:.2f} u")
-            r3.metric("Edge esperado", f"{edge_kelly * 100:.2f}%")
-
-            st.markdown("### Picks favoritos")
-            acciones_fav = st.columns([1, 1.2, 2])
-            with acciones_fav[0]:
-                guardar_pick = st.button("Guardar pick favorito", use_container_width=True)
-            with acciones_fav[1]:
-                limpiar_picks = st.button("Vaciar favoritos", use_container_width=True)
-            if guardar_pick:
-                agregar_favorito(
-                    {
-                        "id": str(uuid4()),
-                        "saved_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
-                        "liga": analisis["liga"],
-                        "match": f"{analisis['local']} vs {analisis['visitante']}",
-                        "market": mercado_kelly,
-                        "prob": round(mercado_seleccionado["prob"], 6),
-                        "fair_odds": round(cuota_justa(mercado_seleccionado["prob"]), 4),
-                        "offered_odds": round(cuota_input, 4),
-                        "edge": round(edge_kelly, 6),
-                        "kelly_pct": round(porcentaje_kelly, 6),
-                        "stake_units": round(stake_recomendado, 2),
-                    }
-                )
-                st.rerun()
-            if limpiar_picks:
-                vaciar_favoritos()
-                st.rerun()
-
-            favoritos = cargar_favoritos()
-            resumen_favoritos = resumir_favoritos()
-            if resumen_favoritos["count"] > 0:
-                fav_m1, fav_m2, fav_m3 = st.columns(3)
-                fav_m1.metric("Picks guardados", str(resumen_favoritos["count"]))
-                fav_m2.metric("Stake total", f"{resumen_favoritos['total_stake_units']:.2f} u")
-                fav_m3.metric("Edge medio", f"{resumen_favoritos['average_edge'] * 100:.2f}%")
-                st.caption("Persistencia local activa mediante repositorio JSON legado; backend PostgreSQL y API listos para el siguiente salto.")
-            if favoritos:
-                for favorito in favoritos:
-                    cols = st.columns([5, 1])
-                    with cols[0]:
-                        with st.container(border=True):
-                            st.write(favorito["market"])
-                            st.caption(f"{favorito['match']} | {favorito['liga']}")
-                            st.caption(
-                                f"Prob IA {favorito['prob'] * 100:.2f}% | Justa @{favorito['fair_odds']:.2f} | Casa @{favorito['offered_odds']:.2f}"
-                            )
-                            st.caption(
-                                f"Edge {favorito['edge'] * 100:.2f}% | Kelly {favorito['kelly_pct'] * 100:.2f}% | Stake {favorito['stake_units']:.2f} u | {favorito['saved_at']}"
-                            )
-                    with cols[1]:
-                        if st.button("Eliminar", key=f"delete_{favorito['id']}", use_container_width=True):
-                            eliminar_favorito(favorito["id"])
-                            st.rerun()
-    else:
-        st.markdown(
-            """
-            <div class="empty-panel">
-                <h3>Selecciona un partido para abrir el analisis</h3>
-                <p>El detalle se cargara aqui con radar, comparativas, proyecciones y comparador de cuotas en cuanto abras un cruce.</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )

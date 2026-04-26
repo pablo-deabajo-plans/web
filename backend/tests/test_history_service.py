@@ -13,7 +13,7 @@ def test_history_service_joins_pick_and_result_for_day() -> None:
             build_pick(
                 match_id="match-001",
                 market="1X2",
-                selection="Home",
+                selection="HOME",
                 probability=0.56,
                 offered_odds=2.10,
                 provider="test",

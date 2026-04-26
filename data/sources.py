@@ -9,12 +9,13 @@ from datetime import datetime, timedelta
 from difflib import SequenceMatcher
 from html import unescape
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 import pandas as pd
 import requests
 import streamlit as st
 
+from backend.app.core.time import LOCAL_TIMEZONE, UTC, to_local_datetime, utc_dates_for_local_day
+from backend.app.domain.leagues import LEAGUE_DEFINITIONS, LEAGUE_IDS
 from backend.app.repositories.providers import (
     fetch_espn_matches_for_date,
     fetch_espn_matches_for_season,
@@ -23,9 +24,9 @@ from backend.app.repositories.providers import (
     fetch_sportmonks_paginated,
     fetch_sportmonks_resource,
 )
+from backend.app.repositories.providers.espn import ESPNProviderError, extract_supported_odds
 from data.teams import nombre_visual_equipo, normalizar_nombre, resolver_nombre_equipo
 
-LOCAL_TIMEZONE = ZoneInfo("Europe/Madrid")
 HTTP_HEADERS = {"User-Agent": "Mozilla/5.0"}
 LOGGER = logging.getLogger(__name__)
 SPORTMONKS_BASE_URL = "https://api.sportmonks.com/v3/football"
@@ -38,271 +39,143 @@ SPORTMONKS_PLAYER_STAT_TYPES = {
 }
 
 
-LEAGUE_CONFIGS = {
-    "Premier League": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/E0.csv"},
-        "espn_id": "eng.1",
-    },
-    "League One": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/E2.csv"},
-        "espn_id": "eng.3",
-    },
-    "League Two": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/E3.csv"},
-        "espn_id": "eng.4",
-    },
-    "Escocia Premiership": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SC0.csv"},
-        "espn_id": "sco.1",
-    },
-    "Escocia Championship": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SC1.csv"},
-        "espn_id": "sco.2",
-    },
-    "Escocia League One": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SC2.csv"},
-        "espn_id": "sco.3",
-    },
-    "Escocia League Two": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SC3.csv"},
-        "espn_id": "sco.4",
-    },
-    "Eliteserien": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/NOR.csv"},
-        "espn_id": "",
-    },
-    "Allsvenskan": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/SWE.csv"},
-        "espn_id": "",
-    },
-    "Superliga Dinamarca": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/DNK.csv"},
-        "espn_id": "",
-    },
-    "LaLiga": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SP1.csv"},
-        "espn_id": "esp.1",
-    },
-    "Segunda Division": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SP2.csv"},
-        "espn_id": "esp.2",
-    },
-    "Serie A": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/I1.csv"},
-        "espn_id": "ita.1",
-    },
-    "Serie B": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/I2.csv"},
-        "espn_id": "ita.2",
-    },
-    "Bundesliga": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/D1.csv"},
-        "espn_id": "ger.1",
-    },
-    "Ligue 1": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/F1.csv"},
-        "espn_id": "fra.1",
-    },
-    "Ligue 2": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/F2.csv"},
-        "espn_id": "fra.2",
-    },
-    "Holanda": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/N1.csv"},
-        "espn_id": "ned.1",
-    },
-    "Belgica": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/B1.csv"},
-        "espn_id": "bel.1",
-    },
-    "Liga de Portugal": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/P1.csv"},
-        "espn_id": "por.1",
-    },
-    "Liga Portugal 2": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/P2.csv"},
-        "espn_id": "",
-    },
-    "Super League Suiza": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/SWZ.csv"},
-        "espn_id": "",
-    },
-    "Bundesliga Austria": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/AUT.csv"},
-        "espn_id": "",
-    },
-    "Grecia": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/G1.csv"},
-        "espn_id": "gre.1",
-    },
-    "Ekstraklasa": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/POL.csv"},
-        "espn_id": "",
-    },
-    "Champions League": {
-        "history": {"type": "espn_scoreboard", "league_id": "uefa.champions", "season": "european"},
-        "espn_id": "uefa.champions",
-    },
-    "Europa League": {
-        "history": {"type": "espn_scoreboard", "league_id": "uefa.europa", "season": "european"},
-        "espn_id": "uefa.europa",
-    },
-    "Conference League": {
-        "history": {"type": "espn_scoreboard", "league_id": "uefa.europa.conf", "season": "european"},
-        "espn_id": "uefa.europa.conf",
-    },
-    "Copa del Rey": {
-        "history": {"type": "espn_scoreboard", "league_id": "esp.copa_del_rey", "season": "european"},
-        "espn_id": "esp.copa_del_rey",
-    },
-    "Turquia": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/T1.csv"},
-        "espn_id": "tur.1",
-    },
-    "Segunda Inglesa": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/E1.csv"},
-        "espn_id": "eng.2",
-    },
-    "Arabia Saudi": {
-        "history": {"type": "espn_scoreboard", "league_id": "ksa.1", "season": "european"},
-        "espn_id": "ksa.1",
-    },
-    "Australia": {
-        "history": {"type": "espn_scoreboard", "league_id": "aus.1", "season": "australia"},
-        "espn_id": "aus.1",
-    },
-    "Internacionales": {
-        "history": {"type": "espn_scoreboard", "league_id": "fifa.friendly", "season": "calendar"},
-        "espn_id": "fifa.friendly",
-    },
-    "Segunda Alemana": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/D2.csv"},
-        "espn_id": "ger.2",
-    },
-    "Chile": {
-        "history": {"type": "espn_scoreboard", "league_id": "chi.1", "season": "calendar"},
-        "espn_id": "chi.1",
-    },
-    "MLS": {
-        "history": {"type": "espn_scoreboard", "league_id": "usa.1", "season": "calendar"},
-        "espn_id": "usa.1",
-    },
-    "Brasil": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/BRA.csv"},
-        "espn_id": "",
-    },
-    "Serie B Brasil": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/BRA2.csv"},
-        "espn_id": "",
-    },
-    "Primera B Nacional": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/ARG2.csv"},
-        "espn_id": "",
-    },
-    "Liga MX": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/MEX.csv"},
-        "espn_id": "",
-    },
-    "Primera A Colombia": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/COL.csv"},
-        "espn_id": "",
-    },
-    "J1 League": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/JPN.csv"},
-        "espn_id": "",
-    },
-    "J2 League": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/JPN2.csv"},
-        "espn_id": "",
-    },
-    "K League 1": {
-        "history": {"type": "football_data", "url": "https://www.football-data.co.uk/new/KOR.csv"},
-        "espn_id": "",
-    },
-    "WSL Femenina": {
-        "history": {"type": "espn_scoreboard", "league_id": "eng.w.1", "season": "european"},
-        "espn_id": "eng.w.1",
-    },
-    "Liga F": {
-        "history": {"type": "espn_scoreboard", "league_id": "esp.w.1", "season": "european"},
-        "espn_id": "esp.w.1",
-    },
-    "Premiere Ligue Femenina": {
-        "history": {"type": "espn_scoreboard", "league_id": "fra.w.1", "season": "european"},
-        "espn_id": "fra.w.1",
-    },
-    "Frauen-Bundesliga": {
-        "history": {"type": "footystats_fixtures", "url": "https://footystats.org/germany/frauen-bundesliga/fixtures"},
-        "espn_id": "",
-    },
-    "Serie A Femenina": {
-        "history": {"type": "footystats_fixtures", "url": "https://footystats.org/italy/serie-a-women/fixtures"},
-        "espn_id": "",
-    },
+HISTORY_SOURCE_CONFIGS: dict[str, dict[str, str]] = {
+    "Premier League": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/E0.csv"},
+    "League One": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/E2.csv"},
+    "League Two": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/E3.csv"},
+    "Escocia Premiership": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SC0.csv"},
+    "Escocia Championship": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SC1.csv"},
+    "Escocia League One": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SC2.csv"},
+    "Escocia League Two": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SC3.csv"},
+    "Eliteserien": {"type": "football_data", "url": "https://www.football-data.co.uk/new/NOR.csv"},
+    "Allsvenskan": {"type": "football_data", "url": "https://www.football-data.co.uk/new/SWE.csv"},
+    "Superliga Dinamarca": {"type": "football_data", "url": "https://www.football-data.co.uk/new/DNK.csv"},
+    "LaLiga": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SP1.csv"},
+    "Segunda Division": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/SP2.csv"},
+    "Serie A": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/I1.csv"},
+    "Serie B": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/I2.csv"},
+    "Bundesliga": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/D1.csv"},
+    "Ligue 1": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/F1.csv"},
+    "Ligue 2": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/F2.csv"},
+    "Holanda": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/N1.csv"},
+    "Belgica": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/B1.csv"},
+    "Liga de Portugal": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/P1.csv"},
+    "Liga Portugal 2": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/P2.csv"},
+    "Super League Suiza": {"type": "football_data", "url": "https://www.football-data.co.uk/new/SWZ.csv"},
+    "Bundesliga Austria": {"type": "football_data", "url": "https://www.football-data.co.uk/new/AUT.csv"},
+    "Grecia": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/G1.csv"},
+    "Ekstraklasa": {"type": "football_data", "url": "https://www.football-data.co.uk/new/POL.csv"},
+    "Champions League": {"type": "espn_scoreboard"},
+    "Europa League": {"type": "espn_scoreboard"},
+    "Conference League": {"type": "espn_scoreboard"},
+    "Copa del Rey": {"type": "espn_scoreboard"},
+    "Turquia": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/T1.csv"},
+    "Segunda Inglesa": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/E1.csv"},
+    "Arabia Saudi": {"type": "espn_scoreboard"},
+    "Australia": {"type": "espn_scoreboard"},
+    "Internacionales": {"type": "espn_scoreboard"},
+    "Segunda Alemana": {"type": "football_data", "url": "https://www.football-data.co.uk/mmz4281/2526/D2.csv"},
+    "Chile": {"type": "espn_scoreboard"},
+    "MLS": {"type": "espn_scoreboard"},
+    "Brasil": {"type": "football_data", "url": "https://www.football-data.co.uk/new/BRA.csv"},
+    "Serie B Brasil": {"type": "football_data", "url": "https://www.football-data.co.uk/new/BRA2.csv"},
+    "Primera B Nacional": {"type": "football_data", "url": "https://www.football-data.co.uk/new/ARG2.csv"},
+    "Liga MX": {"type": "football_data", "url": "https://www.football-data.co.uk/new/MEX.csv"},
+    "Primera A Colombia": {"type": "football_data", "url": "https://www.football-data.co.uk/new/COL.csv"},
+    "J1 League": {"type": "football_data", "url": "https://www.football-data.co.uk/new/JPN.csv"},
+    "J2 League": {"type": "football_data", "url": "https://www.football-data.co.uk/new/JPN2.csv"},
+    "K League 1": {"type": "football_data", "url": "https://www.football-data.co.uk/new/KOR.csv"},
+    "WSL Femenina": {"type": "espn_scoreboard"},
+    "Liga F": {"type": "espn_scoreboard"},
+    "Premiere Ligue Femenina": {"type": "espn_scoreboard"},
+    "Frauen-Bundesliga": {"type": "footystats_fixtures", "url": "https://footystats.org/germany/frauen-bundesliga/fixtures"},
+    "Serie A Femenina": {"type": "footystats_fixtures", "url": "https://footystats.org/italy/serie-a-women/fixtures"},
 }
 
-LEAGUE_COUNTRIES = {
-    "Premier League": "Inglaterra",
-    "League One": "Inglaterra",
-    "League Two": "Inglaterra",
-    "Escocia Premiership": "Escocia",
-    "Escocia Championship": "Escocia",
-    "Escocia League One": "Escocia",
-    "Escocia League Two": "Escocia",
-    "Eliteserien": "Noruega",
-    "Allsvenskan": "Suecia",
-    "Superliga Dinamarca": "Dinamarca",
-    "LaLiga": "Espana",
-    "Segunda Division": "Espana",
-    "Serie A": "Italia",
-    "Serie B": "Italia",
-    "Bundesliga": "Alemania",
-    "Ligue 1": "Francia",
-    "Ligue 2": "Francia",
-    "Holanda": "Paises Bajos",
-    "Belgica": "Belgica",
-    "Liga de Portugal": "Portugal",
-    "Liga Portugal 2": "Portugal",
-    "Super League Suiza": "Suiza",
-    "Bundesliga Austria": "Austria",
-    "Grecia": "Grecia",
-    "Ekstraklasa": "Polonia",
-    "Champions League": "Europa",
-    "Europa League": "Europa",
-    "Conference League": "Europa",
-    "Copa del Rey": "Espana",
-    "Turquia": "Turquia",
-    "Segunda Inglesa": "Inglaterra",
-    "Arabia Saudi": "Arabia Saudi",
-    "Australia": "Australia",
-    "Internacionales": "Internacional",
-    "Segunda Alemana": "Alemania",
-    "Chile": "Chile",
-    "MLS": "Estados Unidos",
-    "Brasil": "Brasil",
-    "Serie B Brasil": "Brasil",
-    "Primera B Nacional": "Argentina",
-    "Liga MX": "Mexico",
-    "Primera A Colombia": "Colombia",
-    "J1 League": "Japon",
-    "J2 League": "Japon",
-    "K League 1": "Corea del Sur",
-    "WSL Femenina": "Inglaterra",
-    "Liga F": "Espana",
-    "Premiere Ligue Femenina": "Francia",
-    "Frauen-Bundesliga": "Alemania",
-    "Serie A Femenina": "Italia",
-}
+
+def _build_league_configs() -> dict[str, dict]:
+    configs: dict[str, dict] = {}
+    for league_name, definition in LEAGUE_DEFINITIONS.items():
+        history = dict(HISTORY_SOURCE_CONFIGS.get(league_name, {}))
+        if history.get("type") == "espn_scoreboard":
+            history["league_id"] = definition.league_id
+            history["season"] = definition.season_type
+
+        configs[league_name] = {
+            "country": definition.country,
+            "league_id": definition.league_id,
+            "season_type": definition.season_type,
+            "history": history,
+        }
+    return configs
+
+
+LEAGUE_CONFIGS = _build_league_configs()
 
 URLS_LIGAS = {
     liga: config["history"].get("url", config["history"].get("league_id", ""))
     for liga, config in LEAGUE_CONFIGS.items()
 }
-ESPN_LEAGUE_IDS = {liga: config.get("espn_id", "") for liga, config in LEAGUE_CONFIGS.items()}
+ESPN_LEAGUE_IDS = dict(LEAGUE_IDS)
 
 
 def _log_request_error(contexto: str, exc: Exception, extra: dict | None = None) -> None:
-    LOGGER.warning("%s failed: %s | extra=%s", contexto, exc, extra or {})
+    payload = {
+        "event": "source_request_failed",
+        "context": contexto,
+        "source": "data_sources",
+        "league": None,
+        "match_id": None,
+        "error_type": type(exc).__name__,
+        "error": str(exc),
+    }
+    payload.update(extra or {})
+    LOGGER.warning(json.dumps(payload, ensure_ascii=True, sort_keys=True))
+
+
+def _localize_espn_row(row: dict) -> dict:
+    kickoff_at = row.get("KickoffAt")
+    if not isinstance(kickoff_at, datetime):
+        return dict(row)
+
+    local_kickoff = to_local_datetime(kickoff_at)
+    localized = dict(row)
+    localized["KickoffAt"] = local_kickoff
+    localized["Date"] = local_kickoff.strftime("%d/%m/%Y")
+    localized["MatchDate"] = local_kickoff.date()
+    localized["Time"] = local_kickoff.strftime("%H:%M")
+    localized["FixtureLabel"] = (
+        f"{local_kickoff.strftime('%d/%m/%Y %H:%M')} | "
+        f"{localized.get('HomeTeamRaw', localized.get('HomeTeam', ''))} vs "
+        f"{localized.get('AwayTeamRaw', localized.get('AwayTeam', ''))}"
+    )
+    return localized
+
+
+def _load_localized_espn_rows_for_local_day(league_id: str, target_local_date, *, source: str, timeout: int) -> list[dict]:
+    rows: list[dict] = []
+    seen_event_ids: set[str] = set()
+    for utc_date in utc_dates_for_local_day(target_local_date):
+        batch = fetch_espn_matches_for_date(league_id, utc_date, source=source, timeout=timeout)
+        for row in batch:
+            localized = _localize_espn_row(row)
+            if localized.get("MatchDate") != target_local_date:
+                continue
+            event_id = str(localized.get("EventId", "")).strip()
+            dedupe_key = event_id or json.dumps(
+                [
+                    str(localized.get("MatchDate")),
+                    localized.get("Time"),
+                    localized.get("HomeTeam"),
+                    localized.get("AwayTeam"),
+                ],
+                ensure_ascii=True,
+            )
+            if dedupe_key in seen_event_ids:
+                continue
+            seen_event_ids.add(dedupe_key)
+            rows.append(localized)
+    return rows
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -327,14 +200,20 @@ def descargar_datos(url: str) -> pd.DataFrame | None:
 def descargar_historial_espn(league_id: str, season_type: str) -> pd.DataFrame | None:
     try:
         filas = fetch_espn_matches_for_season(league_id, season_type, source="HISTORY", timeout=25)
-    except Exception as exc:
+    except ESPNProviderError as exc:
         _log_request_error(
             "descargar_historial_espn",
             exc,
-            {"league_id": league_id, "season_type": season_type},
+            {
+                "source": "espn",
+                "league": league_id,
+                "league_id": league_id,
+                "season_type": season_type,
+            },
         )
         return None
 
+    filas = [_localize_espn_row(fila) for fila in filas]
     if not filas:
         return pd.DataFrame()
 
@@ -364,7 +243,7 @@ def descargar_fixture_footystats(url: str) -> pd.DataFrame | None:
             continue
 
         marcador = re.search(r"<span class='bold ft-score'>([^<]*)</span>", bloque)
-        fecha_evento = datetime.fromtimestamp(int(timestamp.group(1)), tz=ZoneInfo("UTC")).astimezone(LOCAL_TIMEZONE)
+        fecha_evento = datetime.fromtimestamp(int(timestamp.group(1)), tz=UTC).astimezone(LOCAL_TIMEZONE)
         home_team = unescape(next((nombre for lado, nombre in equipos if lado == "home"), "").strip())
         away_team = unescape(next((nombre for lado, nombre in equipos if lado == "away"), "").strip())
         score_text = unescape(marcador.group(1).strip()) if marcador else ""
@@ -448,12 +327,18 @@ def preparar_calendario(df: pd.DataFrame) -> pd.DataFrame:
 @st.cache_data(ttl=1800, show_spinner=False)
 def descargar_fixture_espn(league_id: str, fecha_objetivo) -> pd.DataFrame:
     try:
-        filas = fetch_espn_matches_for_date(league_id, fecha_objetivo, source="ESPN", timeout=20)
-    except Exception as exc:
+        filas = _load_localized_espn_rows_for_local_day(league_id, fecha_objetivo, source="ESPN", timeout=20)
+    except ESPNProviderError as exc:
         _log_request_error(
             "descargar_fixture_espn",
             exc,
-            {"league_id": league_id, "fecha_objetivo": str(fecha_objetivo)},
+            {
+                "source": "espn",
+                "league": league_id,
+                "league_id": league_id,
+                "match_id": None,
+                "fecha_objetivo": str(fecha_objetivo),
+            },
         )
         return pd.DataFrame()
 
@@ -532,7 +417,7 @@ def extraer_contexto_mercado_espn(resumen: dict) -> dict:
     away_odds = odds_data.get("awayTeamOdds") or {}
     draw_odds = odds_data.get("drawOdds") or {}
 
-    return {
+    context = {
         "provider": ((odds_data.get("provider") or {}).get("name")) or "Sin proveedor",
         "details": odds_data.get("details") or "Mercado principal",
         "over_under": a_decimal_seguro(odds_data.get("overUnder")),
@@ -546,6 +431,16 @@ def extraer_contexto_mercado_espn(resumen: dict) -> dict:
         "pickcenter": pickcenter[:3],
         "available": bool(odds_data),
     }
+    for snapshot in extract_supported_odds(resumen):
+        if snapshot["market"] == "BTTS" and snapshot["selection"] == "YES":
+            context["btts_yes_decimal"] = snapshot["decimal_odds"]
+        elif snapshot["market"] == "BTTS" and snapshot["selection"] == "NO":
+            context["btts_no_decimal"] = snapshot["decimal_odds"]
+        elif snapshot["market"] == "TOTAL_GOALS" and snapshot["selection"] == "OVER_2_5":
+            context["over_2_5_decimal"] = snapshot["decimal_odds"]
+        elif snapshot["market"] == "TOTAL_GOALS" and snapshot["selection"] == "UNDER_2_5":
+            context["under_2_5_decimal"] = snapshot["decimal_odds"]
+    return context
 
 
 def extraer_detalles_forma_espn(resumen: dict) -> list[dict]:
@@ -607,10 +502,38 @@ def construir_cuotas_automaticas(contexto_mercado: dict, local: str, visitante: 
             "provider": contexto_mercado.get("provider", "Feed abierto"),
             "source": "auto",
         }
+    if contexto_mercado.get("btts_yes_decimal"):
+        cuotas["Ambos marcan"] = {
+            "odds": contexto_mercado["btts_yes_decimal"],
+            "provider": contexto_mercado.get("provider", "Feed abierto"),
+            "source": "auto",
+        }
+    if contexto_mercado.get("btts_no_decimal"):
+        cuotas["No marcan ambos"] = {
+            "odds": contexto_mercado["btts_no_decimal"],
+            "provider": contexto_mercado.get("provider", "Feed abierto"),
+            "source": "auto",
+        }
+    if contexto_mercado.get("over_2_5_decimal"):
+        cuotas["Over 2.5 goles"] = {
+            "odds": contexto_mercado["over_2_5_decimal"],
+            "provider": contexto_mercado.get("provider", "Feed abierto"),
+            "source": "auto",
+        }
+    if contexto_mercado.get("under_2_5_decimal"):
+        cuotas["Under 2.5 goles"] = {
+            "odds": contexto_mercado["under_2_5_decimal"],
+            "provider": contexto_mercado.get("provider", "Feed abierto"),
+            "source": "auto",
+        }
     return cuotas
 
 
-def _sportmonks_token() -> str:
+def _sportmonks_token(token_hint: str = "") -> str:
+    hinted = str(token_hint or "").strip()
+    if hinted:
+        return hinted
+
     token_session = str(st.session_state.get("sportmonks_api_token", "") or "").strip()
     if token_session:
         return token_session
@@ -650,7 +573,7 @@ def _sportmonks_parse_datetime(valor) -> datetime | None:
         return None
     if isinstance(valor, (int, float)):
         try:
-            return datetime.fromtimestamp(valor, tz=ZoneInfo("UTC")).astimezone(LOCAL_TIMEZONE)
+            return datetime.fromtimestamp(valor, tz=UTC).astimezone(LOCAL_TIMEZONE)
         except (OSError, OverflowError, ValueError):
             return None
     if not valor:
@@ -660,7 +583,7 @@ def _sportmonks_parse_datetime(valor) -> datetime | None:
         try:
             fecha = datetime.fromisoformat(candidato)
             if fecha.tzinfo is None:
-                fecha = fecha.replace(tzinfo=ZoneInfo("UTC"))
+                fecha = fecha.replace(tzinfo=UTC)
             return fecha.astimezone(LOCAL_TIMEZONE)
         except ValueError:
             continue
@@ -779,7 +702,7 @@ def buscar_fixture_sportmonks(
     away_team_raw: str = "",
     token_hint: str = "",
 ) -> dict:
-    if not _sportmonks_token():
+    if not _sportmonks_token(token_hint):
         return {"status": "missing_token"}
 
     fecha = match_date.strftime("%Y-%m-%d")
@@ -889,7 +812,7 @@ def obtener_logs_jugadores_sportmonks(
     away_team_raw: str = "",
     token_hint: str = "",
 ) -> dict:
-    if not _sportmonks_token():
+    if not _sportmonks_token(token_hint):
         return {
             "available": False,
             "status": "missing_token",

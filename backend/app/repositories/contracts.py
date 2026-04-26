@@ -10,6 +10,14 @@ class MatchRepository(Protocol):
     def list_matches_for_day(self, target_date: date) -> Sequence[Match]:
         ...
 
+    def list_finished_matches(
+        self,
+        competition: str,
+        before_date: date,
+        teams: Sequence[str] | None = None,
+    ) -> Sequence[Match]:
+        ...
+
     def get_match(self, match_id: str) -> Match | None:
         ...
 
