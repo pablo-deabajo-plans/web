@@ -8,8 +8,9 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from backend.app.api.dependencies import get_dashboard_service
-from backend.app.core.time import local_today
+from backend.app.api.dependencies import get_dashboard_service, get_match_repository
+from backend.app.core.time import local_today, to_local_datetime
+from backend.app.repositories.contracts import MatchRepository
 from backend.app.schemas.analysis import AnalysisRead
 from backend.app.services.dashboard import COMPETITION_TYPES
 from backend.app.services.dashboard import DashboardService
@@ -58,6 +59,40 @@ def _static_league_rows(competition_view: str) -> list[dict]:
     return sorted(rows, key=lambda item: (item["country"], item["league"]))
 
 
+def _stored_league_rows(
+    target_day: date,
+    competition_view: str,
+    match_repository: MatchRepository,
+) -> list[dict]:
+    expected = "Liga" if competition_view == "Ligas" else "Torneo"
+    grouped: dict[str, dict] = {}
+    for match in match_repository.list_matches_for_day(target_day):
+        league = match.competition
+        if COMPETITION_TYPES.get(league, "Liga") != expected:
+            continue
+        row = grouped.setdefault(
+            league,
+            {
+                "league": league,
+                "country": str(LEAGUE_CONFIGS.get(league, {}).get("country", "Internacional")),
+                "match_count": 0,
+                "matches_preview": [],
+            },
+        )
+        row["match_count"] += 1
+        if len(row["matches_preview"]) < 3:
+            local_kickoff = to_local_datetime(match.kickoff_at)
+            row["matches_preview"].append(
+                {
+                    "match_id": match.id,
+                    "home_team": match.home_team,
+                    "away_team": match.away_team,
+                    "time": local_kickoff.strftime("%H:%M"),
+                }
+            )
+    return sorted(grouped.values(), key=lambda item: (item["country"], item["league"]))
+
+
 @router.get("/", response_class=HTMLResponse)
 def home(
     request: Request,
@@ -66,10 +101,11 @@ def home(
     league: str | None = Query(default=None),
     q: str | None = Query(default=None),
     service: DashboardService = Depends(get_dashboard_service),
+    match_repository: MatchRepository = Depends(get_match_repository),
 ):
     target_day = day or local_today()
     competition_view = _normalize_competition_view(competition_view)
-    league_rows = _static_league_rows(competition_view)
+    league_rows = _stored_league_rows(target_day, competition_view, match_repository) or _static_league_rows(competition_view)
     selected_league = service.get_league_dashboard(league=league, target_date=target_day) if league else None
     search_results = service.search_matches(target_date=target_day, query=q) if q and q.strip() else []
     return templates.TemplateResponse(

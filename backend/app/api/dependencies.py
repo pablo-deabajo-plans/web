@@ -156,7 +156,16 @@ def get_history_service() -> GetHistoryService:
 
 
 def get_dashboard_service() -> DashboardService:
+    return _dashboard_service()
+
+
+@lru_cache(maxsize=1)
+def _dashboard_service() -> DashboardService:
     return DashboardService()
+
+
+def get_match_repository():
+    return _match_repository()
 
 
 def get_favorites_service() -> FavoritesService:

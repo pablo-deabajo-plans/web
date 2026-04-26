@@ -66,6 +66,13 @@
       <p class="mini-kicker">{{ item.country }}</p>
       <h3>{{ item.league }}</h3>
       <p>{% if item.match_count is not none %}{{ item.match_count }} partidos{% else %}Carga bajo demanda{% endif %}</p>
+      {% if item.matches_preview %}
+      <ul class="league-preview-list">
+        {% for match in item.matches_preview %}
+        <li>{{ match.time }} · {{ match.home_team }} vs {{ match.away_team }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
       <a class="button-secondary" href="/?day={{ day }}&competition_view={{ competition_view|urlencode }}&league={{ item.league|urlencode }}">Abrir liga</a>
     </article>
     {% endfor %}
