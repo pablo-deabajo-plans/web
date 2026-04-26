@@ -123,7 +123,11 @@ def _load_historical_frame(connection_factory, competition: str, target_date: da
                     None,
                 )
 
-            missing_required = [column for column in required_columns if column_aliases.get(column) is None]
+            missing_required = [
+                column
+                for column in required_columns
+                if column != "Date" and column_aliases.get(column) is None
+            ]
             if missing_required:
                 LOGGER.warning(
                     "Skipping analysis for competition=%s because matches table lacks required columns=%s",
