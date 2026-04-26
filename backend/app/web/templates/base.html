@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Gordon BetScanner{% endblock %}</title>
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <header class="shell-header">
+    <div class="shell-brand">
+      <a href="/" class="brand-link">Gordon BetScanner</a>
+      <span class="brand-note">Web servida por FastAPI</span>
+    </div>
+    <nav class="shell-nav">
+      <a href="/?day={{ day }}" class="nav-link">Ligas</a>
+      <a href="/daily-value?day={{ day }}" class="nav-link">Ranking diario</a>
+      <a href="/docs" class="nav-link">API</a>
+    </nav>
+  </header>
+  <main class="page-shell">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

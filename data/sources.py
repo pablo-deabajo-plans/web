@@ -12,7 +12,21 @@ from pathlib import Path
 
 import pandas as pd
 import requests
-import streamlit as st
+try:
+    import streamlit as st
+except ModuleNotFoundError:
+    class _StreamlitFallback:
+        session_state: dict[str, str] = {}
+        secrets: dict[str, str] = {}
+
+        @staticmethod
+        def cache_data(*_, **__):
+            def decorator(func):
+                return func
+
+            return decorator
+
+    st = _StreamlitFallback()
 
 from backend.app.core.time import LOCAL_TIMEZONE, UTC, to_local_datetime, utc_dates_for_local_day
 from backend.app.domain.leagues import LEAGUE_DEFINITIONS, LEAGUE_IDS

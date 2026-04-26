@@ -1,6 +1,9 @@
 from contextlib import asynccontextmanager
 
+from pathlib import Path
+
 from fastapi import Depends, FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from backend.app.core import configure_logging, settings
 from backend.app.api.dependencies import require_authenticated_request
@@ -15,6 +18,7 @@ from backend.app.api.routes.performance import router as performance_router
 from backend.app.api.routes.picks import router as picks_router
 from backend.app.repositories.postgres.bootstrap import ensure_postgres_schema
 from backend.app.repositories.postgres.connection import create_postgres_connection_factory
+from backend.app.web import router as web_router
 
 
 @asynccontextmanager
@@ -27,6 +31,9 @@ def create_app() -> FastAPI:
     configure_logging()
     settings.validate_security()
     app = FastAPI(title="Gordon BetScanner Backend", version="0.1.0", lifespan=_lifespan)
+    static_dir = Path(__file__).resolve().parent / "web" / "static"
+    app.mount("/assets", StaticFiles(directory=str(static_dir)), name="assets")
+    app.include_router(web_router)
     app.include_router(health_router, prefix="/health", tags=["health"])
     protected_dependencies = [Depends(require_authenticated_request)]
     app.include_router(metrics_router, prefix="/metrics", tags=["metrics"], dependencies=protected_dependencies)

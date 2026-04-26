@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Ranking diario | Gordon BetScanner{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <p class="eyebrow">Value ranking</p>
+    <h1>Ranking diario independiente</h1>
+    <p class="hero-copy">Separado por liga para no mezclar universos no normalizados.</p>
+  </div>
+  <form method="get" class="toolbar-card">
+    <label>
+      <span>Fecha</span>
+      <input type="date" name="day" value="{{ day }}">
+    </label>
+    <label>
+      <span>Universo</span>
+      <select name="competition_view">
+        <option value="Ligas" {% if competition_view == "Ligas" %}selected{% endif %}>Ligas</option>
+        <option value="Torneos" {% if competition_view == "Torneos" %}selected{% endif %}>Torneos</option>
+      </select>
+    </label>
+    <button type="submit">Recalcular</button>
+  </form>
+</section>
+
+{% for group in ranking_groups %}
+<section class="section">
+  <div class="section-head">
+    <h2>{{ group.league }}</h2>
+    <p>{{ group.country }} · {{ group.match_count }} partidos</p>
+  </div>
+  <div class="table-wrap panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Match</th>
+          <th>Mercado</th>
+          <th>Prob</th>
+          <th>Cuota justa</th>
+          <th>Cuota</th>
+          <th>Edge</th>
+          <th>Confianza</th>
+          <th>Muestra</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pick in group.picks %}
+        <tr>
+          <td>{{ pick.match }}</td>
+          <td>{{ pick.market }}</td>
+          <td>{{ pick.prob|pct }}</td>
+          <td>@{{ pick.fair_odds|num(2) }}</td>
+          <td>@{{ pick.offered_odds|num(2) }}</td>
+          <td class="{% if pick.edge > 0 %}edge-positive{% else %}edge-flat{% endif %}">{{ pick.edge|edge }}</td>
+          <td>{{ pick.confidence_label or "-" }}</td>
+          <td>{{ pick.sample_size or "-" }}</td>
+          <td><a class="button-secondary small" href="/match-detail/{{ pick.match_id }}?league={{ group.league|urlencode }}&day={{ day }}">Abrir</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<section class="section">
+  <article class="empty-card">
+    <h3>Sin ranking disponible</h3>
+    <p>No hay picks con edge suficiente para el universo seleccionado.</p>
+  </article>
+</section>
+{% endfor %}
+{% endblock %}

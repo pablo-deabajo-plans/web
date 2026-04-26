@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Ligas | Gordon BetScanner{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <p class="eyebrow">League hub</p>
+    <h1>Lectura diaria por liga</h1>
+    <p class="hero-copy">Selecciona fecha, filtra el universo y abre el detalle de partido sin depender de Streamlit.</p>
+  </div>
+  <form method="get" class="toolbar-card">
+    <label>
+      <span>Fecha</span>
+      <input type="date" name="day" value="{{ day }}">
+    </label>
+    <label>
+      <span>Universo</span>
+      <select name="competition_view">
+        <option value="Ligas" {% if competition_view == "Ligas" %}selected{% endif %}>Ligas</option>
+        <option value="Torneos" {% if competition_view == "Torneos" %}selected{% endif %}>Torneos</option>
+      </select>
+    </label>
+    <label class="toolbar-grow">
+      <span>Busqueda</span>
+      <input type="text" name="q" value="{{ search_query }}" placeholder="Equipo o cruce">
+    </label>
+    {% if selected_league %}
+    <input type="hidden" name="league" value="{{ selected_league.league }}">
+    {% endif %}
+    <button type="submit">Actualizar</button>
+  </form>
+</section>
+
+{% if search_query %}
+<section class="section">
+  <div class="section-head">
+    <h2>Resultados de busqueda</h2>
+    <p>{{ search_results|length }} coincidencias</p>
+  </div>
+  <div class="list-grid">
+    {% for item in search_results %}
+    <article class="list-card">
+      <div>
+        <h3>{{ item.match }}</h3>
+        <p>{{ item.league }} · {{ item.country }} · {{ item.time or "Sin hora" }}</p>
+      </div>
+      <a class="button-secondary" href="/match-detail/{{ item.match_id }}?league={{ item.league|urlencode }}&day={{ day }}">Abrir</a>
+    </article>
+    {% else %}
+    <article class="empty-card">
+      <h3>Sin resultados</h3>
+      <p>Prueba con el nombre de un equipo o una parte del cruce en la fecha seleccionada.</p>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="section">
+  <div class="section-head">
+    <h2>Ligas activas</h2>
+    <p>{{ league_rows|length }} competiciones</p>
+  </div>
+  <div class="league-grid">
+    {% for item in league_rows %}
+    <article class="league-card {% if selected_league and selected_league.league == item.league %}is-active{% endif %}">
+      <p class="mini-kicker">{{ item.country }}</p>
+      <h3>{{ item.league }}</h3>
+      <p>{{ item.match_count }} partidos</p>
+      <a class="button-secondary" href="/?day={{ day }}&competition_view={{ competition_view|urlencode }}&league={{ item.league|urlencode }}">Abrir liga</a>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+{% if selected_league %}
+<section class="section">
+  <div class="section-head">
+    <h2>{{ selected_league.league }}</h2>
+    <p>{{ selected_league.country }} · {{ selected_league.match_count }} partidos</p>
+  </div>
+
+  <div class="panel-grid">
+    <article class="panel">
+      <div class="panel-head">
+        <h3>Ranking de value en la liga</h3>
+        <p>Ordenado por edge, confianza y muestra</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Match</th>
+              <th>Mercado</th>
+              <th>Prob</th>
+              <th>Cuota</th>
+              <th>Edge</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in selected_league.ranking %}
+            <tr>
+              <td>{{ row.match }}</td>
+              <td>{{ row.market }}</td>
+              <td>{{ row.prob|pct }}</td>
+              <td>@{{ row.offered_odds|num(2) }}</td>
+              <td class="{% if row.edge > 0 %}edge-positive{% else %}edge-flat{% endif %}">{{ row.edge|edge }}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5">Sin picks con contexto suficiente en esta liga.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <h3>Partidos de la jornada</h3>
+        <p>Navegacion directa al detalle</p>
+      </div>
+      <div class="list-grid">
+        {% for match in selected_league.matches %}
+        <article class="list-card compact">
+          <div>
+            <h3>{{ match.home_team }} vs {{ match.away_team }}</h3>
+            <p>{{ match.match_date }} · {{ match.time or "Sin hora" }} · {{ match.source or "Backend" }}</p>
+          </div>
+          <a class="button-secondary" href="/match-detail/{{ match.match_id }}?league={{ selected_league.league|urlencode }}&day={{ day }}">Match detail</a>
+        </article>
+        {% endfor %}
+      </div>
+    </article>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
