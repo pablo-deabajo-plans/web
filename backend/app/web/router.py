@@ -8,9 +8,9 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from backend.app.api.dependencies import get_dashboard_service, get_match_repository
+from backend.app.api.dependencies import get_dashboard_service, get_match_repository, get_pick_repository
 from backend.app.core.time import local_today, to_local_datetime
-from backend.app.repositories.contracts import MatchRepository
+from backend.app.repositories.contracts import MatchRepository, PickRepository
 from backend.app.schemas.analysis import AnalysisRead
 from backend.app.services.dashboard import COMPETITION_TYPES
 from backend.app.services.dashboard import DashboardService
@@ -93,6 +93,117 @@ def _stored_league_rows(
     return sorted(grouped.values(), key=lambda item: (item["country"], item["league"]))
 
 
+def _serialize_stored_match(match) -> dict:
+    local_kickoff = to_local_datetime(match.kickoff_at)
+    return {
+        "match_id": match.id,
+        "event_id": str(match.external_id or ""),
+        "date": local_kickoff.strftime("%d/%m/%Y"),
+        "match_date": str(local_kickoff.date()),
+        "time": local_kickoff.strftime("%H:%M"),
+        "home_team": match.home_team,
+        "away_team": match.away_team,
+        "home_team_raw": match.home_team,
+        "away_team_raw": match.away_team,
+        "fixture_label": f"{local_kickoff.strftime('%d/%m/%Y %H:%M')} | {match.home_team} vs {match.away_team}",
+        "source": match.source or "DB",
+    }
+
+
+def _stored_league_dashboard(target_day: date, league: str, match_repository: MatchRepository) -> dict:
+    matches = [
+        match
+        for match in match_repository.list_matches_for_day(target_day)
+        if match.competition == league
+    ]
+    serialized = [_serialize_stored_match(match) for match in sorted(matches, key=lambda item: item.kickoff_at)]
+    return {
+        "league": league,
+        "country": LEAGUE_CONFIGS.get(league, {}).get("country", "Internacional"),
+        "match_count": len(serialized),
+        "matches": serialized,
+        "ranking": [],
+    }
+
+
+def _search_stored_matches(target_day: date, query: str, match_repository: MatchRepository) -> list[dict]:
+    term = query.strip().lower()
+    if not term:
+        return []
+    rows: list[dict] = []
+    for match in match_repository.list_matches_for_day(target_day):
+        home = str(match.home_team or "")
+        away = str(match.away_team or "")
+        if term not in home.lower() and term not in away.lower() and term not in f"{home} vs {away}".lower():
+            continue
+        local_kickoff = to_local_datetime(match.kickoff_at)
+        rows.append(
+            {
+                "league": match.competition,
+                "country": LEAGUE_CONFIGS.get(match.competition, {}).get("country", "Internacional"),
+                "match": f"{home} vs {away}",
+                "time": local_kickoff.strftime("%H:%M"),
+                "fixture_label": f"{local_kickoff.strftime('%d/%m/%Y %H:%M')} | {home} vs {away}",
+                "match_id": match.id,
+            }
+        )
+    return rows[:50]
+
+
+def _stored_daily_value_ranking(
+    target_day: date,
+    competition_view: str,
+    match_repository: MatchRepository,
+    pick_repository: PickRepository,
+) -> list[dict]:
+    expected = "Liga" if competition_view == "Ligas" else "Torneo"
+    matches = list(match_repository.list_matches_for_day(target_day))
+    match_map = {match.id: match for match in matches}
+    grouped: dict[str, dict] = {}
+    for pick in pick_repository.list_picks_for_day(target_day):
+        match = match_map.get(pick.match_id)
+        if match is None:
+            continue
+        league = match.competition
+        if COMPETITION_TYPES.get(league, "Liga") != expected:
+            continue
+        bucket = grouped.setdefault(
+            league,
+            {
+                "league": league,
+                "country": LEAGUE_CONFIGS.get(league, {}).get("country", "Internacional"),
+                "match_count": 0,
+                "match_ids": set(),
+                "picks": [],
+            },
+        )
+        bucket["match_ids"].add(match.id)
+        bucket["picks"].append(
+            {
+                "match": f"{match.home_team} vs {match.away_team}",
+                "match_id": match.id,
+                "market": pick.market,
+                "prob": pick.probability,
+                "fair_odds": pick.fair_odds,
+                "offered_odds": pick.offered_odds,
+                "edge": pick.edge,
+                "confidence": None,
+                "confidence_label": None,
+                "sample_size": None,
+            }
+        )
+    rows: list[dict] = []
+    for bucket in grouped.values():
+        bucket["match_count"] = len(bucket.pop("match_ids"))
+        bucket["picks"].sort(key=lambda item: item["edge"], reverse=True)
+        rows.append(bucket)
+    return sorted(
+        rows,
+        key=lambda item: (item["picks"][0]["edge"] if item["picks"] else -999.0, item["league"]),
+        reverse=True,
+    )
+
+
 @router.get("/", response_class=HTMLResponse)
 def home(
     request: Request,
@@ -100,14 +211,13 @@ def home(
     competition_view: str | None = Query(default="Ligas"),
     league: str | None = Query(default=None),
     q: str | None = Query(default=None),
-    service: DashboardService = Depends(get_dashboard_service),
     match_repository: MatchRepository = Depends(get_match_repository),
 ):
     target_day = day or local_today()
     competition_view = _normalize_competition_view(competition_view)
     league_rows = _stored_league_rows(target_day, competition_view, match_repository) or _static_league_rows(competition_view)
-    selected_league = service.get_league_dashboard(league=league, target_date=target_day) if league else None
-    search_results = service.search_matches(target_date=target_day, query=q) if q and q.strip() else []
+    selected_league = _stored_league_dashboard(target_day, league, match_repository) if league else None
+    search_results = _search_stored_matches(target_day, q, match_repository) if q and q.strip() else []
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -127,11 +237,12 @@ def daily_value(
     request: Request,
     day: date | None = Query(default=None),
     competition_view: str | None = Query(default="Ligas"),
-    service: DashboardService = Depends(get_dashboard_service),
+    match_repository: MatchRepository = Depends(get_match_repository),
+    pick_repository: PickRepository = Depends(get_pick_repository),
 ):
     target_day = day or local_today()
     competition_view = _normalize_competition_view(competition_view)
-    ranking_groups = service.get_daily_value_ranking(target_date=target_day, competition_view=competition_view)
+    ranking_groups = _stored_daily_value_ranking(target_day, competition_view, match_repository, pick_repository)
     return templates.TemplateResponse(
         request,
         "daily_value.html",

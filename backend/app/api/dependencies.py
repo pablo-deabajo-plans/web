@@ -168,5 +168,9 @@ def get_match_repository():
     return _match_repository()
 
 
+def get_pick_repository():
+    return _pick_repository()
+
+
 def get_favorites_service() -> FavoritesService:
     return FavoritesService(_favorite_repository())
