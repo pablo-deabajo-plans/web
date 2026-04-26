@@ -35,6 +35,15 @@ def serie_nan(longitud: int, index=None) -> pd.Series:
     return pd.Series([np.nan] * longitud, index=index, dtype=float)
 
 
+def numero_seguro(valor) -> float:
+    if pd.isna(valor):
+        return 0.0
+    try:
+        return float(valor)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def resumir_serie_numerica(serie: pd.Series) -> tuple[float, bool]:
     serie_numerica = pd.to_numeric(serie, errors="coerce")
     disponible = bool(serie_numerica.notna().any())
@@ -140,8 +149,22 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
                 shots_on_target_favor = serie_nan(len(partidos))
                 shots_on_target_contra = serie_nan(len(partidos))
             if tiene_tarjetas:
-                cards_favor = pd.Series([(fila.get("HY", 0.0) + fila.get("HR", 0.0)) if clave_equipo(fila["HomeTeam"]) == equipo_clave else (fila.get("AY", 0.0) + fila.get("AR", 0.0)) for _, fila in partidos.iterrows()])
-                cards_contra = pd.Series([(fila.get("AY", 0.0) + fila.get("AR", 0.0)) if clave_equipo(fila["HomeTeam"]) == equipo_clave else (fila.get("HY", 0.0) + fila.get("HR", 0.0)) for _, fila in partidos.iterrows()])
+                cards_favor = pd.Series(
+                    [
+                        (numero_seguro(fila.get("HY")) + numero_seguro(fila.get("HR")))
+                        if clave_equipo(fila["HomeTeam"]) == equipo_clave
+                        else (numero_seguro(fila.get("AY")) + numero_seguro(fila.get("AR")))
+                        for _, fila in partidos.iterrows()
+                    ]
+                )
+                cards_contra = pd.Series(
+                    [
+                        (numero_seguro(fila.get("AY")) + numero_seguro(fila.get("AR")))
+                        if clave_equipo(fila["HomeTeam"]) == equipo_clave
+                        else (numero_seguro(fila.get("HY")) + numero_seguro(fila.get("HR")))
+                        for _, fila in partidos.iterrows()
+                    ]
+                )
             else:
                 cards_favor = serie_nan(len(partidos))
                 cards_contra = serie_nan(len(partidos))
