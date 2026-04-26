@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 from backend.app.api.dependencies import get_dashboard_service
 from backend.app.core.time import local_today
 from backend.app.schemas.analysis import AnalysisRead
+from backend.app.services.dashboard import COMPETITION_TYPES
 from backend.app.services.dashboard import DashboardService
 from backend.app.web.presenters import (
     MATCH_TABS,
@@ -24,6 +25,7 @@ from backend.app.web.presenters import (
     tab_label,
     top_value_rows,
 )
+from data.sources import LEAGUE_CONFIGS
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -40,6 +42,22 @@ def _normalize_competition_view(value: str | None) -> str:
     return "Torneos" if value == "Torneos" else "Ligas"
 
 
+def _static_league_rows(competition_view: str) -> list[dict]:
+    expected = "Liga" if competition_view == "Ligas" else "Torneo"
+    rows = []
+    for league, config in LEAGUE_CONFIGS.items():
+        if COMPETITION_TYPES.get(league, "Liga") != expected:
+            continue
+        rows.append(
+            {
+                "league": league,
+                "country": str(config.get("country", "Internacional")),
+                "match_count": None,
+            }
+        )
+    return sorted(rows, key=lambda item: (item["country"], item["league"]))
+
+
 @router.get("/", response_class=HTMLResponse)
 def home(
     request: Request,
@@ -51,7 +69,7 @@ def home(
 ):
     target_day = day or local_today()
     competition_view = _normalize_competition_view(competition_view)
-    league_rows = service.list_leagues(target_date=target_day, competition_view=competition_view)
+    league_rows = _static_league_rows(competition_view)
     selected_league = service.get_league_dashboard(league=league, target_date=target_day) if league else None
     search_results = service.search_matches(target_date=target_day, query=q) if q and q.strip() else []
     return templates.TemplateResponse(
