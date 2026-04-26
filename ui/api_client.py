@@ -27,14 +27,17 @@ def _headers(*, sportmonks_token: str = "") -> dict[str, str]:
 
 
 def _request(method: str, path: str, *, params: dict[str, Any] | None = None, json_payload: Any = None, sportmonks_token: str = "") -> Any:
-    response = requests.request(
-        method,
-        f"{DEFAULT_API_URL}{path}",
-        params=params,
-        json=json_payload,
-        headers=_headers(sportmonks_token=sportmonks_token),
-        timeout=30,
-    )
+    try:
+        response = requests.request(
+            method,
+            f"{DEFAULT_API_URL}{path}",
+            params=params,
+            json=json_payload,
+            headers=_headers(sportmonks_token=sportmonks_token),
+            timeout=30,
+        )
+    except requests.RequestException as exc:
+        raise BackendApiError(f"{method} {path} failed: backend unreachable at {DEFAULT_API_URL}") from exc
     if response.status_code >= 400:
         try:
             payload = response.json()
