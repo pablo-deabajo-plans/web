@@ -25,16 +25,6 @@
 </section>
 
 <section class="section">
-  <article class="panel summary-panel">
-    <div class="panel-head">
-      <h2>Resumen trader</h2>
-      <p>{{ active_tab_label }}</p>
-    </div>
-    <p>{{ executive_summary }}</p>
-  </article>
-</section>
-
-<section class="section">
   <nav class="tabs">
     {% for tab_key, tab_name in tabs %}
     <a class="tab-link {% if active_tab == tab_key %}is-active{% endif %}" href="/match-detail/{{ match_id }}?league={{ league|urlencode }}&day={{ day }}&tab={{ tab_key }}">{{ tab_name }}</a>
