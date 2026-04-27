@@ -53,14 +53,13 @@
     <article class="panel">
       <div class="panel-head">
         <h3>Partidos de la jornada</h3>
-        <p>Navegacion directa al detalle</p>
       </div>
       <div class="list-grid">
         {% for match in league_dashboard.matches %}
         <article class="list-card compact">
           <div>
             <h3>{{ match.home_team }} vs {{ match.away_team }}</h3>
-            <p>{{ match.match_date }} - {{ match.time or "Sin hora" }} - {{ match.source or "Backend" }}</p>
+            <p>{{ match.match_date }} - {{ match.time or "Sin hora" }}</p>
           </div>
           <a class="button-secondary" href="/match-detail/{{ match.match_id }}?league={{ league_dashboard.league|urlencode }}&day={{ day }}">Match detail</a>
         </article>

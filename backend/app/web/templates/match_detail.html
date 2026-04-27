@@ -5,7 +5,7 @@
   <div>
     <p class="eyebrow">Match detail</p>
     <h1>{{ analysis.local }} vs {{ analysis.visitante }}</h1>
-    <p class="hero-copy">{{ analysis.liga }} - {{ match.match_date }} - {{ match.time or "Sin hora" }} - Fuente {{ match.source or "Backend" }}</p>
+    <p class="hero-copy">{{ analysis.liga }} - {{ match.match_date }} - {{ match.time or "Sin hora" }}</p>
   </div>
   <div class="hero-actions">
     <a class="button-secondary" href="/league/{{ league|urlencode }}?day={{ day }}">Volver a la liga</a>
