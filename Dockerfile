@@ -5,7 +5,6 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY requirements.txt ./requirements.txt
 COPY requirements.local.txt ./requirements.local.txt
 COPY backend/requirements.txt ./backend/requirements.txt
 

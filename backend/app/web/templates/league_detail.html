@@ -5,7 +5,7 @@
   <div>
     <p class="eyebrow">League detail</p>
     <h1>{{ league_dashboard.league }}</h1>
-    <p class="hero-copy">{{ league_dashboard.country }} · {{ league_dashboard.match_count }} partidos del dia en una vista dedicada.</p>
+    <p class="hero-copy">{{ league_dashboard.country }} - {{ league_dashboard.match_count }} partidos del dia en una vista dedicada.</p>
   </div>
   <div class="hero-actions">
     <a class="button-secondary" href="/?day={{ day }}&competition_view={{ competition_view|urlencode }}">Volver a ligas</a>
@@ -60,7 +60,7 @@
         <article class="list-card compact">
           <div>
             <h3>{{ match.home_team }} vs {{ match.away_team }}</h3>
-            <p>{{ match.match_date }} · {{ match.time or "Sin hora" }} · {{ match.source or "Backend" }}</p>
+            <p>{{ match.match_date }} - {{ match.time or "Sin hora" }} - {{ match.source or "Backend" }}</p>
           </div>
           <a class="button-secondary" href="/match-detail/{{ match.match_id }}?league={{ league_dashboard.league|urlencode }}&day={{ day }}">Match detail</a>
         </article>

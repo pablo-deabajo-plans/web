@@ -5,7 +5,6 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from backend.app.api.dependencies import get_dashboard_service, get_match_repository, get_pick_repository
@@ -76,20 +75,9 @@ def _stored_league_rows(
                 "league": league,
                 "country": str(LEAGUE_CONFIGS.get(league, {}).get("country", "Internacional")),
                 "match_count": 0,
-                "matches_preview": [],
             },
         )
         row["match_count"] += 1
-        if len(row["matches_preview"]) < 3:
-            local_kickoff = to_local_datetime(match.kickoff_at)
-            row["matches_preview"].append(
-                {
-                    "match_id": match.id,
-                    "home_team": match.home_team,
-                    "away_team": match.away_team,
-                    "time": local_kickoff.strftime("%H:%M"),
-                }
-            )
     return sorted(grouped.values(), key=lambda item: (item["country"], item["league"]))
 
 
@@ -110,7 +98,51 @@ def _serialize_stored_match(match) -> dict:
     }
 
 
-def _stored_league_dashboard(target_day: date, league: str, match_repository: MatchRepository) -> dict:
+def _stored_league_ranking(
+    target_day: date,
+    league: str,
+    match_repository: MatchRepository,
+    pick_repository: PickRepository,
+) -> list[dict]:
+    matches = [
+        match
+        for match in match_repository.list_matches_for_day(target_day)
+        if match.competition == league
+    ]
+    if not matches:
+        return []
+
+    match_map = {match.id: match for match in matches}
+    ranking: list[dict] = []
+    for pick in pick_repository.list_picks_for_day(target_day):
+        match = match_map.get(pick.match_id)
+        if match is None:
+            continue
+        ranking.append(
+            {
+                "match": f"{match.home_team} vs {match.away_team}",
+                "match_id": match.id,
+                "market": pick.market,
+                "prob": pick.probability,
+                "fair_odds": pick.fair_odds,
+                "offered_odds": pick.offered_odds,
+                "edge": pick.edge,
+                "confidence": None,
+                "confidence_label": None,
+                "sample_size": None,
+                "provider": pick.provider,
+            }
+        )
+    ranking.sort(key=lambda item: item["edge"], reverse=True)
+    return ranking[:10]
+
+
+def _stored_league_dashboard(
+    target_day: date,
+    league: str,
+    match_repository: MatchRepository,
+    pick_repository: PickRepository,
+) -> dict:
     matches = [
         match
         for match in match_repository.list_matches_for_day(target_day)
@@ -122,7 +154,7 @@ def _stored_league_dashboard(target_day: date, league: str, match_repository: Ma
         "country": LEAGUE_CONFIGS.get(league, {}).get("country", "Internacional"),
         "match_count": len(serialized),
         "matches": serialized,
-        "ranking": [],
+        "ranking": _stored_league_ranking(target_day, league, match_repository, pick_repository),
     }
 
 
@@ -236,10 +268,11 @@ def league_detail(
     day: date | None = Query(default=None),
     competition_view: str | None = Query(default="Ligas"),
     match_repository: MatchRepository = Depends(get_match_repository),
+    pick_repository: PickRepository = Depends(get_pick_repository),
 ):
     target_day = day or local_today()
     competition_view = _normalize_competition_view(competition_view)
-    league_dashboard = _stored_league_dashboard(target_day, league, match_repository)
+    league_dashboard = _stored_league_dashboard(target_day, league, match_repository, pick_repository)
     return templates.TemplateResponse(
         request,
         "league_detail.html",
@@ -307,6 +340,5 @@ def match_detail(
             "active_tab_label": tab_label(active_tab),
             "player_payload": payload["player_probabilities"],
             "player_rows": player_rows,
-            "auto_odds": payload["auto_odds"],
         },
     )

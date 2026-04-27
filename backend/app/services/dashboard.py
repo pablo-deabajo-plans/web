@@ -13,19 +13,14 @@ from backend.app.domain.models import Analysis, OddsQuote
 from backend.app.domain.pricing import fair_odds, kelly_fraction
 from backend.app.repositories.contracts import OddsRepository
 from backend.app.services.analyze_match import AnalyzeMatchService
-from backend.app.services.compute_player_props import ComputePlayerPropsService
 from backend.app.services.match_ingestion import MatchIngestionService, MatchIngestionServiceError
 from backend.app.services.value_pick_ranking import build_value_pick_ranking
 from backend.app.repositories.providers.espn import ESPNProviderError
 from data.sources import (
     ESPN_LEAGUE_IDS,
     LEAGUE_CONFIGS,
-    construir_cuotas_automaticas,
     descargar_datos_liga,
-    descargar_resumen_espn,
-    extraer_contexto_mercado_espn,
     fusionar_calendarios,
-    obtener_logs_jugadores_sportmonks,
     preparar_calendario,
 )
 from data.teams import nombre_visual_equipo, normalizar_nombre
@@ -88,7 +83,6 @@ COMPETITION_TYPES = {
 class DashboardService:
     def __init__(self, odds_repository: OddsRepository | None = None) -> None:
         self._analyze_match_service = AnalyzeMatchService()
-        self._compute_player_props_service = ComputePlayerPropsService()
         self._match_ingestion_service = MatchIngestionService()
         self._odds_repository = odds_repository
 
@@ -191,26 +185,15 @@ class DashboardService:
         if analysis is None:
             raise ValueError("Analysis is not available for the requested match")
 
-        summary = {}
-        league_id = ESPN_LEAGUE_IDS.get(league, "")
-        event_id = str(selected_match.get("EventId", "") or "")
-        if league_id and event_id:
-            summary = descargar_resumen_espn(league_id, event_id)
-
-        market_context = extraer_contexto_mercado_espn(summary) if summary else {}
-        auto_odds = construir_cuotas_automaticas(market_context, analysis.local, analysis.visitante)
         stored_quotes = self._stored_quotes(match_id)
         external_odds = external_odds_map_for_analysis(analysis, stored_quotes)
         odds_rows = self._build_odds_rows(analysis, external_odds)
-        player_logs = obtener_logs_jugadores_sportmonks(
-            selected_match["MatchDate"],
-            analysis.local_raw,
-            analysis.visitante_raw,
-            str(selected_match.get("HomeTeamRaw", analysis.local_raw) or analysis.local_raw),
-            str(selected_match.get("AwayTeamRaw", analysis.visitante_raw) or analysis.visitante_raw),
-            token_hint=sportmonks_token,
-        )
-        player_probabilities = self._compute_player_props_service.compute(player_logs)
+        player_probabilities = {
+            "available": False,
+            "provider": "Persistido",
+            "message": "Sin props persistidas en esta vista. Se prioriza velocidad y estabilidad del detalle.",
+            "metrics": [],
+        }
 
         return {
             "match": self._serialize_match_row(selected_match),
@@ -218,7 +201,7 @@ class DashboardService:
             "insights": self._analyze_match_service.insights(analysis),
             "comparison_table": self._build_comparison_table(analysis),
             "odds_rows": odds_rows,
-            "auto_odds": external_odds or auto_odds,
+            "auto_odds": external_odds,
             "player_probabilities": player_probabilities,
             "signal_flags": self._build_signal_flags(analysis),
         }
