@@ -8,8 +8,10 @@ import pandas as pd
 from backend.app.core.time import LOCAL_TIMEZONE, to_local_datetime, utc_dates_for_local_day
 from backend.app.domain.analysis import VALUE_BET_THRESHOLD
 from backend.app.domain.leagues import LEAGUE_COUNTRIES, LEAGUE_SEASON_TYPES
-from backend.app.domain.models import Analysis
+from backend.app.domain.market_odds import external_odds_map_for_analysis
+from backend.app.domain.models import Analysis, OddsQuote
 from backend.app.domain.pricing import fair_odds, kelly_fraction
+from backend.app.repositories.contracts import OddsRepository
 from backend.app.services.analyze_match import AnalyzeMatchService
 from backend.app.services.compute_player_props import ComputePlayerPropsService
 from backend.app.services.match_ingestion import MatchIngestionService, MatchIngestionServiceError
@@ -84,10 +86,11 @@ COMPETITION_TYPES = {
 
 
 class DashboardService:
-    def __init__(self) -> None:
+    def __init__(self, odds_repository: OddsRepository | None = None) -> None:
         self._analyze_match_service = AnalyzeMatchService()
         self._compute_player_props_service = ComputePlayerPropsService()
         self._match_ingestion_service = MatchIngestionService()
+        self._odds_repository = odds_repository
 
     def list_leagues(self, *, target_date: date, competition_view: str | None = None) -> list[dict]:
         rows = [self._summarize_league(league, target_date) for league in LEAGUE_CONFIGS]
@@ -196,7 +199,9 @@ class DashboardService:
 
         market_context = extraer_contexto_mercado_espn(summary) if summary else {}
         auto_odds = construir_cuotas_automaticas(market_context, analysis.local, analysis.visitante)
-        odds_rows = self._build_odds_rows(analysis, auto_odds)
+        stored_quotes = self._stored_quotes(match_id)
+        external_odds = external_odds_map_for_analysis(analysis, stored_quotes)
+        odds_rows = self._build_odds_rows(analysis, external_odds)
         player_logs = obtener_logs_jugadores_sportmonks(
             selected_match["MatchDate"],
             analysis.local_raw,
@@ -213,7 +218,7 @@ class DashboardService:
             "insights": self._analyze_match_service.insights(analysis),
             "comparison_table": self._build_comparison_table(analysis),
             "odds_rows": odds_rows,
-            "auto_odds": auto_odds,
+            "auto_odds": external_odds or auto_odds,
             "player_probabilities": player_probabilities,
             "signal_flags": self._build_signal_flags(analysis),
         }
@@ -292,16 +297,13 @@ class DashboardService:
                 )
             if analysis is None:
                 continue
-            summary = descargar_resumen_espn(league_id, event_id)
-            market_context = extraer_contexto_mercado_espn(summary) if summary else {}
-            auto_odds = construir_cuotas_automaticas(market_context, analysis.local, analysis.visitante)
             items.append(
                 {
                     "league": league,
                     "country": LEAGUE_COUNTRIES.get(league, "Internacional"),
                     "match_id": str(match.get("MatchId", "") or ""),
                     "analysis": analysis,
-                    "auto_odds": auto_odds,
+                    "quotes": self._stored_quotes(str(match.get("MatchId", "") or "")),
                 }
             )
         return build_value_pick_ranking(items, limit=10)
@@ -422,13 +424,20 @@ class DashboardService:
             "source": str(match.get("Source", "")),
         }
 
+    def _stored_quotes(self, match_id: str) -> list[OddsQuote]:
+        if self._odds_repository is None or not match_id:
+            return []
+        return list(self._odds_repository.list_odds_for_match(match_id))
+
     @staticmethod
-    def _build_odds_rows(analysis: Analysis, auto_odds: dict[str, dict]) -> list[dict]:
+    def _build_odds_rows(analysis: Analysis, external_odds: dict[str, dict]) -> list[dict]:
         rows: list[dict] = []
         for market in analysis.mercados:
+            if market.nombre not in external_odds:
+                continue
             probability = float(market.prob)
             fair = fair_odds(probability)
-            offered = float(auto_odds.get(market.nombre, {}).get("odds", max(1.05, round(fair, 2))))
+            offered = float(external_odds[market.nombre]["odds"])
             rows.append(
                 {
                     "market": market.nombre,
@@ -436,7 +445,7 @@ class DashboardService:
                     "fair_odds": fair,
                     "offered_odds": offered,
                     "edge": (probability * offered) - 1.0,
-                    "provider": auto_odds.get(market.nombre, {}).get("provider"),
+                    "provider": external_odds[market.nombre].get("provider"),
                 }
             )
         return rows

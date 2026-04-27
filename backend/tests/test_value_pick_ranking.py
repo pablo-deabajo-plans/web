@@ -1,7 +1,11 @@
+from datetime import datetime, timezone
+
+from backend.app.domain.models import OddsQuote
 from backend.app.services.value_pick_ranking import build_value_pick_ranking
 
 
 def test_build_value_pick_ranking_filters_missing_markets_and_sorts_by_edge() -> None:
+    now = datetime.now(timezone.utc)
     items = [
         {
             "analysis": {
@@ -11,11 +15,13 @@ def test_build_value_pick_ranking_filters_missing_markets_and_sorts_by_edge() ->
                     {"nombre": "Victoria Team A", "prob": 0.55},
                     {"nombre": "Empate", "prob": 0.25},
                 ],
+                "stats_local": {"overall": {"pj": 12}},
+                "stats_visitante": {"overall": {"pj": 12}},
             },
-            "auto_odds": {
-                "Victoria Team A": {"odds": 2.20, "provider": "Book A"},
-                "Empate": {"odds": 3.10, "provider": "Book A"},
-            },
+            "quotes": [
+                OddsQuote(match_id="m1", market="1X2", selection="HOME", decimal_odds=2.20, sportsbook="Book A", captured_at=now, id="q1"),
+                OddsQuote(match_id="m1", market="1X2", selection="DRAW", decimal_odds=3.10, sportsbook="Book A", captured_at=now, id="q2"),
+            ],
         },
         {
             "analysis": {
@@ -23,12 +29,14 @@ def test_build_value_pick_ranking_filters_missing_markets_and_sorts_by_edge() ->
                 "visitante": "Team D",
                 "mercados": [
                     {"nombre": "Victoria Team C", "prob": 0.48},
-                    {"nombre": "BTTS", "prob": 0.61},
+                    {"nombre": "Ambos marcan", "prob": 0.61},
                 ],
+                "stats_local": {"overall": {"pj": 8}},
+                "stats_visitante": {"overall": {"pj": 10}},
             },
-            "auto_odds": {
-                "BTTS": {"odds": 1.95, "provider": "Book B"},
-            },
+            "quotes": [
+                OddsQuote(match_id="m2", market="BTTS", selection="YES", decimal_odds=1.95, sportsbook="Book B", captured_at=now, id="q3"),
+            ],
         },
     ]
 

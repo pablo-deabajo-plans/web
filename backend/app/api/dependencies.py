@@ -161,7 +161,7 @@ def get_dashboard_service() -> DashboardService:
 
 @lru_cache(maxsize=1)
 def _dashboard_service() -> DashboardService:
-    return DashboardService()
+    return DashboardService(_odds_repository())
 
 
 def get_match_repository():

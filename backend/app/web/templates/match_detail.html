@@ -247,8 +247,9 @@
   <article class="panel panel-span">
     <div class="panel-head">
       <h3>Mercados ordenados por edge</h3>
-      <p>Precio ofrecido frente a cuota justa</p>
+      <p>Solo se muestran cuotas externas reales disponibles</p>
     </div>
+    {% if top_edges %}
     <div class="table-wrap">
       <table>
         <thead>
@@ -275,6 +276,9 @@
         </tbody>
       </table>
     </div>
+    {% else %}
+    <p>Sin precio externo disponible todavia para este partido. No se muestra valor real hasta que exista cuota de sportsbook.</p>
+    {% endif %}
   </article>
 </section>
 {% endif %}

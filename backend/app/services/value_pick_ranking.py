@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
+from backend.app.domain.market_odds import external_odds_map_for_analysis, external_odds_map_for_teams
 from backend.app.domain.models import Analysis
 from backend.app.domain.pricing import expected_edge, fair_odds
 
@@ -28,12 +31,24 @@ def _sample_size(raw_analysis: Analysis | dict) -> int:
     return min(local_pj, visitante_pj)
 
 
+def _external_market_odds(raw_analysis: Analysis | dict, quotes: Sequence | None) -> dict[str, dict]:
+    if not quotes:
+        return {}
+    if isinstance(raw_analysis, Analysis):
+        return external_odds_map_for_analysis(raw_analysis, quotes)
+    return external_odds_map_for_teams(
+        str(raw_analysis.get("local", "")),
+        str(raw_analysis.get("visitante", "")),
+        quotes,
+    )
+
+
 def build_value_pick_ranking(items: list[dict], limit: int = 10) -> list[dict]:
     ranking: list[dict] = []
     for item in items:
         raw_analysis = item.get("analysis")
-        auto_odds = item.get("auto_odds") or {}
-        if not raw_analysis or not auto_odds:
+        market_odds = _external_market_odds(raw_analysis, item.get("quotes"))
+        if not raw_analysis or not market_odds:
             continue
 
         if isinstance(raw_analysis, Analysis):
@@ -50,10 +65,10 @@ def build_value_pick_ranking(items: list[dict], limit: int = 10) -> list[dict]:
 
         sample_size = _sample_size(raw_analysis)
         for market_name, probability in markets:
-            if market_name not in auto_odds:
+            if market_name not in market_odds:
                 continue
 
-            offered_odds = float(auto_odds[market_name]["odds"])
+            offered_odds = float(market_odds[market_name]["odds"])
             confidence = _confidence_score(probability)
             ranking.append(
                 {
@@ -69,7 +84,7 @@ def build_value_pick_ranking(items: list[dict], limit: int = 10) -> list[dict]:
                     "confidence": confidence,
                     "confidence_label": _confidence_label(confidence),
                     "sample_size": sample_size,
-                    "provider": auto_odds[market_name]["provider"],
+                    "provider": market_odds[market_name]["provider"],
                 }
             )
 
