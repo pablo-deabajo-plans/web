@@ -8,7 +8,7 @@
     <p class="hero-copy">{{ analysis.liga }} · {{ match.match_date }} · {{ match.time or "Sin hora" }} · Fuente {{ match.source or "Backend" }}</p>
   </div>
   <div class="hero-actions">
-    <a class="button-secondary" href="/?day={{ day }}&league={{ league|urlencode }}">Volver a la liga</a>
+    <a class="button-secondary" href="/league/{{ league|urlencode }}?day={{ day }}">Volver a la liga</a>
     <a class="button-secondary" href="/daily-value?day={{ day }}">Ranking diario</a>
   </div>
 </section>

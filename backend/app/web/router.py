@@ -209,14 +209,12 @@ def home(
     request: Request,
     day: date | None = Query(default=None),
     competition_view: str | None = Query(default="Ligas"),
-    league: str | None = Query(default=None),
     q: str | None = Query(default=None),
     match_repository: MatchRepository = Depends(get_match_repository),
 ):
     target_day = day or local_today()
     competition_view = _normalize_competition_view(competition_view)
     league_rows = _stored_league_rows(target_day, competition_view, match_repository) or _static_league_rows(competition_view)
-    selected_league = _stored_league_dashboard(target_day, league, match_repository) if league else None
     search_results = _search_stored_matches(target_day, q, match_repository) if q and q.strip() else []
     return templates.TemplateResponse(
         request,
@@ -225,9 +223,30 @@ def home(
             "day": target_day.isoformat(),
             "competition_view": competition_view,
             "league_rows": league_rows,
-            "selected_league": selected_league,
             "search_query": q or "",
             "search_results": search_results,
+        },
+    )
+
+
+@router.get("/league/{league}", response_class=HTMLResponse)
+def league_detail(
+    league: str,
+    request: Request,
+    day: date | None = Query(default=None),
+    competition_view: str | None = Query(default="Ligas"),
+    match_repository: MatchRepository = Depends(get_match_repository),
+):
+    target_day = day or local_today()
+    competition_view = _normalize_competition_view(competition_view)
+    league_dashboard = _stored_league_dashboard(target_day, league, match_repository)
+    return templates.TemplateResponse(
+        request,
+        "league_detail.html",
+        {
+            "day": target_day.isoformat(),
+            "competition_view": competition_view,
+            "league_dashboard": league_dashboard,
         },
     )
 

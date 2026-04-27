@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}{{ league_dashboard.league }} | Gordon BetScanner{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <p class="eyebrow">League detail</p>
+    <h1>{{ league_dashboard.league }}</h1>
+    <p class="hero-copy">{{ league_dashboard.country }} · {{ league_dashboard.match_count }} partidos del dia en una vista dedicada.</p>
+  </div>
+  <div class="hero-actions">
+    <a class="button-secondary" href="/?day={{ day }}&competition_view={{ competition_view|urlencode }}">Volver a ligas</a>
+    <a class="button-secondary" href="/daily-value?day={{ day }}&competition_view={{ competition_view|urlencode }}">Ranking diario</a>
+  </div>
+</section>
+
+<section class="section">
+  <div class="panel-grid">
+    <article class="panel">
+      <div class="panel-head">
+        <h3>Ranking de value en la liga</h3>
+        <p>Ordenado por edge, confianza y muestra</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Match</th>
+              <th>Mercado</th>
+              <th>Prob</th>
+              <th>Cuota</th>
+              <th>Edge</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in league_dashboard.ranking %}
+            <tr>
+              <td>{{ row.match }}</td>
+              <td>{{ row.market }}</td>
+              <td>{{ row.prob|pct }}</td>
+              <td>@{{ row.offered_odds|num(2) }}</td>
+              <td class="{% if row.edge > 0 %}edge-positive{% else %}edge-flat{% endif %}">{{ row.edge|edge }}</td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5">Sin picks con contexto suficiente en esta liga.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <h3>Partidos de la jornada</h3>
+        <p>Navegacion directa al detalle</p>
+      </div>
+      <div class="list-grid">
+        {% for match in league_dashboard.matches %}
+        <article class="list-card compact">
+          <div>
+            <h3>{{ match.home_team }} vs {{ match.away_team }}</h3>
+            <p>{{ match.match_date }} · {{ match.time or "Sin hora" }} · {{ match.source or "Backend" }}</p>
+          </div>
+          <a class="button-secondary" href="/match-detail/{{ match.match_id }}?league={{ league_dashboard.league|urlencode }}&day={{ day }}">Match detail</a>
+        </article>
+        {% else %}
+        <article class="empty-card">
+          <h3>Sin partidos cargados</h3>
+          <p>No hay cruces persistidos para esta liga en la fecha seleccionada.</p>
+        </article>
+        {% endfor %}
+      </div>
+    </article>
+  </div>
+</section>
+{% endblock %}
