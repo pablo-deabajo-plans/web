@@ -13,6 +13,7 @@ from backend.app.repositories.in_memory import (
     InMemoryOddsRepository,
     InMemoryPickRepository,
     InMemoryResultRepository,
+    InMemoryUserRepository,
 )
 from backend.app.repositories.file_favorites import FileFavoriteRepository
 from backend.app.repositories.postgres.connection import create_postgres_connection_factory
@@ -20,6 +21,8 @@ from backend.app.repositories.postgres.matches import PostgresMatchRepository
 from backend.app.repositories.postgres.odds import PostgresOddsRepository
 from backend.app.repositories.postgres.picks import PostgresPickRepository
 from backend.app.repositories.postgres.results import PostgresResultRepository
+from backend.app.repositories.postgres.users import PostgresUserRepository
+from backend.app.services.auth import AuthService
 from backend.app.services.get_daily_picks import GetDailyPicksService
 from backend.app.services.dashboard import DashboardService
 from backend.app.services.favorites import FavoritesService
@@ -85,6 +88,13 @@ def _result_repository():
     if _postgres_configured():
         return PostgresResultRepository(_connection_factory())
     return InMemoryResultRepository()
+
+
+@lru_cache(maxsize=1)
+def _user_repository():
+    if _postgres_configured():
+        return PostgresUserRepository(_connection_factory())
+    return InMemoryUserRepository()
 
 
 @lru_cache(maxsize=1)
@@ -174,3 +184,11 @@ def get_pick_repository():
 
 def get_favorites_service() -> FavoritesService:
     return FavoritesService(_favorite_repository())
+
+
+def get_user_repository():
+    return _user_repository()
+
+
+def get_auth_service() -> AuthService:
+    return AuthService(_user_repository(), settings.session_secret_key, settings.session_ttl_seconds)

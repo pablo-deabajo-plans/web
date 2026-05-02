@@ -1,10 +1,44 @@
 CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    email TEXT NOT NULL UNIQUE,
-    hashed_password TEXT NOT NULL,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id TEXT PRIMARY KEY
 );
+
+ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS gmail TEXT;
+ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS nombre TEXT;
+ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'users' AND column_name = 'email'
+    ) THEN
+        UPDATE users SET gmail = email WHERE gmail IS NULL;
+        ALTER TABLE users DROP COLUMN email;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'users' AND column_name = 'hashed_password'
+    ) THEN
+        UPDATE users SET password_hash = hashed_password WHERE password_hash IS NULL;
+        ALTER TABLE users DROP COLUMN hashed_password;
+    END IF;
+END $$;
+
+UPDATE users SET nombre = split_part(gmail, '@', 1) WHERE nombre IS NULL OR btrim(nombre) = '';
+UPDATE users SET plan = 'free' WHERE plan IS NULL OR plan NOT IN ('free', 'pro');
+
+ALTER TABLE IF EXISTS users ALTER COLUMN gmail SET NOT NULL;
+ALTER TABLE IF EXISTS users ALTER COLUMN nombre SET NOT NULL;
+ALTER TABLE IF EXISTS users ALTER COLUMN password_hash SET NOT NULL;
+ALTER TABLE IF EXISTS users ALTER COLUMN plan SET NOT NULL;
+ALTER TABLE IF EXISTS users DROP COLUMN IF EXISTS is_active;
+ALTER TABLE IF EXISTS users DROP COLUMN IF EXISTS created_at;
+ALTER TABLE IF EXISTS users DROP CONSTRAINT IF EXISTS users_gmail_key;
+ALTER TABLE IF EXISTS users DROP CONSTRAINT IF EXISTS users_plan_check;
+ALTER TABLE IF EXISTS users ADD CONSTRAINT users_plan_check CHECK (plan IN ('free', 'pro'));
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_gmail_lower ON users (lower(gmail));
 
 CREATE TABLE IF NOT EXISTS matches (
     id TEXT PRIMARY KEY,

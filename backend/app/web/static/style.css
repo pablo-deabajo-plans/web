@@ -194,6 +194,32 @@ h3 {
   align-items: end;
 }
 
+.auth-panel {
+  max-width: 520px;
+}
+
+.account-form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.form-error,
+.form-success,
+.form-note {
+  margin: 0 0 0.8rem;
+  color: var(--muted);
+}
+
+.form-error {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.form-success {
+  color: var(--positive);
+  font-weight: 700;
+}
+
 .toolbar-actions {
   display: flex;
   align-items: end;

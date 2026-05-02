@@ -14,6 +14,11 @@
     <nav class="shell-nav">
       <a href="/?day={{ day }}" class="nav-link">Ligas</a>
       <a href="/daily-value?day={{ day }}" class="nav-link">Ranking diario</a>
+      {% if current_user %}
+      <a href="/account" class="nav-link">Mi cuenta</a>
+      {% else %}
+      <a href="/login" class="nav-link">Iniciar sesión</a>
+      {% endif %}
       <!-- <a href="/docs" class="nav-link">Docs API</a> -->
     </nav>
   </header>

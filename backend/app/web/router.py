@@ -3,13 +3,16 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Form, Query, Request, status
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from backend.app.api.dependencies import get_dashboard_service, get_match_repository, get_pick_repository
+from backend.app.api.dependencies import get_auth_service, get_dashboard_service, get_match_repository, get_pick_repository
+from backend.app.core import settings
 from backend.app.core.time import local_today, to_local_datetime
+from backend.app.domain.models import User
 from backend.app.repositories.contracts import MatchRepository, PickRepository
+from backend.app.services.auth import AuthError, AuthService
 from backend.app.schemas.analysis import AnalysisRead
 from backend.app.services.dashboard import COMPETITION_TYPES
 from backend.app.services.dashboard import DashboardService
@@ -39,6 +42,34 @@ templates.env.filters["edge"] = fmt_edge
 templates.env.filters["safe_text"] = safe_text
 
 router = APIRouter(include_in_schema=False)
+SESSION_COOKIE = "gordon_session"
+
+
+def _current_user(request: Request, auth: AuthService) -> User | None:
+    return auth.current_user(request.cookies.get(SESSION_COOKIE))
+
+
+def _base_context(request: Request, auth: AuthService, **values) -> dict:
+    return {"current_user": _current_user(request, auth), **values}
+
+
+def _redirect(path: str) -> RedirectResponse:
+    return RedirectResponse(path, status_code=status.HTTP_303_SEE_OTHER)
+
+
+def _set_session_cookie(response: RedirectResponse, token: str) -> None:
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        httponly=True,
+        secure=settings.is_production_like,
+        samesite="lax",
+        max_age=settings.session_ttl_seconds,
+    )
+
+
+def _clear_session_cookie(response: RedirectResponse) -> None:
+    response.delete_cookie(SESSION_COOKIE)
 
 
 def _normalize_competition_view(value: str | None) -> str:
@@ -59,6 +90,176 @@ def _static_league_rows(competition_view: str) -> list[dict]:
             }
         )
     return sorted(rows, key=lambda item: (item["country"], item["league"]))
+
+
+@router.get("/register", response_class=HTMLResponse)
+def register_form(request: Request, auth: AuthService = Depends(get_auth_service)):
+    return templates.TemplateResponse(
+        request,
+        "register.html",
+        _base_context(request, auth, day=local_today().isoformat(), error="", gmail="", nombre=""),
+    )
+
+
+@router.post("/register", response_class=HTMLResponse)
+def register_submit(
+    request: Request,
+    gmail: str = Form(...),
+    nombre: str = Form(...),
+    password: str = Form(...),
+    auth: AuthService = Depends(get_auth_service),
+):
+    try:
+        user = auth.register(gmail, nombre, password)
+    except AuthError as exc:
+        return templates.TemplateResponse(
+            request,
+            "register.html",
+            _base_context(request, auth, day=local_today().isoformat(), error=str(exc), gmail=gmail, nombre=nombre),
+            status_code=400,
+        )
+    response = _redirect("/account")
+    _set_session_cookie(response, auth.create_session_token(user))
+    return response
+
+
+@router.get("/login", response_class=HTMLResponse)
+def login_form(request: Request, auth: AuthService = Depends(get_auth_service)):
+    return templates.TemplateResponse(
+        request,
+        "login.html",
+        _base_context(request, auth, day=local_today().isoformat(), error="", gmail=""),
+    )
+
+
+@router.post("/login", response_class=HTMLResponse)
+def login_submit(
+    request: Request,
+    gmail: str = Form(...),
+    password: str = Form(...),
+    auth: AuthService = Depends(get_auth_service),
+):
+    try:
+        user = auth.authenticate(gmail, password, request.client.host if request.client else "")
+    except AuthError as exc:
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            _base_context(request, auth, day=local_today().isoformat(), error=str(exc), gmail=gmail),
+            status_code=401,
+        )
+    response = _redirect("/")
+    _set_session_cookie(response, auth.create_session_token(user))
+    return response
+
+
+@router.post("/logout")
+def logout(request: Request, csrf_token: str = Form(...), auth: AuthService = Depends(get_auth_service)):
+    try:
+        auth.verify_csrf(request.cookies.get(SESSION_COOKIE), csrf_token)
+    except AuthError:
+        return _redirect("/account")
+    response = _redirect("/")
+    _clear_session_cookie(response)
+    return response
+
+
+@router.get("/account", response_class=HTMLResponse)
+def account_form(request: Request, auth: AuthService = Depends(get_auth_service)):
+    user = _current_user(request, auth)
+    if user is None:
+        return _redirect("/login")
+    session = auth.read_session(request.cookies.get(SESSION_COOKIE))
+    return templates.TemplateResponse(
+        request,
+        "account.html",
+        _base_context(
+            request,
+            auth,
+            day=local_today().isoformat(),
+            user=user,
+            csrf_token=session.csrf_token if session else "",
+            profile_error="",
+            profile_success="",
+            password_error="",
+            password_success="",
+        ),
+    )
+
+
+@router.post("/account/profile", response_class=HTMLResponse)
+def account_profile_submit(
+    request: Request,
+    csrf_token: str = Form(...),
+    nombre: str = Form(...),
+    auth: AuthService = Depends(get_auth_service),
+):
+    user = _current_user(request, auth)
+    if user is None:
+        return _redirect("/login")
+    session = auth.read_session(request.cookies.get(SESSION_COOKIE))
+    try:
+        auth.verify_csrf(request.cookies.get(SESSION_COOKIE), csrf_token)
+        user = auth.update_nombre(user, nombre)
+        profile_error = ""
+        profile_success = "Nombre actualizado."
+    except AuthError as exc:
+        profile_error = str(exc)
+        profile_success = ""
+    return templates.TemplateResponse(
+        request,
+        "account.html",
+        _base_context(
+            request,
+            auth,
+            day=local_today().isoformat(),
+            user=user,
+            csrf_token=session.csrf_token if session else "",
+            profile_error=profile_error,
+            profile_success=profile_success,
+            password_error="",
+            password_success="",
+        ),
+        status_code=400 if profile_error else 200,
+    )
+
+
+@router.post("/account/password", response_class=HTMLResponse)
+def account_password_submit(
+    request: Request,
+    csrf_token: str = Form(...),
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    auth: AuthService = Depends(get_auth_service),
+):
+    user = _current_user(request, auth)
+    if user is None:
+        return _redirect("/login")
+    session = auth.read_session(request.cookies.get(SESSION_COOKIE))
+    try:
+        auth.verify_csrf(request.cookies.get(SESSION_COOKIE), csrf_token)
+        user = auth.update_password(user, current_password, new_password)
+        password_error = ""
+        password_success = "Contraseña actualizada."
+    except AuthError as exc:
+        password_error = str(exc)
+        password_success = ""
+    return templates.TemplateResponse(
+        request,
+        "account.html",
+        _base_context(
+            request,
+            auth,
+            day=local_today().isoformat(),
+            user=user,
+            csrf_token=session.csrf_token if session else "",
+            profile_error="",
+            profile_success="",
+            password_error=password_error,
+            password_success=password_success,
+        ),
+        status_code=400 if password_error else 200,
+    )
 
 
 def _stored_league_rows(
@@ -246,6 +447,7 @@ def home(
     competition_view: str | None = Query(default="Ligas"),
     q: str | None = Query(default=None),
     match_repository: MatchRepository = Depends(get_match_repository),
+    auth: AuthService = Depends(get_auth_service),
 ):
     target_day = day or local_today()
     competition_view = _normalize_competition_view(competition_view)
@@ -254,13 +456,15 @@ def home(
     return templates.TemplateResponse(
         request,
         "index.html",
-        {
-            "day": target_day.isoformat(),
-            "competition_view": competition_view,
-            "league_rows": league_rows,
-            "search_query": q or "",
-            "search_results": search_results,
-        },
+        _base_context(
+            request,
+            auth,
+            day=target_day.isoformat(),
+            competition_view=competition_view,
+            league_rows=league_rows,
+            search_query=q or "",
+            search_results=search_results,
+        ),
     )
 
 
@@ -272,6 +476,7 @@ def league_detail(
     competition_view: str | None = Query(default="Ligas"),
     match_repository: MatchRepository = Depends(get_match_repository),
     pick_repository: PickRepository = Depends(get_pick_repository),
+    auth: AuthService = Depends(get_auth_service),
 ):
     target_day = day or local_today()
     competition_view = _normalize_competition_view(competition_view)
@@ -279,11 +484,13 @@ def league_detail(
     return templates.TemplateResponse(
         request,
         "league_detail.html",
-        {
-            "day": target_day.isoformat(),
-            "competition_view": competition_view,
-            "league_dashboard": league_dashboard,
-        },
+        _base_context(
+            request,
+            auth,
+            day=target_day.isoformat(),
+            competition_view=competition_view,
+            league_dashboard=league_dashboard,
+        ),
     )
 
 
@@ -294,6 +501,7 @@ def daily_value(
     competition_view: str | None = Query(default="Ligas"),
     match_repository: MatchRepository = Depends(get_match_repository),
     pick_repository: PickRepository = Depends(get_pick_repository),
+    auth: AuthService = Depends(get_auth_service),
 ):
     target_day = day or local_today()
     competition_view = _normalize_competition_view(competition_view)
@@ -301,11 +509,13 @@ def daily_value(
     return templates.TemplateResponse(
         request,
         "daily_value.html",
-        {
-            "day": target_day.isoformat(),
-            "competition_view": competition_view,
-            "ranking_groups": ranking_groups,
-        },
+        _base_context(
+            request,
+            auth,
+            day=target_day.isoformat(),
+            competition_view=competition_view,
+            ranking_groups=ranking_groups,
+        ),
     )
 
 
@@ -319,6 +529,7 @@ def match_detail(
     projection_stat: str = Query(default="corners"),
     min_probability: float = Query(default=0.30, ge=0.05, le=0.95),
     service: DashboardService = Depends(get_dashboard_service),
+    auth: AuthService = Depends(get_auth_service),
 ):
     payload = service.get_match_dashboard(league=league, target_date=day, match_id=match_id)
     analysis = AnalysisRead.from_domain(payload["analysis"]).model_dump()
@@ -330,27 +541,29 @@ def match_detail(
     return templates.TemplateResponse(
         request,
         "match_detail.html",
-        {
-            "day": day.isoformat(),
-            "league": league,
-            "match_id": match_id,
-            "match": payload["match"],
-            "analysis": analysis,
-            "insights": payload["insights"],
-            "comparison_table": payload["comparison_table"],
-            "odds_rows": payload["odds_rows"],
-            "top_edges": top_edges,
-            "signal_cards": match_signal_cards(analysis),
-            "executive_summary": build_match_executive_summary(analysis, payload["odds_rows"]),
-            "tabs": MATCH_TABS,
-            "active_tab": active_tab,
-            "active_tab_label": tab_label(active_tab),
-            "projection_stats": projection_stat_options(),
-            "projection_min_probabilities": projection_min_probability_options(),
-            "selected_projection_stat": selected_projection_stat,
-            "selected_min_probability": projection_distribution["min_probability"],
-            "projection_distribution": projection_distribution,
-            "player_payload": payload["player_probabilities"],
-            "player_rows": player_rows,
-        },
+        _base_context(
+            request,
+            auth,
+            day=day.isoformat(),
+            league=league,
+            match_id=match_id,
+            match=payload["match"],
+            analysis=analysis,
+            insights=payload["insights"],
+            comparison_table=payload["comparison_table"],
+            odds_rows=payload["odds_rows"],
+            top_edges=top_edges,
+            signal_cards=match_signal_cards(analysis),
+            executive_summary=build_match_executive_summary(analysis, payload["odds_rows"]),
+            tabs=MATCH_TABS,
+            active_tab=active_tab,
+            active_tab_label=tab_label(active_tab),
+            projection_stats=projection_stat_options(),
+            projection_min_probabilities=projection_min_probability_options(),
+            selected_projection_stat=selected_projection_stat,
+            selected_min_probability=projection_distribution["min_probability"],
+            projection_distribution=projection_distribution,
+            player_payload=payload["player_probabilities"],
+            player_rows=player_rows,
+        ),
     )

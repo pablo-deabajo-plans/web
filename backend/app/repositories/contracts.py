@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Protocol, Sequence
 
-from backend.app.domain.models import Match, OddsQuote, Pick, PlayerProp, Result
+from backend.app.domain.models import Match, OddsQuote, Pick, PlayerProp, Result, User
 
 
 class MatchRepository(Protocol):
@@ -61,4 +61,21 @@ class ResultRepository(Protocol):
         ...
 
     def settle_pick(self, pick_id: str, stake_units: float, profit_units: float, status: str) -> Result:
+        ...
+
+
+class UserRepository(Protocol):
+    def get_by_id(self, user_id: str) -> User | None:
+        ...
+
+    def get_by_gmail(self, gmail: str) -> User | None:
+        ...
+
+    def create_user(self, user: User) -> None:
+        ...
+
+    def update_nombre(self, user_id: str, nombre: str) -> User:
+        ...
+
+    def update_password_hash(self, user_id: str, password_hash: str) -> User:
         ...

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Iniciar sesión | Gordon BetScanner{% endblock %}
+{% block content %}
+<section class="section auth-panel">
+  <article class="panel">
+    <div class="panel-head">
+      <h3>Iniciar sesión</h3>
+      <p>Acceso por correo y contraseña</p>
+    </div>
+    {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+    <form method="post" class="account-form">
+      <label>
+        <span>Correo</span>
+        <input type="email" name="gmail" value="{{ gmail }}" autocomplete="email" required>
+      </label>
+      <label>
+        <span>Contraseña</span>
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit">Entrar</button>
+    </form>
+    <p class="form-note">¿No tienes cuenta? <a href="/register">Crear cuenta</a></p>
+  </article>
+</section>
+{% endblock %}

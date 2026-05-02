@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Mi cuenta | Gordon BetScanner{% endblock %}
+{% block content %}
+<section class="section panel-grid">
+  <article class="panel">
+    <div class="panel-head">
+      <h3>Mi cuenta</h3>
+      <p>Datos principales</p>
+    </div>
+    <div class="mini-grid">
+      <div><strong>Correo</strong><span>{{ user.gmail }}</span></div>
+      <div><strong>Plan</strong><span>{{ user.plan }}</span></div>
+    </div>
+  </article>
+  <article class="panel">
+    <div class="panel-head">
+      <h3>Nombre</h3>
+      <p>Editable</p>
+    </div>
+    {% if profile_error %}<p class="form-error">{{ profile_error }}</p>{% endif %}
+    {% if profile_success %}<p class="form-success">{{ profile_success }}</p>{% endif %}
+    <form method="post" action="/account/profile" class="account-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>
+        <span>Nombre</span>
+        <input type="text" name="nombre" value="{{ user.nombre }}" autocomplete="username" required>
+      </label>
+      <button type="submit">Guardar nombre</button>
+    </form>
+  </article>
+  <article class="panel">
+    <div class="panel-head">
+      <h3>Contraseña</h3>
+      <p>Requiere contraseña actual</p>
+    </div>
+    {% if password_error %}<p class="form-error">{{ password_error }}</p>{% endif %}
+    {% if password_success %}<p class="form-success">{{ password_success }}</p>{% endif %}
+    <form method="post" action="/account/password" class="account-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>
+        <span>Contraseña actual</span>
+        <input type="password" name="current_password" autocomplete="current-password" required>
+      </label>
+      <label>
+        <span>Nueva contraseña</span>
+        <input type="password" name="new_password" autocomplete="new-password" required>
+      </label>
+      <button type="submit">Cambiar contraseña</button>
+    </form>
+  </article>
+  <article class="panel">
+    <div class="panel-head">
+      <h3>Sesión</h3>
+      <p>Cerrar acceso actual</p>
+    </div>
+    <form method="post" action="/logout" class="account-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit">Cerrar sesión</button>
+    </form>
+  </article>
+</section>
+{% endblock %}

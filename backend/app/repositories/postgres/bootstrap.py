@@ -10,10 +10,9 @@ SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 
 
 def ensure_postgres_schema(connection_factory) -> None:
-    statements = [chunk.strip() for chunk in SCHEMA_PATH.read_text(encoding="utf-8").split(";") if chunk.strip()]
+    schema_sql = SCHEMA_PATH.read_text(encoding="utf-8")
     with connection_factory() as conn:
         with conn.cursor() as cursor:
-            for statement in statements:
-                cursor.execute(statement)
+            cursor.execute(schema_sql)
         conn.commit()
     LOGGER.info("Ensured PostgreSQL schema from %s", SCHEMA_PATH)

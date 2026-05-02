@@ -114,9 +114,10 @@ class SettledPick:
 @dataclass(frozen=True)
 class User:
     id: str
-    email: str
-    created_at: datetime
-    is_active: bool = True
+    gmail: str
+    nombre: str
+    password_hash: str
+    plan: str = "free"
 
 
 @dataclass(frozen=True)

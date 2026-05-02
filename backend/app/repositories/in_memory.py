@@ -5,9 +5,9 @@ from datetime import date, datetime, timezone
 from typing import Sequence
 
 from backend.app.core.time import ensure_utc_datetime
-from backend.app.domain.models import Match, OddsQuote, Pick, PlayerProp, Result
+from backend.app.domain.models import Match, OddsQuote, Pick, PlayerProp, Result, User
 from backend.app.domain.pricing import build_pick
-from backend.app.repositories.contracts import MatchRepository, OddsRepository, PickRepository, ResultRepository
+from backend.app.repositories.contracts import MatchRepository, OddsRepository, PickRepository, ResultRepository, UserRepository
 
 
 class InMemoryMatchRepository(MatchRepository):
@@ -168,3 +168,32 @@ class InMemoryResultRepository(ResultRepository):
                 settled_at=now,
             )
         ]
+
+
+class InMemoryUserRepository(UserRepository):
+    def __init__(self, users: list[User] | None = None) -> None:
+        self._users = {user.id: user for user in (users or [])}
+
+    def get_by_id(self, user_id: str) -> User | None:
+        return self._users.get(user_id)
+
+    def get_by_gmail(self, gmail: str) -> User | None:
+        normalized = str(gmail or "").strip().lower()
+        return next((user for user in self._users.values() if user.gmail.lower() == normalized), None)
+
+    def create_user(self, user: User) -> None:
+        if self.get_by_gmail(user.gmail) is not None:
+            raise ValueError("gmail already exists")
+        self._users[user.id] = user
+
+    def update_nombre(self, user_id: str, nombre: str) -> User:
+        user = self._users[user_id]
+        updated = replace(user, nombre=nombre)
+        self._users[user_id] = updated
+        return updated
+
+    def update_password_hash(self, user_id: str, password_hash: str) -> User:
+        user = self._users[user_id]
+        updated = replace(user, password_hash=password_hash)
+        self._users[user_id] = updated
+        return updated
