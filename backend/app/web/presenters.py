@@ -182,6 +182,28 @@ def match_signal_cards(analysis: dict) -> list[dict]:
     ]
 
 
+def pick_label(market: str, selection: str | None = None, match_label: str | None = None) -> str:
+    market_text = str(market or "").strip()
+    selection_text = str(selection or "").strip()
+    if not selection_text:
+        return market_text
+
+    selection_upper = selection_text.upper()
+    if market_text.upper() == "1X2":
+        teams = str(match_label or "").split(" vs ")
+        home = teams[0].strip() if len(teams) == 2 else "Local"
+        away = teams[1].strip() if len(teams) == 2 else "Visitante"
+        selection_label = {"HOME": f"Victoria {home}", "DRAW": "Empate", "AWAY": f"Victoria {away}"}.get(selection_upper, selection_text)
+        return f"1X2 · {selection_label}"
+
+    if market_text.upper() == "BTTS":
+        selection_label = {"YES": "Sí", "NO": "No"}.get(selection_upper, selection_text)
+        return f"BTTS · {selection_label}"
+
+    normalized = selection_upper.replace("OVER_", "Over ").replace("UNDER_", "Under ").replace("_", ".")
+    return f"{market_text} · {normalized.title()}"
+
+
 def projection_stat_options() -> tuple[dict, ...]:
     return PROJECTION_STATS
 

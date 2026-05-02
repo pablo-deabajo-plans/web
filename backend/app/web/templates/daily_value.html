@@ -34,13 +34,11 @@
       <thead>
         <tr>
           <th>Match</th>
-          <th>Mercado</th>
+          <th>Pick</th>
           <th>Prob</th>
           <th>Cuota justa</th>
           <th>Cuota</th>
           <th>Edge</th>
-          <th>Confianza</th>
-          <th>Muestra</th>
           <th></th>
         </tr>
       </thead>
@@ -48,13 +46,11 @@
         {% for pick in group.picks %}
         <tr>
           <td>{{ pick.match }}</td>
-          <td>{{ pick.market }}</td>
+          <td>{{ pick.pick_label or pick.market }}</td>
           <td>{{ pick.prob|pct }}</td>
           <td>@{{ pick.fair_odds|num(2) }}</td>
           <td>@{{ pick.offered_odds|num(2) }}</td>
           <td class="{% if pick.edge > 0 %}edge-positive{% else %}edge-flat{% endif %}">{{ pick.edge|edge }}</td>
-          <td>{{ pick.confidence_label or "-" }}</td>
-          <td>{{ pick.sample_size or "-" }}</td>
           <td><a class="button-secondary small" href="/match-detail/{{ pick.match_id }}?league={{ group.league|urlencode }}&day={{ day }}">Abrir</a></td>
         </tr>
         {% endfor %}

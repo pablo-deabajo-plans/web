@@ -1,7 +1,7 @@
 from datetime import date
 
 from backend.app.repositories.in_memory import InMemoryMatchRepository, InMemoryPickRepository
-from backend.app.web.presenters import MATCH_TABS, build_projection_distribution
+from backend.app.web.presenters import MATCH_TABS, build_projection_distribution, pick_label
 from backend.app.web.router import _stored_daily_value_ranking, _stored_league_dashboard
 
 
@@ -37,6 +37,13 @@ def test_daily_value_and_league_detail_share_same_persisted_pick_source() -> Non
     assert laliga_group["picks"][0]["match_id"] == league_dashboard["ranking"][0]["match_id"]
     assert laliga_group["picks"][0]["market"] == league_dashboard["ranking"][0]["market"]
     assert laliga_group["picks"][0]["offered_odds"] == league_dashboard["ranking"][0]["offered_odds"]
+    assert laliga_group["picks"][0]["pick_label"] == "1X2 · Victoria Alpha FC"
+
+
+def test_pick_label_describes_exact_selection() -> None:
+    assert pick_label("1X2", "AWAY", "AS Monaco vs Lens") == "1X2 · Victoria Lens"
+    assert pick_label("BTTS", "YES") == "BTTS · Sí"
+    assert pick_label("TOTAL_GOALS", "OVER_2_5") == "TOTAL_GOALS · Over 2.5"
 
 
 def test_match_tabs_keep_required_product_order() -> None:
