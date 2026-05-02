@@ -5,11 +5,11 @@ from html import escape
 
 MATCH_TABS = (
     ("summary", "Resumen ejecutivo"),
-    ("season", "Estadisticas de temporada"),
-    ("compare", "Comparativa & H2H"),
-    ("projection", "Proyeccion del partido"),
-    ("players", "Jugadores"),
+    ("projection", "Proyección del partido"),
     ("odds", "Cuotas y valor"),
+    ("season", "Estadísticas de temporada"),
+    ("compare", "Comparativa & H2H"),
+    ("players", "Jugadores"),
 )
 
 

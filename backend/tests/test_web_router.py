@@ -1,6 +1,7 @@
 from datetime import date
 
 from backend.app.repositories.in_memory import InMemoryMatchRepository, InMemoryPickRepository
+from backend.app.web.presenters import MATCH_TABS
 from backend.app.web.router import _stored_daily_value_ranking, _stored_league_dashboard
 
 
@@ -36,3 +37,14 @@ def test_daily_value_and_league_detail_share_same_persisted_pick_source() -> Non
     assert laliga_group["picks"][0]["match_id"] == league_dashboard["ranking"][0]["match_id"]
     assert laliga_group["picks"][0]["market"] == league_dashboard["ranking"][0]["market"]
     assert laliga_group["picks"][0]["offered_odds"] == league_dashboard["ranking"][0]["offered_odds"]
+
+
+def test_match_tabs_keep_required_product_order() -> None:
+    assert MATCH_TABS == (
+        ("summary", "Resumen ejecutivo"),
+        ("projection", "Proyección del partido"),
+        ("odds", "Cuotas y valor"),
+        ("season", "Estadísticas de temporada"),
+        ("compare", "Comparativa & H2H"),
+        ("players", "Jugadores"),
+    )
