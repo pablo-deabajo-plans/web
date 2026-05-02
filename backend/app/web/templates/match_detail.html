@@ -68,32 +68,67 @@
 </section>
 {% elif active_tab == "projection" %}
 <section class="section panel-grid">
+  <article class="panel panel-span">
+    <div class="panel-head">
+      <h3>Distribución probabilística</h3>
+      <p>Umbrales Over derivados del modelo</p>
+    </div>
+    <form method="get" class="projection-controls">
+      <input type="hidden" name="league" value="{{ league }}">
+      <input type="hidden" name="day" value="{{ day }}">
+      <input type="hidden" name="tab" value="projection">
+      <label>
+        <span>Estadística</span>
+        <select name="projection_stat">
+          {% for item in projection_stats %}
+          <option value="{{ item.key }}" {% if selected_projection_stat == item.key %}selected{% endif %}>{{ item.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>Probabilidad mínima</span>
+        <select name="min_probability">
+          {% for option in projection_min_probabilities %}
+          <option value="{{ option }}" {% if selected_min_probability == option %}selected{% endif %}>{{ option|pct }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit">Actualizar</button>
+    </form>
+  </article>
+
+  {% for scope in projection_distribution.scopes %}
   <article class="panel">
     <div class="panel-head">
-      <h3>Mercados principales</h3>
-      <p>Decisión rápida</p>
+      <h3>{{ projection_distribution.stat_label }} - {{ scope.label }}</h3>
+      <p>{% if scope.available %}Prob. mínima {{ selected_min_probability|pct }}{% else %}Sin soporte suficiente{% endif %}</p>
     </div>
-    <div class="mini-grid">
-      <div><strong>BTTS</strong><span>{{ analysis.resultado.both_teams_score|pct }}</span></div>
-      <div><strong>Over 2.5</strong><span>{{ analysis.resultado.over_2_5_goals|pct }}</span></div>
-      <div><strong>Over 9.5 corners</strong><span>{{ analysis.resultado.over_9_5_corners|pct }}</span></div>
-      <div><strong>Total goals</strong><span>{{ analysis.resultado.total_goals|num(2) }}</span></div>
-      <div><strong>Total corners</strong><span>{{ analysis.resultado.total_corners|num(2) }}</span></div>
-      <div><strong>Marcador</strong><span>{{ analysis.resultado.most_likely_score }}</span></div>
+    {% if scope.available %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Umbral</th>
+            <th>Probabilidad</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in scope.rows %}
+          <tr>
+            <td>{{ row.threshold }}</td>
+            <td>{{ row.probability|pct }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
+    {% elif scope.message %}
+    <p>{{ scope.message }}</p>
+    {% else %}
+    <p>No hay umbrales por encima de la probabilidad mínima seleccionada.</p>
+    {% endif %}
   </article>
-  <article class="panel">
-    <div class="panel-head">
-      <h3>Mercados secundarios</h3>
-      <p>Contexto adicional</p>
-    </div>
-    <div class="mini-grid">
-      <div><strong>{{ analysis.local }} +1.5</strong><span>{{ analysis.resultado.home_over_1_5_goals|pct }}</span></div>
-      <div><strong>{{ analysis.visitante }} +1.5</strong><span>{{ analysis.resultado.away_over_1_5_goals|pct }}</span></div>
-      <div><strong>{{ analysis.local }} clean sheet</strong><span>{{ analysis.resultado.home_clean_sheet|pct }}</span></div>
-      <div><strong>{{ analysis.visitante }} clean sheet</strong><span>{{ analysis.resultado.away_clean_sheet|pct }}</span></div>
-    </div>
-  </article>
+  {% endfor %}
 </section>
 {% elif active_tab == "odds" %}
 <section class="section panel-grid">

@@ -187,6 +187,13 @@ h3 {
   flex: 1 1 auto;
 }
 
+.projection-controls {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 180px 150px;
+  gap: 0.75rem;
+  align-items: end;
+}
+
 .toolbar-actions {
   display: flex;
   align-items: end;
@@ -493,6 +500,10 @@ tbody tr:last-child td {
   }
 
   .toolbar-main {
+    grid-template-columns: 1fr;
+  }
+
+  .projection-controls {
     grid-template-columns: 1fr;
   }
 

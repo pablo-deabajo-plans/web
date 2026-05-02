@@ -15,12 +15,15 @@ from backend.app.services.dashboard import COMPETITION_TYPES
 from backend.app.services.dashboard import DashboardService
 from backend.app.web.presenters import (
     MATCH_TABS,
+    build_projection_distribution,
     build_match_executive_summary,
     flatten_player_rows,
     fmt_edge,
     fmt_num,
     fmt_pct,
     match_signal_cards,
+    projection_min_probability_options,
+    projection_stat_options,
     safe_text,
     tab_label,
     top_value_rows,
@@ -313,13 +316,17 @@ def match_detail(
     league: str = Query(...),
     day: date = Query(...),
     tab: str = Query(default="summary"),
+    projection_stat: str = Query(default="corners"),
+    min_probability: float = Query(default=0.30, ge=0.05, le=0.95),
     service: DashboardService = Depends(get_dashboard_service),
 ):
     payload = service.get_match_dashboard(league=league, target_date=day, match_id=match_id)
     analysis = AnalysisRead.from_domain(payload["analysis"]).model_dump()
     active_tab = tab if tab in dict(MATCH_TABS) else "summary"
+    selected_projection_stat = projection_stat if projection_stat in {item["key"] for item in projection_stat_options()} else "corners"
     top_edges = top_value_rows(payload["odds_rows"])
     player_rows = flatten_player_rows(payload["player_probabilities"])
+    projection_distribution = build_projection_distribution(analysis, selected_projection_stat, min_probability)
     return templates.TemplateResponse(
         request,
         "match_detail.html",
@@ -338,6 +345,11 @@ def match_detail(
             "tabs": MATCH_TABS,
             "active_tab": active_tab,
             "active_tab_label": tab_label(active_tab),
+            "projection_stats": projection_stat_options(),
+            "projection_min_probabilities": projection_min_probability_options(),
+            "selected_projection_stat": selected_projection_stat,
+            "selected_min_probability": projection_distribution["min_probability"],
+            "projection_distribution": projection_distribution,
             "player_payload": payload["player_probabilities"],
             "player_rows": player_rows,
         },

@@ -1,7 +1,7 @@
 from datetime import date
 
 from backend.app.repositories.in_memory import InMemoryMatchRepository, InMemoryPickRepository
-from backend.app.web.presenters import MATCH_TABS
+from backend.app.web.presenters import MATCH_TABS, build_projection_distribution
 from backend.app.web.router import _stored_daily_value_ranking, _stored_league_dashboard
 
 
@@ -48,3 +48,46 @@ def test_match_tabs_keep_required_product_order() -> None:
         ("compare", "Comparativa & H2H"),
         ("players", "Jugadores"),
     )
+
+
+def test_projection_distribution_builds_supported_thresholds() -> None:
+    analysis = {
+        "xg_local": 1.4,
+        "xg_visitante": 0.9,
+        "resultado": {
+            "total_corners": 9.2,
+            "home_corners": 5.1,
+            "away_corners": 4.1,
+            "home_shots": 13.0,
+            "away_shots": 9.0,
+            "home_shots_on_target": 5.0,
+            "away_shots_on_target": 3.0,
+            "total_cards": 4.3,
+        },
+        "stats_local": {"home": {"has_corners": True, "has_shots": True, "has_shots_on_target": True, "has_cards": True}},
+        "stats_visitante": {"away": {"has_corners": True, "has_shots": True, "has_shots_on_target": True, "has_cards": True}},
+    }
+
+    distribution = build_projection_distribution(analysis, "corners", 0.30)
+
+    assert distribution["has_rows"] is True
+    assert [scope["key"] for scope in distribution["scopes"]] == ["total", "home", "away"]
+    total_rows = distribution["scopes"][0]["rows"]
+    assert total_rows
+    assert all(row["probability"] >= 0.30 for row in total_rows)
+    assert total_rows == sorted(total_rows, key=lambda item: item["probability"], reverse=True)
+
+
+def test_projection_distribution_does_not_force_unsupported_fouls() -> None:
+    analysis = {
+        "xg_local": 1.4,
+        "xg_visitante": 0.9,
+        "resultado": {},
+        "stats_local": {"home": {}},
+        "stats_visitante": {"away": {}},
+    }
+
+    distribution = build_projection_distribution(analysis, "fouls", 0.30)
+
+    assert distribution["has_rows"] is False
+    assert distribution["scopes"][0]["message"] == "Datos insuficientes"
