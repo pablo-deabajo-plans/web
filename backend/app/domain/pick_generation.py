@@ -50,54 +50,42 @@ def stake_units_for_pick(probability: float, offered_odds: float, kelly_multipli
 
 
 def build_picks_for_analysis(match, analysis: Analysis, analysis_id: str, quotes, *, model_version: str = MODEL_VERSION) -> tuple[list, str | None]:
-    quote_lookup = quote_index(quotes, match.home_team, match.away_team)
+    from backend.app.domain.market_odds import compare_analysis_to_quotes
+
+    comparison_rows = compare_analysis_to_quotes(analysis, quotes)
     picks = []
 
-    market_name_map = {
-        "Victoria " + analysis.local: ("1X2", "HOME"),
-        "Empate": ("1X2", "DRAW"),
-        "Victoria " + analysis.visitante: ("1X2", "AWAY"),
-        "Ambos marcan": ("BTTS", "YES"),
-        "No marcan ambos": ("BTTS", "NO"),
-        "Over 2.5 goles": ("TOTAL_GOALS", "OVER_2_5"),
-        "Under 2.5 goles": ("TOTAL_GOALS", "UNDER_2_5"),
-    }
+    for row in comparison_rows:
+        canonical = row["canonical_market"]
+        market_name = "1X2" if canonical.market_type == "1x2" else canonical.market_type.upper()
+        selection = canonical.selection.upper()
+        if canonical.line is not None:
+            selection = f"{selection}_{canonical.line:.1f}".replace(".", "_")
+        if canonical.side:
+            selection = f"{canonical.side.upper()}_{selection}"
 
-    mapped_markets = 0
-
-    for market in analysis.mercados:
-        mapping = market_name_map.get(market.nombre)
-        if mapping is None:
-            continue
-        mapped_markets += 1
-        quote = quote_lookup.get(mapping)
-        if quote is None:
-            continue
-
-        probability = float(market.prob)
-        offered_odds = float(quote.decimal_odds)
+        probability = float(row["prob"])
+        offered_odds = float(row["best_odds"])
         stake_units = stake_units_for_pick(probability, offered_odds)
         if stake_units <= 0:
             continue
 
         pick = build_pick(
-            pick_id=pick_id_for_match(match.id, mapping[0], mapping[1], model_version),
+            pick_id=pick_id_for_match(match.id, market_name, selection, model_version),
             match_id=match.id,
             analysis_id=analysis_id,
-            market=mapping[0],
-            selection=mapping[1],
+            market=market_name,
+            selection=selection,
             probability=probability,
             offered_odds=offered_odds,
-            provider=quote.sportsbook,
+            provider=row["provider"],
             kelly_multiplier=KELLY_MULTIPLIER,
             stake_units=stake_units,
         )
         if pick.edge <= 0:
             continue
         picks.append(pick)
-    if mapped_markets == 0:
-        return [], "insufficient_data"
-    if not picks and not any(mapping in quote_lookup for mapping in market_name_map.values()):
+    if not quotes:
         return [], "missing_odds"
     if not picks:
         return [], "non_actionable"

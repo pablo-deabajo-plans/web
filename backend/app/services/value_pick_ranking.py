@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from backend.app.domain.market_odds import external_odds_map_for_analysis, external_odds_map_for_teams
+from backend.app.domain.market_odds import compare_analysis_to_quotes, external_odds_map_for_teams
 from backend.app.domain.models import Analysis
 from backend.app.domain.pricing import expected_edge, fair_odds
 
@@ -35,7 +35,7 @@ def _external_market_odds(raw_analysis: Analysis | dict, quotes: Sequence | None
     if not quotes:
         return {}
     if isinstance(raw_analysis, Analysis):
-        return external_odds_map_for_analysis(raw_analysis, quotes)
+        return {}
     return external_odds_map_for_teams(
         str(raw_analysis.get("local", "")),
         str(raw_analysis.get("visitante", "")),
@@ -47,28 +47,46 @@ def build_value_pick_ranking(items: list[dict], limit: int = 10) -> list[dict]:
     ranking: list[dict] = []
     for item in items:
         raw_analysis = item.get("analysis")
-        market_odds = _external_market_odds(raw_analysis, item.get("quotes"))
-        if not raw_analysis or not market_odds:
+        quotes = item.get("quotes")
+        if not raw_analysis or not quotes:
             continue
 
         if isinstance(raw_analysis, Analysis):
             local = raw_analysis.local
             visitante = raw_analysis.visitante
-            markets = [(market.nombre, float(market.prob)) for market in raw_analysis.mercados]
+            comparison_rows = compare_analysis_to_quotes(raw_analysis, quotes)
         else:
             local = str(raw_analysis.get("local", ""))
             visitante = str(raw_analysis.get("visitante", ""))
+            market_odds = _external_market_odds(raw_analysis, quotes)
             markets = [
                 (str(market.get("nombre", "")), float(market.get("prob", 0.0)))
                 for market in raw_analysis.get("mercados", [])
             ]
+            comparison_rows = []
+            for market_name, probability in markets:
+                if market_name not in market_odds:
+                    continue
+                offered_odds = float(market_odds[market_name]["odds"])
+                edge = expected_edge(probability, offered_odds)
+                if edge < 0.025:
+                    continue
+                comparison_rows.append(
+                    {
+                        "market": market_name,
+                        "prob": probability,
+                        "fair_odds": fair_odds(probability),
+                        "offered_odds": offered_odds,
+                        "edge": edge,
+                        "provider": market_odds[market_name]["provider"],
+                        "number_of_bookmakers": market_odds[market_name].get("number_of_bookmakers", 1),
+                        "captured_at": market_odds[market_name].get("captured_at"),
+                    }
+                )
 
         sample_size = _sample_size(raw_analysis)
-        for market_name, probability in markets:
-            if market_name not in market_odds:
-                continue
-
-            offered_odds = float(market_odds[market_name]["odds"])
+        for row in comparison_rows:
+            probability = float(row["prob"])
             confidence = _confidence_score(probability)
             ranking.append(
                 {
@@ -76,15 +94,17 @@ def build_value_pick_ranking(items: list[dict], limit: int = 10) -> list[dict]:
                     "country": item.get("country", ""),
                     "match": f"{local} vs {visitante}",
                     "match_id": str(item.get("match_id", "")),
-                    "market": market_name,
+                    "market": row["market"],
                     "prob": probability,
-                    "fair_odds": fair_odds(probability),
-                    "offered_odds": offered_odds,
-                    "edge": expected_edge(probability, offered_odds),
+                    "fair_odds": row["fair_odds"],
+                    "offered_odds": row["offered_odds"],
+                    "edge": row["edge"],
                     "confidence": confidence,
                     "confidence_label": _confidence_label(confidence),
                     "sample_size": sample_size,
-                    "provider": market_odds[market_name]["provider"],
+                    "provider": row["provider"],
+                    "number_of_bookmakers": row.get("number_of_bookmakers", 1),
+                    "captured_at": row.get("captured_at"),
                 }
             )
 

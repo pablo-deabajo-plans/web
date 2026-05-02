@@ -8,7 +8,7 @@ import pandas as pd
 from backend.app.core.time import LOCAL_TIMEZONE, to_local_datetime, utc_dates_for_local_day
 from backend.app.domain.analysis import VALUE_BET_THRESHOLD
 from backend.app.domain.leagues import LEAGUE_COUNTRIES, LEAGUE_SEASON_TYPES
-from backend.app.domain.market_odds import external_odds_map_for_analysis
+from backend.app.domain.market_odds import compare_analysis_to_quotes, external_odds_map_for_analysis
 from backend.app.domain.models import Analysis, OddsQuote
 from backend.app.domain.pricing import fair_odds, kelly_fraction
 from backend.app.repositories.contracts import OddsRepository
@@ -187,7 +187,7 @@ class DashboardService:
 
         stored_quotes = self._stored_quotes(match_id)
         external_odds = external_odds_map_for_analysis(analysis, stored_quotes)
-        odds_rows = self._build_odds_rows(analysis, external_odds)
+        odds_rows = compare_analysis_to_quotes(analysis, stored_quotes)
         player_probabilities = {
             "available": False,
             "provider": "Persistido",
