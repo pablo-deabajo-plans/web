@@ -4,8 +4,8 @@
 <section class="hero">
   <div>
     <p class="eyebrow">Value ranking</p>
-    <h1>Ranking diario independiente</h1>
-    <p class="hero-copy">Separado por liga para no mezclar universos no normalizados.</p>
+    <h1>Mejores apuestas de valor del día</h1>
+    <p class="hero-copy">Ranking separado por liga para garantizar comparaciones reales.</p>
   </div>
   <form method="get" class="toolbar-card">
     <label>
@@ -13,13 +13,13 @@
       <input type="date" name="day" value="{{ day }}">
     </label>
     <label>
-      <span>Universo</span>
+      <span>Tipo de competición</span>
       <select name="competition_view">
         <option value="Ligas" {% if competition_view == "Ligas" %}selected{% endif %}>Ligas</option>
         <option value="Torneos" {% if competition_view == "Torneos" %}selected{% endif %}>Torneos</option>
       </select>
     </label>
-    <button type="submit">Recalcular</button>
+    <button type="submit">Actualizar ranking</button>
   </form>
 </section>
 
@@ -65,8 +65,9 @@
 {% else %}
 <section class="section">
   <article class="empty-card">
-    <h3>Sin ranking disponible</h3>
-    <p>No hay picks con edge suficiente para el universo seleccionado.</p>
+    <h3>Sin oportunidades de valor hoy</h3>
+    <p>No se han detectado picks con edge positivo para el tipo de competición seleccionado.</p>
+
   </article>
 </section>
 {% endfor %}

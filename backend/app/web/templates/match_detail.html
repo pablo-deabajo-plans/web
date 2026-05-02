@@ -3,7 +3,7 @@
 {% block content %}
 <section class="hero">
   <div>
-    <p class="eyebrow">Match detail</p>
+    <p class="eyebrow">Detalle del partido</p>
     <h1>{{ analysis.local }} vs {{ analysis.visitante }}</h1>
     <p class="hero-copy">{{ analysis.liga }} - {{ match.match_date }} - {{ match.time or "Sin hora" }}</p>
   </div>
@@ -85,7 +85,7 @@
       </table>
     </div>
     <details>
-      <summary>Ver forma reciente</summary>
+      <summary>Forma reciente (últimos partidos)</summary>
       <div class="mini-grid">
         <div><strong>GF</strong><span>{{ analysis.stats_local.recent_overall.gf|num(2) }}</span></div>
         <div><strong>GC</strong><span>{{ analysis.stats_local.recent_overall.gc|num(2) }}</span></div>
@@ -126,7 +126,7 @@
   <article class="panel panel-span">
     <div class="panel-head">
       <h3>Comparativa</h3>
-      <p>Casa/fuera, global y forma</p>
+      <p>Contexto avanzado: casa/fuera, global y forma</p>
     </div>
     <div class="table-wrap">
       <table>
@@ -228,7 +228,8 @@
       </table>
     </div>
     {% else %}
-    <p>{{ player_payload.message or "Sin datos de jugadores disponibles." }}</p>
+    <p>Esta sección muestra props de jugadores cuando hay datos fiables disponibles.
+       <br> La vista prioriza rapidez y estabilidad del análisis.</p>
     {% endif %}
   </article>
 </section>

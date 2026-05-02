@@ -4,14 +4,17 @@
 <section class="hero">
   <div class="hero-copy-block">
     <p class="eyebrow">League hub</p>
-    <h1>Lectura diaria por liga</h1>
-    <p class="hero-copy">Explora el slate del dia, detecta ligas activas y entra directo al cruce que quieras analizar.</p>
+    <h1>Análisis diario por liga</h1>
+    <p class="hero-copy">Detecta de un vistazo las ligas activas del día y accede directamente a los cruces con valor para analizar.</p>
   </div>
   <div class="hero-meta">
+    {% if search_query %}
     <div class="hero-stat">
-      <strong>{{ league_rows|length }}</strong>
-      <span>Competiciones activas</span>
+      <strong>{{ search_results|length }}</strong>
+      <span>Resultados</span>
     </div>
+    {% endif %}
+
     <div class="hero-stat">
       <strong>{{ search_results|length if search_query else 0 }}</strong>
       <span>Resultados</span>
@@ -26,7 +29,7 @@
       <input type="date" name="day" value="{{ day }}">
     </label>
     <label>
-      <span>Universo</span>
+      <span>Competición</span>
       <select name="competition_view">
         <option value="Ligas" {% if competition_view == "Ligas" %}selected{% endif %}>Ligas</option>
         <option value="Torneos" {% if competition_view == "Torneos" %}selected{% endif %}>Torneos</option>
@@ -38,7 +41,7 @@
     </label>
   </div>
   <div class="toolbar-actions">
-    <button type="submit">Actualizar</button>
+    <button type="submit">Buscar</button>
   </div>
 </form>
 
