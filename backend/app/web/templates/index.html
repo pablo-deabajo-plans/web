@@ -2,11 +2,11 @@
 {% block title %}Ligas | Gordon BetScanner{% endblock %}
 {% block content %}
 <section class="hero">
-  <div class="hero-copy-block">
+  <header class="hero-copy-block">
     <p class="eyebrow">League hub</p>
     <h1>Análisis diario por liga</h1>
     <p class="hero-copy">Detecta de un vistazo las ligas activas del día y accede directamente a los cruces con valor para analizar.</p>
-  </div>
+  </header>
   <div class="hero-meta">
     {% if search_query %}
     <div class="hero-stat">
@@ -42,13 +42,13 @@
 
 {% if search_query %}
 <section class="section">
-  <div class="section-head">
+  <header class="section-head">
     <h2>Resultados de busqueda</h2>
     <p>{{ search_results|length }} coincidencias</p>
-  </div>
+  </header>
   <div class="list-grid">
     {% for item in search_results %}
-    <article class="list-card">
+    <article class="card list-card">
       <div>
         <h3>{{ item.match }}</h3>
         <p>{{ item.league }} - {{ item.country }} - {{ item.time or "Sin hora" }}</p>
@@ -56,7 +56,7 @@
       <a class="button-secondary" href="/match-detail/{{ item.match_id }}?league={{ item.league|urlencode }}&day={{ day }}">Abrir</a>
     </article>
     {% else %}
-    <article class="empty-card">
+    <article class="card empty-card">
       <h3>Sin resultados</h3>
       <p>Prueba con el nombre de un equipo o una parte del cruce en la fecha seleccionada.</p>
     </article>
@@ -66,13 +66,13 @@
 {% endif %}
 
 <section class="section">
-  <div class="section-head">
+  <header class="section-head">
     <h2>Ligas activas</h2>
     <p>{{ league_rows|length }} ligas en el radar{% if not plan_access.can_view_all_leagues %} - Free: 5 grandes ligas{% endif %}</p>
-  </div>
+  </header>
   <div class="league-grid">
     {% for item in league_rows %}
-    <a class="league-card" href="/league/{{ item.league|urlencode }}?day={{ day }}&competition_view={{ competition_view|urlencode }}">
+    <a class="card league-card" href="/league/{{ item.league|urlencode }}?day={{ day }}&competition_view={{ competition_view|urlencode }}">
       <div class="league-card-top">
         <span class="mini-kicker badge-country">{{ item.country }}</span>
         <span class="league-count-badge">

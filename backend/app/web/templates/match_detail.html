@@ -2,11 +2,11 @@
 {% block title %}{{ analysis.local }} vs {{ analysis.visitante }} | Gordon BetScanner{% endblock %}
 {% block content %}
 <section class="hero">
-  <div>
+  <header>
     <p class="eyebrow">Detalle del partido</p>
     <h1>{{ analysis.local }} vs {{ analysis.visitante }}</h1>
     <p class="hero-copy">{{ analysis.liga }} - {{ match.match_date }} - {{ match.time or "Sin hora" }}</p>
-  </div>
+  </header>
   <div class="hero-actions">
     <a class="button-secondary" href="/league/{{ league|urlencode }}?day={{ day }}">Volver a la liga</a>
     <a class="button-secondary" href="{% if plan_access.can_view_daily_value %}/daily-value?day={{ day }}{% else %}/upgrade?feature=daily_value&return_to=/daily-value?day={{ day }}{% endif %}">Ranking diario{% if not plan_access.can_view_daily_value %} <span class="pro-inline">PRO</span>{% endif %}</a>
@@ -16,7 +16,7 @@
 <section class="section">
   <div class="stat-grid">
     {% for card in signal_cards %}
-    <article class="stat-card">
+    <article class="card stat-card">
       <p>{{ card.label }}</p>
       <h3>{{ card.value|pct }}</h3>
     </article>
@@ -31,17 +31,17 @@
     {% endfor %}
   </nav>
   {% if locked_tab_label %}
-  <div class="locked-note">Disponible con plan PRO: {{ locked_tab_label }}</div>
+  <a class="pro-state-label" href="/upgrade?feature=odds_value&return_to=/match-detail/{{ match_id }}?league={{ league|urlencode }}&day={{ day }}&tab=odds">Disponible con plan PRO: {{ locked_tab_label }}</a>
   {% endif %}
 </section>
 
 {% if active_tab == "summary" %}
 <section class="section panel-grid">
-  <article class="panel">
-    <div class="panel-head">
+  <article class="card panel">
+    <header class="panel-head">
       <h3>Probabilidades 1X2</h3>
       <p>Lectura base del partido</p>
-    </div>
+    </header>
     <div class="table-wrap">
       <table>
         <tbody>
@@ -55,11 +55,11 @@
       </table>
     </div>
   </article>
-  <article class="panel">
-    <div class="panel-head">
+  <article class="card panel">
+    <header class="panel-head">
       <h3>Insights del modelo</h3>
       <p>Lectura corta</p>
-    </div>
+    </header>
     <ul class="bullet-list">
       {% for item in insights %}
       <li>{{ item }}</li>
@@ -71,11 +71,11 @@
 </section>
 {% elif active_tab == "projection" %}
 <section class="section panel-grid">
-  <article class="panel panel-span">
-    <div class="panel-head">
+  <article class="card panel panel-span">
+    <header class="panel-head">
       <h3>Distribución probabilística</h3>
       <p>Umbrales Over derivados del modelo</p>
-    </div>
+    </header>
     <form method="get" class="projection-controls">
       <input type="hidden" name="league" value="{{ league }}">
       <input type="hidden" name="day" value="{{ day }}">
@@ -108,11 +108,11 @@
   </article>
 
   {% for scope in projection_distribution.scopes %}
-  <article class="panel">
-    <div class="panel-head">
+  <article class="card panel">
+    <header class="panel-head">
       <h3>{{ projection_distribution.stat_label }} - {{ scope.label }}</h3>
       <p>{% if scope.available %}Prob. mínima {{ selected_min_probability|pct }}{% else %}Sin soporte suficiente{% endif %}</p>
-    </div>
+    </header>
     {% if scope.available %}
     <div class="table-wrap">
       <table>
@@ -142,13 +142,13 @@
 </section>
 {% elif active_tab == "odds" %}
 <section class="section panel-grid">
-  <article class="panel panel-span">
-    <div class="panel-head">
+  <article class="card panel panel-span">
+    <header class="panel-head">
       <h3>Mercados ordenados por edge</h3>
       <p>{% if plan_access.can_view_odds_value %}Solo se muestran cuotas externas reales disponibles{% else %}Disponible con plan PRO{% endif %}</p>
-    </div>
+    </header>
     {% if not plan_access.can_view_odds_value %}
-    <a class="locked-note locked-note-link" href="/upgrade?feature=odds_value&return_to=/match-detail/{{ match_id }}?league={{ league|urlencode }}&day={{ day }}&tab=odds">Disponible con plan PRO</a>
+    <a class="pro-state-label" href="/upgrade?feature=odds_value&return_to=/match-detail/{{ match_id }}?league={{ league|urlencode }}&day={{ day }}&tab=odds">Disponible con plan PRO</a>
     {% else %}
     {% if top_edges %}
     <div class="table-wrap">
@@ -185,11 +185,11 @@
 </section>
 {% elif active_tab == "season" %}
 <section class="section panel-grid">
-  <article class="panel">
-    <div class="panel-head">
+  <article class="card panel">
+    <header class="panel-head">
       <h3>{{ analysis.local }} - casa</h3>
       <p>Temporada completa</p>
-    </div>
+    </header>
     <div class="table-wrap">
       <table>
         <tbody>
@@ -204,18 +204,18 @@
     <details>
       <summary>Forma reciente (últimos partidos)</summary>
       <div class="mini-grid">
-        <div><strong>GF</strong><span>{{ analysis.stats_local.recent_overall.gf|num(2) }}</span></div>
-        <div><strong>GC</strong><span>{{ analysis.stats_local.recent_overall.gc|num(2) }}</span></div>
-        <div><strong>BTTS</strong><span>{{ analysis.stats_local.recent_overall.btts_pct|pct }}</span></div>
-        <div><strong>Over 2.5</strong><span>{{ analysis.stats_local.recent_overall.over25_pct|pct }}</span></div>
+        <div><strong class="text-label">GF</strong><span class="text-value">{{ analysis.stats_local.recent_overall.gf|num(2) }}</span></div>
+        <div><strong class="text-label">GC</strong><span class="text-value">{{ analysis.stats_local.recent_overall.gc|num(2) }}</span></div>
+        <div><strong class="text-label">BTTS</strong><span class="text-value">{{ analysis.stats_local.recent_overall.btts_pct|pct }}</span></div>
+        <div><strong class="text-label">Over 2.5</strong><span class="text-value">{{ analysis.stats_local.recent_overall.over25_pct|pct }}</span></div>
       </div>
     </details>
   </article>
-  <article class="panel">
-    <div class="panel-head">
+  <article class="card panel">
+    <header class="panel-head">
       <h3>{{ analysis.visitante }} - fuera</h3>
       <p>Temporada completa</p>
-    </div>
+    </header>
     <div class="table-wrap">
       <table>
         <tbody>
@@ -230,21 +230,21 @@
     <details>
       <summary>Ver forma reciente</summary>
       <div class="mini-grid">
-        <div><strong>GF</strong><span>{{ analysis.stats_visitante.recent_overall.gf|num(2) }}</span></div>
-        <div><strong>GC</strong><span>{{ analysis.stats_visitante.recent_overall.gc|num(2) }}</span></div>
-        <div><strong>BTTS</strong><span>{{ analysis.stats_visitante.recent_overall.btts_pct|pct }}</span></div>
-        <div><strong>Over 2.5</strong><span>{{ analysis.stats_visitante.recent_overall.over25_pct|pct }}</span></div>
+        <div><strong class="text-label">GF</strong><span class="text-value">{{ analysis.stats_visitante.recent_overall.gf|num(2) }}</span></div>
+        <div><strong class="text-label">GC</strong><span class="text-value">{{ analysis.stats_visitante.recent_overall.gc|num(2) }}</span></div>
+        <div><strong class="text-label">BTTS</strong><span class="text-value">{{ analysis.stats_visitante.recent_overall.btts_pct|pct }}</span></div>
+        <div><strong class="text-label">Over 2.5</strong><span class="text-value">{{ analysis.stats_visitante.recent_overall.over25_pct|pct }}</span></div>
       </div>
     </details>
   </article>
 </section>
 {% elif active_tab == "compare" %}
 <section class="section panel-grid">
-  <article class="panel panel-span">
-    <div class="panel-head">
+  <article class="card panel panel-span">
+    <header class="panel-head">
       <h3>Comparativa</h3>
       <p>Contexto avanzado: casa/fuera, global y forma</p>
-    </div>
+    </header>
     {% if comparison_table %}
     <div class="table-wrap">
       <table class="responsive-table">
@@ -270,26 +270,26 @@
     <p>Sin comparativa disponible para este partido.</p>
     {% endif %}
   </article>
-  <article class="panel">
-    <div class="panel-head">
+  <article class="card panel">
+    <header class="panel-head">
       <h3>H2H</h3>
       <p>Contexto secundario</p>
-    </div>
+    </header>
     <div class="mini-grid">
-      <div><strong>Partidos</strong><span>{{ analysis.h2h.matches or 0 }}</span></div>
-      <div><strong>{{ analysis.local }}</strong><span>{{ analysis.h2h.home_wins or 0 }}</span></div>
-      <div><strong>Empates</strong><span>{{ analysis.h2h.draws or 0 }}</span></div>
-      <div><strong>{{ analysis.visitante }}</strong><span>{{ analysis.h2h.away_wins or 0 }}</span></div>
+      <div><strong class="text-label">Partidos</strong><span class="text-value">{{ analysis.h2h.matches or 0 }}</span></div>
+      <div><strong class="text-label">{{ analysis.local }}</strong><span class="text-value">{{ analysis.h2h.home_wins or 0 }}</span></div>
+      <div><strong class="text-label">Empates</strong><span class="text-value">{{ analysis.h2h.draws or 0 }}</span></div>
+      <div><strong class="text-label">{{ analysis.visitante }}</strong><span class="text-value">{{ analysis.h2h.away_wins or 0 }}</span></div>
     </div>
   </article>
 </section>
 {% elif active_tab == "players" %}
 <section class="section">
-  <article class="panel">
-    <div class="panel-head">
+  <article class="card panel">
+    <header class="panel-head">
       <h3>Lectura de jugadores</h3>
       <p>{{ player_payload.provider or "Persistido" }}</p>
-    </div>
+    </header>
     {% if player_payload.available %}
     <div class="table-wrap">
       <table class="responsive-table">
