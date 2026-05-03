@@ -27,6 +27,29 @@ FREE_PROJECTION_MIN_PROBABILITY = 0.50
 FREE_PROJECTION_MAX_ROWS_PER_SCOPE = 6
 FREE_PROJECTION_SCOPES = frozenset({"total"})
 
+UPGRADE_FEATURES = {
+    "daily_value": {
+        "label": "Ranking diario completo",
+        "description": "Ranking global de oportunidades de valor por liga y torneo.",
+    },
+    "league_value_ranking": {
+        "label": "Ranking de valor de la liga",
+        "description": "Ordenacion de picks de la liga por edge frente a cuotas reales.",
+    },
+    "odds_value": {
+        "label": "Cuotas y valor",
+        "description": "Comparacion modelo vs cuotas reales, cuota justa, provider y edge.",
+    },
+    "all_leagues": {
+        "label": "Todas las ligas y torneos",
+        "description": "Cobertura completa fuera de las cinco grandes ligas del plan Free.",
+    },
+    "advanced_projection": {
+        "label": "Distribuciones avanzadas",
+        "description": "Umbrales completos por total, local y visitante con mas mercados.",
+    },
+}
+
 
 @dataclass(frozen=True)
 class PlanAccess:
@@ -102,3 +125,7 @@ def access_for_user(user: User | None) -> PlanAccess:
     if plan != PLAN_PRO:
         plan = PLAN_FREE
     return PlanAccess(plan=plan, is_pro=plan == PLAN_PRO)
+
+
+def upgrade_feature_context(feature: str | None) -> dict[str, str]:
+    return UPGRADE_FEATURES.get(str(feature or ""), UPGRADE_FEATURES["daily_value"])

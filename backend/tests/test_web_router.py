@@ -2,8 +2,8 @@ from datetime import date
 
 from backend.app.repositories.in_memory import InMemoryMatchRepository, InMemoryPickRepository
 from backend.app.web.presenters import MATCH_TABS, build_projection_distribution, pick_label
-from backend.app.web.plans import FREE_PROJECTION_MAX_ROWS_PER_SCOPE, access_for_user
-from backend.app.web.router import _stored_daily_value_ranking, _stored_league_dashboard
+from backend.app.web.plans import FREE_PROJECTION_MAX_ROWS_PER_SCOPE, access_for_user, upgrade_feature_context
+from backend.app.web.router import _safe_return_to, _stored_daily_value_ranking, _stored_league_dashboard
 
 
 def _seed_day(match_repository: InMemoryMatchRepository) -> date:
@@ -148,3 +148,11 @@ def test_pro_plan_keeps_full_access() -> None:
     assert access.coerce_projection_stat("shots") == "shots"
     assert access.coerce_projection_min_probability(0.30) == 0.30
     assert access.filter_projection_distribution(distribution) is distribution
+
+
+def test_upgrade_context_and_return_target_are_safe() -> None:
+    assert upgrade_feature_context("odds_value")["label"] == "Cuotas y valor"
+    assert upgrade_feature_context("unknown")["label"] == "Ranking diario completo"
+    assert _safe_return_to("/daily-value?day=2026-05-03") == "/daily-value?day=2026-05-03"
+    assert _safe_return_to("https://example.com") == "/"
+    assert _safe_return_to("//example.com") == "/"

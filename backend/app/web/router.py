@@ -32,7 +32,7 @@ from backend.app.web.presenters import (
     tab_label,
     top_value_rows,
 )
-from backend.app.web.plans import access_for_user
+from backend.app.web.plans import access_for_user, upgrade_feature_context
 from data.sources import LEAGUE_CONFIGS
 
 
@@ -59,6 +59,34 @@ def _base_context(request: Request, auth: AuthService, **values) -> dict:
 
 def _redirect(path: str) -> RedirectResponse:
     return RedirectResponse(path, status_code=status.HTTP_303_SEE_OTHER)
+
+
+def _safe_return_to(value: str | None) -> str:
+    candidate = str(value or "/").strip()
+    if not candidate.startswith("/") or candidate.startswith("//"):
+        return "/"
+    return candidate
+
+
+def _upgrade_response(
+    request: Request,
+    auth: AuthService,
+    *,
+    feature: str = "daily_value",
+    return_to: str = "/",
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "upgrade.html",
+        _base_context(
+            request,
+            auth,
+            day=local_today().isoformat(),
+            feature=upgrade_feature_context(feature),
+            feature_key=feature,
+            return_to=_safe_return_to(return_to),
+        ),
+    )
 
 
 def _set_session_cookie(response: RedirectResponse, token: str) -> None:
@@ -94,6 +122,20 @@ def _static_league_rows(competition_view: str) -> list[dict]:
             }
         )
     return sorted(rows, key=lambda item: (item["country"], item["league"]))
+
+
+@router.get("/upgrade", response_class=HTMLResponse)
+def upgrade_page(
+    request: Request,
+    feature: str | None = Query(default="daily_value"),
+    return_to: str | None = Query(default="/"),
+    auth: AuthService = Depends(get_auth_service),
+):
+    current_user = _current_user(request, auth)
+    plan_access = access_for_user(current_user)
+    if plan_access.is_pro:
+        return _redirect(_safe_return_to(return_to))
+    return _upgrade_response(request, auth, feature=feature or "daily_value", return_to=return_to or "/")
 
 
 @router.get("/register", response_class=HTMLResponse)
@@ -495,7 +537,12 @@ def league_detail(
     current_user = _current_user(request, auth)
     plan_access = access_for_user(current_user)
     if not plan_access.can_view_league(league):
-        return _redirect(f"/?day={target_day.isoformat()}&competition_view={competition_view}")
+        return _upgrade_response(
+            request,
+            auth,
+            feature="all_leagues",
+            return_to=f"/league/{league}?day={target_day.isoformat()}&competition_view={competition_view}",
+        )
     league_dashboard = _stored_league_dashboard(target_day, league, match_repository, pick_repository)
     if not plan_access.can_view_odds_value:
         league_dashboard = {**league_dashboard, "ranking": []}
@@ -525,6 +572,13 @@ def daily_value(
     competition_view = _normalize_competition_view(competition_view)
     current_user = _current_user(request, auth)
     plan_access = access_for_user(current_user)
+    if not plan_access.can_view_daily_value:
+        return _upgrade_response(
+            request,
+            auth,
+            feature="daily_value",
+            return_to=f"/daily-value?day={target_day.isoformat()}&competition_view={competition_view}",
+        )
     ranking_groups = (
         _stored_daily_value_ranking(target_day, competition_view, match_repository, pick_repository)
         if plan_access.can_view_daily_value
@@ -558,14 +612,34 @@ def match_detail(
     current_user = _current_user(request, auth)
     plan_access = access_for_user(current_user)
     if not plan_access.can_view_league(league):
-        return _redirect(f"/?day={day.isoformat()}")
+        return _upgrade_response(
+            request,
+            auth,
+            feature="all_leagues",
+            return_to=f"/match-detail/{match_id}?league={league}&day={day.isoformat()}",
+        )
+    requested_tab = tab if tab in dict(MATCH_TABS) else "summary"
+    if requested_tab not in plan_access.allowed_match_tabs:
+        return _upgrade_response(
+            request,
+            auth,
+            feature="odds_value",
+            return_to=f"/match-detail/{match_id}?league={league}&day={day.isoformat()}&tab={requested_tab}",
+        )
+    if projection_stat not in {item["key"] for item in projection_stat_options()}:
+        projection_stat = "corners"
+    if not plan_access.is_pro and requested_tab == "projection" and projection_stat != plan_access.coerce_projection_stat(projection_stat):
+        return _upgrade_response(
+            request,
+            auth,
+            feature="advanced_projection",
+            return_to=f"/match-detail/{match_id}?league={league}&day={day.isoformat()}&tab=projection&projection_stat={projection_stat}",
+        )
     payload = service.get_match_dashboard(league=league, target_date=day, match_id=match_id)
     analysis = AnalysisRead.from_domain(payload["analysis"]).model_dump()
-    requested_tab = tab if tab in dict(MATCH_TABS) else "summary"
     active_tab = plan_access.coerce_match_tab(requested_tab)
     locked_tab_label = tab_label(requested_tab) if requested_tab != active_tab else ""
-    selected_projection_stat = projection_stat if projection_stat in {item["key"] for item in projection_stat_options()} else "corners"
-    selected_projection_stat = plan_access.coerce_projection_stat(selected_projection_stat)
+    selected_projection_stat = plan_access.coerce_projection_stat(projection_stat)
     min_probability = plan_access.coerce_projection_min_probability(min_probability)
     odds_rows = payload["odds_rows"] if plan_access.can_view_odds_value else []
     top_edges = top_value_rows(odds_rows)

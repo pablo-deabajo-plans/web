@@ -23,10 +23,10 @@
     <button type="submit">Actualizar ranking</button>
   </form>
   {% else %}
-  <div class="toolbar-card pro-lock-card">
+  <a class="toolbar-card pro-lock-card" href="/upgrade?feature=daily_value&return_to=/daily-value?day={{ day }}&competition_view={{ competition_view|urlencode }}">
     <strong>Disponible con plan PRO</strong>
     <span>El ranking diario completo queda reservado para cobertura de valor.</span>
-  </div>
+  </a>
   {% endif %}
 </section>
 

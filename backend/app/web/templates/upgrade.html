@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Hazte PRO | Gordon BetScanner{% endblock %}
+{% block content %}
+<section class="hero upgrade-hero">
+  <div>
+    <p class="eyebrow">Plan PRO</p>
+    <h1>Hazte PRO</h1>
+    <p class="hero-copy">Desbloquea la capa de explotacion del valor sin cambiar el modelo ni el flujo de analisis.</p>
+  </div>
+  <div class="hero-meta">
+    <div class="hero-stat">
+      <strong>{{ plan_access.plan|upper }}</strong>
+      <span>Tu plan actual</span>
+    </div>
+  </div>
+</section>
+
+<section class="section panel-grid">
+  <article class="panel panel-span">
+    <div class="panel-head">
+      <h3>{{ feature.label }}</h3>
+      <p>Disponible con plan PRO</p>
+    </div>
+    <p class="upgrade-copy">{{ feature.description }}</p>
+  </article>
+
+  <article class="panel">
+    <div class="panel-head">
+      <h3>Que desbloquea PRO</h3>
+      <p>Cobertura y valor</p>
+    </div>
+    <ul class="upgrade-list">
+      <li>Ranking diario completo de oportunidades de valor</li>
+      <li>Acceso a todas las ligas y torneos</li>
+      <li>Comparacion modelo vs cuotas reales: Cuotas y valor</li>
+      <li>Distribuciones probabilisticas completas</li>
+      <li>Mercados alternativos y team totals</li>
+      <li>Cobertura completa total, local y visitante</li>
+    </ul>
+  </article>
+
+  <article class="panel">
+    <div class="panel-head">
+      <h3>Free y PRO</h3>
+      <p>Separacion de uso</p>
+    </div>
+    <div class="mini-grid">
+      <div><strong>Free</strong><span>Analisis y aprendizaje del modelo en las cinco grandes ligas.</span></div>
+      <div><strong>PRO</strong><span>Explotacion del valor, cuotas reales y cobertura completa.</span></div>
+    </div>
+  </article>
+
+  <article class="panel panel-span">
+    <div class="panel-head">
+      <h3>Actualizar a PRO</h3>
+      <p>Pago no habilitado aun</p>
+    </div>
+    <div class="upgrade-action-row">
+      <button type="button" class="button-disabled" onclick="handleUpgradeToPro()" aria-describedby="upgrade-placeholder-note">Desbloquear PRO</button>
+      <a class="button-secondary" href="{{ return_to }}">Volver</a>
+    </div>
+    <p id="upgrade-placeholder-note" class="form-note">Proximamente: aqui se conectara el checkout. No se ejecuta ningun cobro desde esta pantalla.</p>
+  </article>
+</section>
+
+<script>
+  function handleUpgradeToPro() {
+    startProCheckout();
+  }
+
+  function startProCheckout() {
+    // TODO: conectar proveedor de pago cuando se habilite monetizacion.
+    // TODO: onPaymentSuccess debe actualizar user.plan = "pro" en backend.
+    const note = document.getElementById("upgrade-placeholder-note");
+    if (note) {
+      note.textContent = "Pago no habilitado aun. El checkout PRO se conectara aqui mas adelante.";
+    }
+  }
+</script>
+{% endblock %}
