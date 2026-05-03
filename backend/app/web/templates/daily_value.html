@@ -7,6 +7,7 @@
     <h1>Oportunidades de valor del día</h1>
     <p class="hero-copy">Ranking separado por liga para garantizar comparaciones reales.</p>
   </div>
+  {% if plan_access.can_view_daily_value %}
   <form method="get" class="toolbar-card">
     <label>
       <span>Fecha</span>
@@ -21,8 +22,15 @@
     </label>
     <button type="submit">Actualizar ranking</button>
   </form>
+  {% else %}
+  <div class="toolbar-card pro-lock-card">
+    <strong>Disponible con plan PRO</strong>
+    <span>El ranking diario completo queda reservado para cobertura de valor.</span>
+  </div>
+  {% endif %}
 </section>
 
+{% if plan_access.can_view_daily_value %}
 {% for group in ranking_groups %}
 <section class="section">
   <div class="section-head">
@@ -67,4 +75,5 @@
   </article>
 </section>
 {% endfor %}
+{% endif %}
 {% endblock %}

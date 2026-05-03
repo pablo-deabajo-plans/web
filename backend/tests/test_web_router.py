@@ -2,6 +2,7 @@ from datetime import date
 
 from backend.app.repositories.in_memory import InMemoryMatchRepository, InMemoryPickRepository
 from backend.app.web.presenters import MATCH_TABS, build_projection_distribution, pick_label
+from backend.app.web.plans import FREE_PROJECTION_MAX_ROWS_PER_SCOPE, access_for_user
 from backend.app.web.router import _stored_daily_value_ranking, _stored_league_dashboard
 
 
@@ -98,3 +99,52 @@ def test_projection_distribution_does_not_force_unsupported_fouls() -> None:
 
     assert distribution["has_rows"] is False
     assert distribution["scopes"][0]["message"] == "Datos insuficientes"
+
+
+def test_free_plan_limits_leagues_tabs_and_projection_distribution() -> None:
+    access = access_for_user(None)
+    rows = [
+        {"league": "LaLiga"},
+        {"league": "Premier League"},
+        {"league": "Champions League"},
+        {"league": "MLS"},
+    ]
+
+    assert [row["league"] for row in access.filter_league_rows(rows)] == ["LaLiga", "Premier League"]
+    assert access.can_view_daily_value is False
+    assert access.can_view_odds_value is False
+    assert access.coerce_match_tab("odds") == "summary"
+    assert access.coerce_projection_stat("shots") == "corners"
+    assert access.coerce_projection_min_probability(0.30) == 0.50
+
+    distribution = {
+        "scopes": [
+            {"key": "total", "available": True, "rows": [{"threshold": str(index)} for index in range(10)]},
+            {"key": "home", "available": True, "rows": [{"threshold": "home"}]},
+            {"key": "away", "available": True, "rows": [{"threshold": "away"}]},
+        ],
+        "has_rows": True,
+    }
+
+    limited = access.filter_projection_distribution(distribution)
+
+    assert limited["is_limited"] is True
+    assert [scope["key"] for scope in limited["scopes"]] == ["total"]
+    assert len(limited["scopes"][0]["rows"]) == FREE_PROJECTION_MAX_ROWS_PER_SCOPE
+
+
+def test_pro_plan_keeps_full_access() -> None:
+    class UserStub:
+        plan = "pro"
+
+    access = access_for_user(UserStub())  # type: ignore[arg-type]
+    rows = [{"league": "Champions League"}, {"league": "MLS"}]
+    distribution = {"scopes": [{"key": "home", "rows": [{"threshold": "home"}]}], "has_rows": True}
+
+    assert access.filter_league_rows(rows) == rows
+    assert access.can_view_daily_value is True
+    assert access.can_view_odds_value is True
+    assert access.coerce_match_tab("odds") == "odds"
+    assert access.coerce_projection_stat("shots") == "shots"
+    assert access.coerce_projection_min_probability(0.30) == 0.30
+    assert access.filter_projection_distribution(distribution) is distribution

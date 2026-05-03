@@ -68,7 +68,7 @@
 <section class="section">
   <div class="section-head">
     <h2>Ligas activas</h2>
-    <p>{{ league_rows|length }} ligas en el radar</p>
+    <p>{{ league_rows|length }} ligas en el radar{% if not plan_access.can_view_all_leagues %} - Free: 5 grandes ligas{% endif %}</p>
   </div>
   <div class="league-grid">
     {% for item in league_rows %}

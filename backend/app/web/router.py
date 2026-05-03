@@ -32,6 +32,7 @@ from backend.app.web.presenters import (
     tab_label,
     top_value_rows,
 )
+from backend.app.web.plans import access_for_user
 from data.sources import LEAGUE_CONFIGS
 
 
@@ -51,7 +52,9 @@ def _current_user(request: Request, auth: AuthService) -> User | None:
 
 
 def _base_context(request: Request, auth: AuthService, **values) -> dict:
-    return {"current_user": _current_user(request, auth), **values}
+    current_user = _current_user(request, auth)
+    plan_access = access_for_user(current_user)
+    return {"current_user": current_user, "plan_access": plan_access, **values}
 
 
 def _redirect(path: str) -> RedirectResponse:
@@ -456,20 +459,24 @@ def home(
 ):
     target_day = day or local_today()
     competition_view = _normalize_competition_view(competition_view)
+    current_user = _current_user(request, auth)
+    plan_access = access_for_user(current_user)
     league_rows = _stored_league_rows(target_day, competition_view, match_repository) or _static_league_rows(competition_view)
+    league_rows = plan_access.filter_league_rows(league_rows)
     search_results = _search_stored_matches(target_day, q, match_repository) if q and q.strip() else []
+    search_results = plan_access.filter_matches(search_results)
     return templates.TemplateResponse(
         request,
         "index.html",
-        _base_context(
-            request,
-            auth,
-            day=target_day.isoformat(),
-            competition_view=competition_view,
-            league_rows=league_rows,
-            search_query=q or "",
-            search_results=search_results,
-        ),
+        {
+            "current_user": current_user,
+            "plan_access": plan_access,
+            "day": target_day.isoformat(),
+            "competition_view": competition_view,
+            "league_rows": league_rows,
+            "search_query": q or "",
+            "search_results": search_results,
+        },
     )
 
 
@@ -485,17 +492,23 @@ def league_detail(
 ):
     target_day = day or local_today()
     competition_view = _normalize_competition_view(competition_view)
+    current_user = _current_user(request, auth)
+    plan_access = access_for_user(current_user)
+    if not plan_access.can_view_league(league):
+        return _redirect(f"/?day={target_day.isoformat()}&competition_view={competition_view}")
     league_dashboard = _stored_league_dashboard(target_day, league, match_repository, pick_repository)
+    if not plan_access.can_view_odds_value:
+        league_dashboard = {**league_dashboard, "ranking": []}
     return templates.TemplateResponse(
         request,
         "league_detail.html",
-        _base_context(
-            request,
-            auth,
-            day=target_day.isoformat(),
-            competition_view=competition_view,
-            league_dashboard=league_dashboard,
-        ),
+        {
+            "current_user": current_user,
+            "plan_access": plan_access,
+            "day": target_day.isoformat(),
+            "competition_view": competition_view,
+            "league_dashboard": league_dashboard,
+        },
     )
 
 
@@ -510,17 +523,23 @@ def daily_value(
 ):
     target_day = day or local_today()
     competition_view = _normalize_competition_view(competition_view)
-    ranking_groups = _stored_daily_value_ranking(target_day, competition_view, match_repository, pick_repository)
+    current_user = _current_user(request, auth)
+    plan_access = access_for_user(current_user)
+    ranking_groups = (
+        _stored_daily_value_ranking(target_day, competition_view, match_repository, pick_repository)
+        if plan_access.can_view_daily_value
+        else []
+    )
     return templates.TemplateResponse(
         request,
         "daily_value.html",
-        _base_context(
-            request,
-            auth,
-            day=target_day.isoformat(),
-            competition_view=competition_view,
-            ranking_groups=ranking_groups,
-        ),
+        {
+            "current_user": current_user,
+            "plan_access": plan_access,
+            "day": target_day.isoformat(),
+            "competition_view": competition_view,
+            "ranking_groups": ranking_groups,
+        },
     )
 
 
@@ -536,39 +555,50 @@ def match_detail(
     service: DashboardService = Depends(get_dashboard_service),
     auth: AuthService = Depends(get_auth_service),
 ):
+    current_user = _current_user(request, auth)
+    plan_access = access_for_user(current_user)
+    if not plan_access.can_view_league(league):
+        return _redirect(f"/?day={day.isoformat()}")
     payload = service.get_match_dashboard(league=league, target_date=day, match_id=match_id)
     analysis = AnalysisRead.from_domain(payload["analysis"]).model_dump()
-    active_tab = tab if tab in dict(MATCH_TABS) else "summary"
+    requested_tab = tab if tab in dict(MATCH_TABS) else "summary"
+    active_tab = plan_access.coerce_match_tab(requested_tab)
+    locked_tab_label = tab_label(requested_tab) if requested_tab != active_tab else ""
     selected_projection_stat = projection_stat if projection_stat in {item["key"] for item in projection_stat_options()} else "corners"
-    top_edges = top_value_rows(payload["odds_rows"])
+    selected_projection_stat = plan_access.coerce_projection_stat(selected_projection_stat)
+    min_probability = plan_access.coerce_projection_min_probability(min_probability)
+    odds_rows = payload["odds_rows"] if plan_access.can_view_odds_value else []
+    top_edges = top_value_rows(odds_rows)
     player_rows = flatten_player_rows(payload["player_probabilities"])
     projection_distribution = build_projection_distribution(analysis, selected_projection_stat, min_probability)
+    projection_distribution = plan_access.filter_projection_distribution(projection_distribution)
     return templates.TemplateResponse(
         request,
         "match_detail.html",
-        _base_context(
-            request,
-            auth,
-            day=day.isoformat(),
-            league=league,
-            match_id=match_id,
-            match=payload["match"],
-            analysis=analysis,
-            insights=payload["insights"],
-            comparison_table=payload["comparison_table"],
-            odds_rows=payload["odds_rows"],
-            top_edges=top_edges,
-            signal_cards=match_signal_cards(analysis),
-            executive_summary=build_match_executive_summary(analysis, payload["odds_rows"]),
-            tabs=MATCH_TABS,
-            active_tab=active_tab,
-            active_tab_label=tab_label(active_tab),
-            projection_stats=projection_stat_options(),
-            projection_min_probabilities=projection_min_probability_options(),
-            selected_projection_stat=selected_projection_stat,
-            selected_min_probability=projection_distribution["min_probability"],
-            projection_distribution=projection_distribution,
-            player_payload=payload["player_probabilities"],
-            player_rows=player_rows,
-        ),
+        {
+            "current_user": current_user,
+            "plan_access": plan_access,
+            "day": day.isoformat(),
+            "league": league,
+            "match_id": match_id,
+            "match": payload["match"],
+            "analysis": analysis,
+            "insights": payload["insights"],
+            "comparison_table": payload["comparison_table"],
+            "odds_rows": odds_rows,
+            "top_edges": top_edges,
+            "signal_cards": match_signal_cards(analysis),
+            "executive_summary": build_match_executive_summary(analysis, odds_rows),
+            "tabs": MATCH_TABS,
+            "active_tab": active_tab,
+            "active_tab_label": tab_label(active_tab),
+            "locked_tab_label": locked_tab_label,
+            "projection_stats": projection_stat_options(),
+            "projection_min_probabilities": projection_min_probability_options(),
+            "selected_projection_stat": selected_projection_stat,
+            "selected_min_probability": projection_distribution["min_probability"],
+            "projection_distribution": projection_distribution,
+            "player_payload": payload["player_probabilities"],
+            "player_rows": player_rows,
+        },
     )

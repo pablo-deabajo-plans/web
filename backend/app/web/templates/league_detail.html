@@ -9,7 +9,7 @@
   </div>
   <div class="hero-actions">
     <a class="button-secondary" href="/?day={{ day }}&competition_view={{ competition_view|urlencode }}">Volver a ligas</a>
-    <a class="button-secondary" href="/daily-value?day={{ day }}&competition_view={{ competition_view|urlencode }}">Ranking diario</a>
+    <a class="button-secondary" href="/daily-value?day={{ day }}&competition_view={{ competition_view|urlencode }}">Ranking diario{% if not plan_access.can_view_daily_value %} <span class="pro-inline">PRO</span>{% endif %}</a>
   </div>
 </section>
 
@@ -18,8 +18,11 @@
     <article class="panel">
       <div class="panel-head">
         <h3>Ranking de valor de la liga</h3>
-        <p>Ordenado por edge</p>
+        <p>{% if plan_access.can_view_odds_value %}Ordenado por edge{% else %}Disponible con plan PRO{% endif %}</p>
       </div>
+      {% if not plan_access.can_view_odds_value %}
+      <div class="locked-note">Disponible con plan PRO</div>
+      {% else %}
       <div class="table-wrap">
         <table>
           <thead>
@@ -48,6 +51,7 @@
           </tbody>
         </table>
       </div>
+      {% endif %}
     </article>
 
     <article class="panel">

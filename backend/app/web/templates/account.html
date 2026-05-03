@@ -9,7 +9,8 @@
     </div>
     <div class="mini-grid">
       <div><strong>Correo</strong><span>{{ user.gmail }}</span></div>
-      <div><strong>Plan</strong><span>{{ user.plan }}</span></div>
+      <div><strong>Plan</strong><span>{{ user.plan|upper }}</span></div>
+      <div><strong>Estado</strong><span>{% if plan_access.is_pro %}Acceso completo{% else %}Free: aprendizaje y analisis{% endif %}</span></div>
     </div>
   </article>
   <article class="panel">

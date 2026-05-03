@@ -220,6 +220,44 @@ h3 {
   font-weight: 700;
 }
 
+.pro-inline {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 0.08rem 0.38rem;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+.locked-note,
+.pro-lock-card {
+  color: var(--muted);
+}
+
+.locked-note {
+  margin-top: 0.8rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
+.pro-lock-card {
+  align-items: center;
+}
+
+.pro-lock-card strong {
+  color: var(--text);
+}
+
+.tab-link.is-locked {
+  color: var(--muted);
+}
+
 .toolbar-actions {
   display: flex;
   align-items: end;

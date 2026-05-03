@@ -13,7 +13,7 @@
     </div>
     <nav class="shell-nav">
       <a href="/?day={{ day }}" class="nav-link">Ligas</a>
-      <a href="/daily-value?day={{ day }}" class="nav-link">Ranking diario</a>
+      <a href="/daily-value?day={{ day }}" class="nav-link">Ranking diario{% if not plan_access.can_view_daily_value %} <span class="pro-inline">PRO</span>{% endif %}</a>
       {% if current_user %}
       <a href="/account" class="nav-link">Mi cuenta</a>
       {% else %}
