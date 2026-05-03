@@ -2,22 +2,22 @@
 {% block title %}Mi cuenta | Gordon BetScanner{% endblock %}
 {% block content %}
 <section class="section panel-grid">
-  <article class="panel">
-    <div class="panel-head">
+  <article class="card panel">
+    <header class="panel-head">
       <h3>Mi cuenta</h3>
       <p>Datos principales</p>
-    </div>
+    </header>
     <div class="mini-grid">
-      <div><strong>Correo</strong><span>{{ user.gmail }}</span></div>
-      <div><strong>Plan</strong><span>{{ user.plan|upper }}</span></div>
-      <div><strong>Estado</strong><span>{% if plan_access.is_pro %}Acceso completo{% else %}Free: aprendizaje y analisis{% endif %}</span></div>
+      <div><strong class="text-label">Correo</strong><span class="text-value">{{ user.gmail }}</span></div>
+      <div><strong class="text-label">Plan</strong><span class="text-value">{{ user.plan|upper }}</span></div>
+      <div><strong class="text-label">Estado</strong><span>{% if plan_access.is_pro %}Acceso completo{% else %}Free: aprendizaje y analisis{% endif %}</span></div>
     </div>
   </article>
-  <article class="panel">
-    <div class="panel-head">
+  <article class="card panel">
+    <header class="panel-head">
       <h3>Nombre</h3>
       <p>Editable</p>
-    </div>
+    </header>
     {% if profile_error %}<p class="form-error">{{ profile_error }}</p>{% endif %}
     {% if profile_success %}<p class="form-success">{{ profile_success }}</p>{% endif %}
     <form method="post" action="/account/profile" class="account-form">
@@ -29,11 +29,11 @@
       <button type="submit">Guardar nombre</button>
     </form>
   </article>
-  <article class="panel">
-    <div class="panel-head">
+  <article class="card panel">
+    <header class="panel-head">
       <h3>Contraseña</h3>
       <p>Requiere contraseña actual</p>
-    </div>
+    </header>
     {% if password_error %}<p class="form-error">{{ password_error }}</p>{% endif %}
     {% if password_success %}<p class="form-success">{{ password_success }}</p>{% endif %}
     <form method="post" action="/account/password" class="account-form">
@@ -49,11 +49,11 @@
       <button type="submit">Cambiar contraseña</button>
     </form>
   </article>
-  <article class="panel">
-    <div class="panel-head">
+  <article class="card panel">
+    <header class="panel-head">
       <h3>Sesión</h3>
       <p>Cerrar acceso actual</p>
-    </div>
+    </header>
     <form method="post" action="/logout" class="account-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button type="submit">Cerrar sesión</button>

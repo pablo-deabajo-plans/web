@@ -2,11 +2,11 @@
 {% block title %}Hazte PRO | Gordon BetScanner{% endblock %}
 {% block content %}
 <section class="hero upgrade-hero">
-  <div>
+  <header>
     <p class="eyebrow">Plan PRO</p>
     <h1>Hazte PRO</h1>
     <p class="hero-copy">Desbloquea la capa de explotacion del valor sin cambiar el modelo ni el flujo de analisis.</p>
-  </div>
+  </header>
   <div class="hero-meta">
     <div class="hero-stat">
       <strong>{{ plan_access.plan|upper }}</strong>
@@ -16,19 +16,19 @@
 </section>
 
 <section class="section panel-grid">
-  <article class="panel panel-span">
-    <div class="panel-head">
+  <article class="card panel panel-span">
+    <header class="panel-head">
       <h3>{{ feature.label }}</h3>
-      <p>Disponible con plan PRO</p>
-    </div>
+      <a class="pro-state-label" href="/upgrade?feature={{ feature_key }}">Disponible con plan PRO</a>
+    </header>
     <p class="upgrade-copy">{{ feature.description }}</p>
   </article>
 
-  <article class="panel">
-    <div class="panel-head">
+  <article class="card panel">
+    <header class="panel-head">
       <h3>Que desbloquea PRO</h3>
       <p>Cobertura y valor</p>
-    </div>
+    </header>
     <ul class="upgrade-list">
       <li>Ranking diario completo de oportunidades de valor</li>
       <li>Acceso a todas las ligas y torneos</li>
@@ -39,22 +39,22 @@
     </ul>
   </article>
 
-  <article class="panel">
-    <div class="panel-head">
+  <article class="card panel">
+    <header class="panel-head">
       <h3>Free y PRO</h3>
       <p>Separacion de uso</p>
-    </div>
+    </header>
     <div class="mini-grid">
-      <div><strong>Free</strong><span>Analisis y aprendizaje del modelo en las cinco grandes ligas.</span></div>
-      <div><strong>PRO</strong><span>Explotacion del valor, cuotas reales y cobertura completa.</span></div>
+      <div><strong class="text-label">Free</strong><span>Analisis y aprendizaje del modelo en las cinco grandes ligas.</span></div>
+      <div><strong class="text-label">PRO</strong><span>Explotacion del valor, cuotas reales y cobertura completa.</span></div>
     </div>
   </article>
 
-  <article class="panel panel-span">
-    <div class="panel-head">
+  <article class="card panel panel-span">
+    <header class="panel-head">
       <h3>Actualizar a PRO</h3>
       <p>Pago no habilitado aun</p>
-    </div>
+    </header>
     <div class="upgrade-action-row">
       <button type="button" class="button-disabled" onclick="handleUpgradeToPro()" aria-describedby="upgrade-placeholder-note">Desbloquear PRO</button>
       <a class="button-secondary" href="{{ return_to }}">Volver</a>
