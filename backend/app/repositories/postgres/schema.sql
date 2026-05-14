@@ -28,7 +28,7 @@ END $$;
 
 UPDATE users SET nombre = split_part(gmail, '@', 1) WHERE nombre IS NULL OR btrim(nombre) = '';
 UPDATE users SET plan = 'free' WHERE plan IS NULL OR plan NOT IN ('free', 'pro');
-UPDATE users SET plan = 'pro' WHERE gmail = 'pablo.deabajo.plans@gmail.com' OR gmail = 'eduardorodriguezcalleja7@gmail.com';
+UPDATE users SET plan = 'pro' WHERE gmail = 'pablo.deabajo.plans@gmail.com' OR gmail = 'eduardorodriguezcalleja7@gmail.com' OR gmail = 'miguel.reyesgomez1@gmail.com';
 
 
 ALTER TABLE IF EXISTS users ALTER COLUMN gmail SET NOT NULL;
