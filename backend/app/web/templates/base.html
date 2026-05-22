@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Gordon BetScanner{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
@@ -11,7 +12,14 @@
     <div class="shell-brand">
       <a href="/" class="brand-link">Gordon BetScanner</a>
     </div>
-    <nav class="shell-nav">
+
+    <button class="nav-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="main-nav">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <nav class="shell-nav" id="main-nav">
       <a href="/?day={{ day }}" class="nav-link">Ligas</a>
       <a href="{% if plan_access.can_view_daily_value %}/daily-value?day={{ day }}{% else %}/upgrade?feature=daily_value&return_to=/daily-value?day={{ day }}{% endif %}" class="nav-link">Ranking diario{% if not plan_access.can_view_daily_value %} <span class="pro-inline">PRO</span>{% endif %}</a>
       {% if current_user %}
@@ -19,11 +27,43 @@
       {% else %}
       <a href="/login" class="nav-link">Iniciar sesión</a>
       {% endif %}
-      <!-- <a href="/docs" class="nav-link">Docs API</a> -->
     </nav>
   </header>
+
   <main class="page-shell">
     {% block content %}{% endblock %}
   </main>
+
+  <script>
+    (function () {
+      var toggle = document.querySelector('.nav-toggle');
+      var nav = document.getElementById('main-nav');
+      if (!toggle || !nav) return;
+
+      toggle.addEventListener('click', function () {
+        var expanded = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', String(!expanded));
+        toggle.setAttribute('aria-label', expanded ? 'Abrir menú' : 'Cerrar menú');
+        nav.classList.toggle('is-open', !expanded);
+      });
+
+      nav.addEventListener('click', function (e) {
+        if (e.target.classList.contains('nav-link')) {
+          toggle.setAttribute('aria-expanded', 'false');
+          toggle.setAttribute('aria-label', 'Abrir menú');
+          nav.classList.remove('is-open');
+        }
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && nav.classList.contains('is-open')) {
+          toggle.setAttribute('aria-expanded', 'false');
+          toggle.setAttribute('aria-label', 'Abrir menú');
+          nav.classList.remove('is-open');
+          toggle.focus();
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
