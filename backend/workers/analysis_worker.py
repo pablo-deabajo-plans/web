@@ -60,6 +60,31 @@ ON CONFLICT (id) DO UPDATE SET
     generated_at = EXCLUDED.generated_at
 """
 
+MODEL_PREDICTION_UPSERT_QUERY = """
+INSERT INTO model.predictions (
+    id,
+    match_id,
+    model_version,
+    market,
+    selection,
+    probability,
+    fair_odds,
+    expected_home_goals,
+    expected_away_goals,
+    trace,
+    generated_at
+)
+SELECT %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s
+WHERE EXISTS (SELECT 1 FROM sports.matches WHERE id = %s)
+ON CONFLICT (id) DO UPDATE SET
+    probability = EXCLUDED.probability,
+    fair_odds = EXCLUDED.fair_odds,
+    expected_home_goals = EXCLUDED.expected_home_goals,
+    expected_away_goals = EXCLUDED.expected_away_goals,
+    trace = EXCLUDED.trace,
+    generated_at = EXCLUDED.generated_at
+"""
+
 REQUIRED_ANALYSIS_COLUMNS = ["Date", "MatchDate", "Time", "HomeTeam", "AwayTeam", "FTHG", "FTAG"]
 
 OPTIONAL_ANALYSIS_COLUMNS = ["HC", "AC", "HS", "AS", "HST", "AST", "HY", "AY", "HR", "AR"]
@@ -190,6 +215,7 @@ def _load_historical_frame(connection_factory, competition: str, target_date: da
 def _store_analysis(connection_factory, match_id: str, analysis: Analysis) -> str:
     analysis_id = _analysis_id(match_id)
     generated_at = utc_now()
+    trace = json.dumps(analysis.trace, ensure_ascii=True)
     payload = (
         analysis_id,
         match_id,
@@ -199,15 +225,61 @@ def _store_analysis(connection_factory, match_id: str, analysis: Analysis) -> st
         analysis.resultado.away_win,
         analysis.xg_local,
         analysis.xg_visitante,
-        json.dumps(analysis.trace, ensure_ascii=True),
+        trace,
         generated_at,
     )
 
     with connection_factory() as conn:
         with conn.cursor() as cursor:
             cursor.execute(ANALYSIS_UPSERT_QUERY, payload)
+            cursor.executemany(
+                MODEL_PREDICTION_UPSERT_QUERY,
+                _model_prediction_payload(
+                    analysis_id=analysis_id,
+                    match_id=match_id,
+                    analysis=analysis,
+                    trace=trace,
+                    generated_at=generated_at,
+                ),
+            )
         conn.commit()
     return analysis_id
+
+
+def _fair_odds_for_probability(probability: float) -> float | None:
+    return round(1.0 / probability, 4) if probability > 0 else None
+
+
+def _model_prediction_payload(
+    *,
+    analysis_id: str,
+    match_id: str,
+    analysis: Analysis,
+    trace: str,
+    generated_at: datetime,
+) -> list[tuple]:
+    markets = [
+        ("HOME", analysis.resultado.home_win),
+        ("DRAW", analysis.resultado.draw),
+        ("AWAY", analysis.resultado.away_win),
+    ]
+    return [
+        (
+            f"{analysis_id}:1X2:{selection}",
+            match_id,
+            MODEL_VERSION,
+            "1X2",
+            selection,
+            probability,
+            _fair_odds_for_probability(probability),
+            analysis.xg_local,
+            analysis.xg_visitante,
+            trace,
+            generated_at,
+            match_id,
+        )
+        for selection, probability in markets
+    ]
 
 
 def _log_skip(match, category: str, *, detail: str, **context) -> None:

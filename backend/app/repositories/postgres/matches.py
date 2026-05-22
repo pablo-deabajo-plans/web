@@ -136,6 +136,55 @@ ON CONFLICT (id) DO UPDATE SET
     updated_at = NOW()
 """
 
+UPSERT_SPORTS_MATCHES_QUERY = """
+INSERT INTO sports.matches (
+    id,
+    provider,
+    external_id,
+    competition,
+    kickoff_at,
+    home_team,
+    away_team,
+    status,
+    home_score,
+    away_score
+)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+ON CONFLICT (id) DO UPDATE SET
+    provider = EXCLUDED.provider,
+    external_id = EXCLUDED.external_id,
+    competition = EXCLUDED.competition,
+    kickoff_at = EXCLUDED.kickoff_at,
+    home_team = EXCLUDED.home_team,
+    away_team = EXCLUDED.away_team,
+    status = EXCLUDED.status,
+    home_score = EXCLUDED.home_score,
+    away_score = EXCLUDED.away_score,
+    updated_at = NOW()
+"""
+
+UPSERT_SPORTS_TEAM_MATCH_STATS_QUERY = """
+INSERT INTO sports.team_match_stats (
+    id,
+    match_id,
+    side,
+    goals,
+    shots,
+    shots_on_target,
+    corners,
+    source,
+    captured_at
+)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+ON CONFLICT (id) DO UPDATE SET
+    goals = EXCLUDED.goals,
+    shots = EXCLUDED.shots,
+    shots_on_target = EXCLUDED.shots_on_target,
+    corners = EXCLUDED.corners,
+    source = EXCLUDED.source,
+    captured_at = EXCLUDED.captured_at
+"""
+
 
 class PostgresMatchRepositoryError(RuntimeError):
     """Raised when the match repository cannot complete a PostgreSQL operation."""
@@ -220,12 +269,67 @@ class PostgresMatchRepository(PostgresRepository, MatchRepository):
             with conn:
                 with conn.cursor() as cursor:
                     cursor.executemany(UPSERT_MATCHES_QUERY, payload)
+                    cursor.executemany(UPSERT_SPORTS_MATCHES_QUERY, self._sports_match_payload(matches))
+                    cursor.executemany(UPSERT_SPORTS_TEAM_MATCH_STATS_QUERY, self._sports_team_stats_payload(matches))
         except psycopg2.Error as exc:
             conn.rollback()
             LOGGER.exception("Failed to upsert matches count=%s", len(matches))
             raise PostgresMatchRepositoryError("Could not persist matches") from exc
         finally:
             conn.close()
+
+    @staticmethod
+    def _provider_for_match(match: Match) -> str:
+        return str(match.source or "internal").strip() or "internal"
+
+    @classmethod
+    def _sports_match_payload(cls, matches: list[Match]) -> list[tuple]:
+        return [
+            (
+                item.id,
+                cls._provider_for_match(item),
+                item.external_id,
+                item.competition,
+                item.kickoff_at,
+                item.home_team,
+                item.away_team,
+                item.status,
+                item.home_score,
+                item.away_score,
+            )
+            for item in matches
+        ]
+
+    @classmethod
+    def _sports_team_stats_payload(cls, matches: list[Match]) -> list[tuple]:
+        payload = []
+        for item in matches:
+            source = cls._provider_for_match(item)
+            payload.extend(
+                [
+                    (
+                        f"{item.id}:home:latest",
+                        item.id,
+                        "home",
+                        item.home_score,
+                        item.home_shots,
+                        item.home_shots_on_target,
+                        item.home_corners,
+                        source,
+                    ),
+                    (
+                        f"{item.id}:away:latest",
+                        item.id,
+                        "away",
+                        item.away_score,
+                        item.away_shots,
+                        item.away_shots_on_target,
+                        item.away_corners,
+                        source,
+                    ),
+                ]
+            )
+        return payload
 
     @staticmethod
     def _row_to_match(row: tuple) -> Match:

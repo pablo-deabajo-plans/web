@@ -57,7 +57,7 @@ def test_web_register_login_account_and_logout_flow() -> None:
         account_response = client.get("/account")
         assert account_response.status_code == 200
         assert "user@example.com" in account_response.text
-        assert "free" in account_response.text
+        assert "FREE" in account_response.text
 
         csrf = service.read_session(client.cookies.get("gordon_session")).csrf_token
         profile_response = client.post("/account/profile", data={"csrf_token": csrf, "nombre": "quant"})

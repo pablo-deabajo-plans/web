@@ -20,8 +20,14 @@ Current concrete repository files now exist for:
 Current contract source of truth:
 - [contracts.py](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/repositories/contracts.py:1)
 
-Initial schema:
+Legacy compatibility schema:
 - [schema.sql](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/repositories/postgres/schema.sql:1)
+
+Domain schemas:
+- `app`: customers, sessions, favorites, product/account data
+- `sports`: historical sports data, fixtures, teams, players, match events, stats, odds snapshots
+- `model`: feature sets, generated features, predictions, prediction results, calibration/backtests
+- [domain_schemas.sql](/C:/Users/pablo/Documents/Gordon%20BetScanner/backend/app/repositories/postgres/domain_schemas.sql:1)
 
 ## Design notes
 

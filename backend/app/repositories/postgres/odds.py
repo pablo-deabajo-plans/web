@@ -67,10 +67,38 @@ class PostgresOddsRepository(PostgresRepository, OddsRepository):
             decimal_odds = EXCLUDED.decimal_odds,
             captured_at = EXCLUDED.captured_at
         """
+        sports_query = """
+        INSERT INTO sports.odds_snapshots (id, match_id, bookmaker, market, selection, decimal_odds, captured_at, source)
+        SELECT %s, %s, COALESCE(NULLIF(%s, ''), 'unknown'), %s, %s, %s, %s, 'odds_ingestion'
+        WHERE EXISTS (SELECT 1 FROM sports.matches WHERE id = %s)
+        ON CONFLICT (id) DO UPDATE SET
+            bookmaker = EXCLUDED.bookmaker,
+            market = EXCLUDED.market,
+            selection = EXCLUDED.selection,
+            decimal_odds = EXCLUDED.decimal_odds,
+            captured_at = EXCLUDED.captured_at,
+            source = EXCLUDED.source
+        """
         with self._connection() as conn:
             with conn.cursor() as cursor:
                 cursor.executemany(
                     query,
                     [(item.id, item.match_id, item.market, item.selection, item.sportsbook, item.decimal_odds, item.captured_at) for item in quotes],
+                )
+                cursor.executemany(
+                    sports_query,
+                    [
+                        (
+                            item.id,
+                            item.match_id,
+                            item.sportsbook,
+                            item.market,
+                            item.selection,
+                            item.decimal_odds,
+                            item.captured_at,
+                            item.match_id,
+                        )
+                        for item in quotes
+                    ],
                 )
             conn.commit()

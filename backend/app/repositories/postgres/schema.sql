@@ -9,37 +9,12 @@ ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 
 
 DO $$
 BEGIN
-    IF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'users' AND column_name = 'email'
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'users_plan_check'
     ) THEN
-        UPDATE users SET gmail = email WHERE gmail IS NULL;
-        ALTER TABLE users DROP COLUMN email;
-    END IF;
-
-    IF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'users' AND column_name = 'hashed_password'
-    ) THEN
-        UPDATE users SET password_hash = hashed_password WHERE password_hash IS NULL;
-        ALTER TABLE users DROP COLUMN hashed_password;
+        ALTER TABLE users ADD CONSTRAINT users_plan_check CHECK (plan IN ('free', 'pro')) NOT VALID;
     END IF;
 END $$;
-
-UPDATE users SET nombre = split_part(gmail, '@', 1) WHERE nombre IS NULL OR btrim(nombre) = '';
-UPDATE users SET plan = 'free' WHERE plan IS NULL OR plan NOT IN ('free', 'pro');
-UPDATE users SET plan = 'pro' WHERE gmail = 'pablo.deabajo.plans@gmail.com' OR gmail = 'eduardorodriguezcalleja7@gmail.com' OR gmail = 'miguel.reyesgomez1@gmail.com';
-
-
-ALTER TABLE IF EXISTS users ALTER COLUMN gmail SET NOT NULL;
-ALTER TABLE IF EXISTS users ALTER COLUMN nombre SET NOT NULL;
-ALTER TABLE IF EXISTS users ALTER COLUMN password_hash SET NOT NULL;
-ALTER TABLE IF EXISTS users ALTER COLUMN plan SET NOT NULL;
-ALTER TABLE IF EXISTS users DROP COLUMN IF EXISTS is_active;
-ALTER TABLE IF EXISTS users DROP COLUMN IF EXISTS created_at;
-ALTER TABLE IF EXISTS users DROP CONSTRAINT IF EXISTS users_gmail_key;
-ALTER TABLE IF EXISTS users DROP CONSTRAINT IF EXISTS users_plan_check;
-ALTER TABLE IF EXISTS users ADD CONSTRAINT users_plan_check CHECK (plan IN ('free', 'pro'));
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_gmail_lower ON users (lower(gmail));
 
 CREATE TABLE IF NOT EXISTS matches (
@@ -166,7 +141,7 @@ CREATE INDEX IF NOT EXISTS idx_player_props_match_metric ON player_props (match_
 CREATE INDEX IF NOT EXISTS idx_player_props_generated_at ON player_props (generated_at);
 
 CREATE TABLE IF NOT EXISTS pipeline_metrics (
-    id BIGSERIAL NOT NULL,
+    id BIGSERIAL PRIMARY KEY,
     metric_name TEXT NOT NULL,
     worker_name TEXT NOT NULL,
     pipeline_run_id TEXT NOT NULL,
@@ -177,16 +152,9 @@ CREATE TABLE IF NOT EXISTS pipeline_metrics (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-ALTER TABLE IF EXISTS pipeline_metrics DROP CONSTRAINT IF EXISTS pipeline_metrics_pkey;
 ALTER TABLE IF EXISTS pipeline_metrics ADD COLUMN IF NOT EXISTS id BIGSERIAL;
 ALTER TABLE IF EXISTS pipeline_metrics ADD COLUMN IF NOT EXISTS pipeline_run_id TEXT;
 ALTER TABLE IF EXISTS pipeline_metrics ADD COLUMN IF NOT EXISTS recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-ALTER TABLE IF EXISTS pipeline_metrics ALTER COLUMN metric_name SET NOT NULL;
-ALTER TABLE IF EXISTS pipeline_metrics ALTER COLUMN worker_name SET NOT NULL;
-UPDATE pipeline_metrics
-SET pipeline_run_id = CONCAT('legacy-', metric_name, '-', EXTRACT(EPOCH FROM COALESCE(updated_at, NOW()))::BIGINT)
-WHERE pipeline_run_id IS NULL;
-ALTER TABLE IF EXISTS pipeline_metrics ALTER COLUMN pipeline_run_id SET NOT NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_pipeline_metrics_id ON pipeline_metrics (id);
 CREATE INDEX IF NOT EXISTS idx_pipeline_metrics_worker_recorded_at ON pipeline_metrics (worker_name, recorded_at DESC);
