@@ -1,87 +1,102 @@
 {% extends "base.html" %}
 {% block title %}Ligas | Gordon BetScanner{% endblock %}
+{% block nav_ligas %}active{% endblock %}
 {% block content %}
-<section class="hero">
-  <header class="hero-copy-block">
-    <p class="eyebrow">League hub</p>
-    <h1>Análisis diario por liga</h1>
-    <p class="hero-copy">Detecta de un vistazo las ligas activas del día y accede directamente a los cruces con valor para analizar.</p>
-  </header>
-  <div class="hero-meta">
-    {% if search_query %}
-    <div class="hero-stat">
-      <strong>{{ search_results|length }}</strong>
-      <span>Resultados</span>
-    </div>
-    {% endif %}
-  </div>
-</section>
 
-<form method="get" class="toolbar-card toolbar-sticky">
-  <div class="toolbar-main">
-    <label>
-      <span>Fecha</span>
-      <input type="date" name="day" value="{{ day }}">
-    </label>
-    <label>
-      <span>Competición</span>
-      <select name="competition_view">
-        <option value="Ligas" {% if competition_view == "Ligas" %}selected{% endif %}>Ligas</option>
-        <option value="Torneos" {% if competition_view == "Torneos" %}selected{% endif %}>Torneos</option>
-      </select>
-    </label>
-    <label class="toolbar-grow">
-      <span>Busqueda global</span>
-      <input type="text" name="q" value="{{ search_query }}" placeholder="Equipo o cruce">
-    </label>
+<div class="page-head">
+  <div>
+    <p class="eyebrow">League hub</p>
+    <h1 class="title">Análisis diario por liga</h1>
+    <p class="lede">Detecta de un vistazo las ligas activas del día y accede directamente a los cruces con valor.</p>
   </div>
-  <div class="toolbar-actions">
-    <button type="submit">Buscar</button>
+</div>
+
+<div class="stats-row">
+  <div class="stat">
+    <span class="stat-label">Ligas activas</span>
+    <span class="stat-val">{{ league_rows|length }}</span>
   </div>
+  <div class="stat-divider"></div>
+  <div class="stat">
+    <span class="stat-label">Partidos</span>
+    <span class="stat-val">{{ league_rows|sum(attribute='match_count') if league_rows else 0 }}</span>
+  </div>
+  {% if search_query %}
+  <div class="stat-divider"></div>
+  <div class="stat">
+    <span class="stat-label">Resultados</span>
+    <span class="stat-val pos">{{ search_results|length }}</span>
+  </div>
+  {% endif %}
+</div>
+
+<form method="get" class="filter-bar toolbar-sticky">
+  <div class="field">
+    <label class="field-label" for="inp-day">Fecha</label>
+    <input class="input" type="date" id="inp-day" name="day" value="{{ day }}">
+  </div>
+  <div class="field">
+    <label class="field-label" for="inp-comp">Competición</label>
+    <select class="select" id="inp-comp" name="competition_view">
+      <option value="Ligas"    {% if competition_view == "Ligas"    %}selected{% endif %}>Ligas</option>
+      <option value="Torneos"  {% if competition_view == "Torneos"  %}selected{% endif %}>Torneos</option>
+    </select>
+  </div>
+  <div class="field with-icon">
+    <label class="field-label" for="inp-q">Búsqueda global</label>
+    <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input class="input" type="text" id="inp-q" name="q" value="{{ search_query }}" placeholder="Equipo o cruce">
+  </div>
+  <button type="submit" class="btn primary">Buscar</button>
 </form>
 
 {% if search_query %}
 <section class="section">
-  <header class="section-head">
-    <h2>Resultados de busqueda</h2>
-    <p>{{ search_results|length }} coincidencias</p>
-  </header>
+  <div class="section-head">
+    <h2>Resultados de búsqueda</h2>
+    <span class="sub">{{ search_results|length }} coincidencias</span>
+  </div>
   <div class="list-grid">
     {% for item in search_results %}
-    <article class="card list-card">
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;gap:16px;">
       <div>
-        <h3>{{ item.match }}</h3>
-        <p>{{ item.league }} - {{ item.country }} - {{ item.time or "Sin hora" }}</p>
+        <div style="font-weight:700;">{{ item.match }}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;">{{ item.league }} · {{ item.country }} · {{ item.time or "Sin hora" }}</div>
       </div>
-      <a class="button-secondary" href="/match-detail/{{ item.match_id }}?league={{ item.league|urlencode }}&day={{ day }}">Abrir</a>
-    </article>
+      <a class="btn sm" href="/match-detail/{{ item.match_id }}?league={{ item.league|urlencode }}&day={{ day }}">Abrir</a>
+    </div>
     {% else %}
-    <article class="card empty-card">
+    <div class="card" style="padding:20px;">
       <h3>Sin resultados</h3>
-      <p>Prueba con el nombre de un equipo o una parte del cruce en la fecha seleccionada.</p>
-    </article>
+      <p class="lede" style="margin-top:4px;">Prueba con el nombre de un equipo o una parte del cruce en la fecha seleccionada.</p>
+    </div>
     {% endfor %}
   </div>
 </section>
 {% endif %}
 
 <section class="section">
-  <header class="section-head">
+  <div class="section-head">
     <h2>Ligas activas</h2>
-    <p>{{ league_rows|length }} ligas en el radar{% if not plan_access.can_view_all_leagues %} - Free: 5 grandes ligas{% endif %}</p>
-  </header>
-  <div class="league-grid">
+    <span class="sub">{{ league_rows|length }} ligas en el radar{% if not plan_access.can_view_all_leagues %} · Free: 5 grandes ligas{% endif %}</span>
+  </div>
+  <div class="leagues-grid">
     {% for item in league_rows %}
-    <a class="card league-card" href="/league/{{ item.league|urlencode }}?day={{ day }}&competition_view={{ competition_view|urlencode }}">
-      <div class="league-card-top">
-        <span class="mini-kicker badge-country">{{ item.country }}</span>
-        <span class="league-count-badge">
+    <a class="league" href="/league/{{ item.league|urlencode }}?day={{ day }}&competition_view={{ competition_view|urlencode }}">
+      <div class="league-top">
+        <span class="country"><span class="flag"></span>{{ item.country }}</span>
+        <span class="pill-matches">
           {% if item.match_count is not none %}{{ item.match_count }} partidos{% else %}Sin carga{% endif %}
         </span>
       </div>
-      <h3>{{ item.league }}</h3>
+      <div class="league-name">{{ item.league }}</div>
+      <div class="league-foot">
+        <span class="edge-mini">Ver picks →</span>
+        <span class="btn sm ghost">Abrir</span>
+      </div>
     </a>
     {% endfor %}
   </div>
 </section>
+
 {% endblock %}

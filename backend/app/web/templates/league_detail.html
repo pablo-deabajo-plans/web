@@ -1,80 +1,104 @@
 {% extends "base.html" %}
 {% block title %}{{ league_dashboard.league }} | Gordon BetScanner{% endblock %}
+{% block nav_ligas %}active{% endblock %}
 {% block content %}
-<section class="hero">
-  <header>
+
+<div class="breadcrumb">
+  <a href="/?day={{ day }}&competition_view={{ competition_view|urlencode }}">Ligas</a>
+  <span class="sep">›</span>
+  <span>{{ league_dashboard.league }}</span>
+</div>
+
+<div class="page-head">
+  <div>
     <p class="eyebrow">Detalle de liga</p>
-    <h1>{{ league_dashboard.league }}</h1>
-    <p class="hero-copy">{{ league_dashboard.country }} · {{ league_dashboard.match_count }} partidos del día en una vista dedicada.</p>
-  </header>
+    <h1 class="title">{{ league_dashboard.league }}</h1>
+    <p class="lede">{{ league_dashboard.country }} · {{ league_dashboard.match_count }} partidos del día</p>
+  </div>
   <div class="hero-actions">
-    <a class="button-secondary" href="/?day={{ day }}&competition_view={{ competition_view|urlencode }}">Volver a ligas</a>
-    <a class="button-secondary" href="{% if plan_access.can_view_daily_value %}/daily-value?day={{ day }}&competition_view={{ competition_view|urlencode }}{% else %}/upgrade?feature=daily_value&return_to=/daily-value?day={{ day }}&competition_view={{ competition_view|urlencode }}{% endif %}">Ranking diario{% if not plan_access.can_view_daily_value %} <span class="pro-inline">PRO</span>{% endif %}</a>
+    <a class="btn" href="/?day={{ day }}&competition_view={{ competition_view|urlencode }}">← Volver a ligas</a>
+    <a class="btn" href="{% if plan_access.can_view_daily_value %}/daily-value?day={{ day }}&competition_view={{ competition_view|urlencode }}{% else %}/upgrade?feature=daily_value&return_to=/daily-value?day={{ day }}&competition_view={{ competition_view|urlencode }}{% endif %}">Ranking diario{% if not plan_access.can_view_daily_value %} <span class="pro-inline">PRO</span>{% endif %}</a>
   </div>
-</section>
+</div>
 
-<section class="section">
-  <div class="panel-grid">
-    <article class="card panel">
-      <header class="panel-head">
-        <h3>Ranking de valor de la liga</h3>
-        <p>{% if plan_access.can_view_odds_value %}Ordenado por edge{% else %}Disponible con plan PRO{% endif %}</p>
-      </header>
+<div class="detail-grid">
+
+  <!-- Ranking de valor -->
+  <div class="table-wrap">
+    <div class="table-head">
+      <div class="league-tag">
+        <h3>Ranking de valor</h3>
+        <span class="meta">{% if plan_access.can_view_odds_value %}Ordenado por edge{% else %}Disponible con plan PRO{% endif %}</span>
+      </div>
       {% if not plan_access.can_view_odds_value %}
-      <a class="pro-state-label" href="/upgrade?feature=league_value_ranking&return_to=/league/{{ league_dashboard.league|urlencode }}?day={{ day }}&competition_view={{ competition_view|urlencode }}">Disponible con plan PRO</a>
-      {% else %}
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Match</th>
-              <th>Mercado</th>
-              <th>Prob</th>
-              <th>Cuota</th>
-              <th>Edge</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in league_dashboard.ranking %}
-            <tr>
-              <td>{{ row.match }}</td>
-              <td>{{ row.market }}</td>
-              <td>{{ row.prob|pct }}</td>
-              <td>@{{ row.offered_odds|num(2) }}</td>
-              <td class="{% if row.edge > 0 %}edge-positive{% else %}edge-flat{% endif %}">{{ row.edge|edge }}</td>
-            </tr>
-            {% else %}
-            <tr>
-              <td colspan="5">No se han detectado oportunidades de valor con contexto suficiente en esta liga hoy.</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+      <a class="pro-state-label" href="/upgrade?feature=league_value_ranking&return_to=/league/{{ league_dashboard.league|urlencode }}?day={{ day }}&competition_view={{ competition_view|urlencode }}">Actualizar a PRO</a>
       {% endif %}
-    </article>
-
-    <article class="card panel">
-      <header class="panel-head">
-        <h3>Partidos de la jornada</h3>
-      </header>
-      <div class="list-grid">
-        {% for match in league_dashboard.matches %}
-        <article class="card list-card compact">
-          <div>
-            <h3>{{ match.home_team }} vs {{ match.away_team }}</h3>
-            <p>{{ match.match_date }} - {{ match.time or "Sin hora" }}</p>
-          </div>
-          <a class="button-secondary" href="/match-detail/{{ match.match_id }}?league={{ league_dashboard.league|urlencode }}&day={{ day }}">Detalle del partido</a>
-        </article>
+    </div>
+    {% if plan_access.can_view_odds_value %}
+    <table class="data">
+      <thead>
+        <tr>
+          <th>Partido</th>
+          <th>Mercado</th>
+          <th>Prob</th>
+          <th>Cuota</th>
+          <th>Edge</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in league_dashboard.ranking %}
+        <tr>
+          <td>{{ row.match }}</td>
+          <td>{{ row.market }}</td>
+          <td class="num">{{ row.prob|pct }}</td>
+          <td class="num">@{{ row.offered_odds|num(2) }}</td>
+          <td>
+            <div class="edge-cell">
+              <span class="edge-val {% if row.edge <= 0 %}edge-flat{% endif %}">{{ row.edge|edge }}</span>
+              {% if row.edge > 0 %}
+              <div class="edge-bar"><span style="width:{{ [row.edge * 500, 100]|min }}%"></span></div>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
         {% else %}
-        <article class="card empty-card">
-          <h3>Sin partidos cargados</h3>
-          <p>No hay cruces persistidos para esta liga en la fecha seleccionada.</p>
-        </article>
+        <tr>
+          <td colspan="5" style="color:var(--muted);font-style:italic;">No se han detectado oportunidades de valor con contexto suficiente en esta liga hoy.</td>
+        </tr>
         {% endfor %}
-      </div>
-    </article>
+      </tbody>
+    </table>
+    {% else %}
+    <div style="padding:24px 20px;color:var(--muted);font-size:14px;">
+      Activa el plan PRO para ver el ranking de valor completo con edges reales.
+    </div>
+    {% endif %}
   </div>
-</section>
+
+  <!-- Partidos de la jornada -->
+  <div class="card" style="overflow:hidden;">
+    <div class="card-head">
+      <span class="card-title">Partidos de la jornada</span>
+      <span style="font-size:13px;color:var(--muted);">{{ league_dashboard.match_count }} partidos</span>
+    </div>
+    {% for match in league_dashboard.matches %}
+    <div class="match-card">
+      <div class="info">
+        <div class="matchup">
+          <span class="crest sm" style="background:{{ loop.cycle('#0e8b73','#1e40af','#4338ca','#047857','#b45309') }};">{{ match.home_team[:2]|upper }}</span>
+          {{ match.home_team }}
+          <span class="vs">vs</span>
+          <span class="crest sm" style="background:{{ loop.cycle('#b45309','#047857','#4338ca','#1e40af','#0e8b73') }};">{{ match.away_team[:2]|upper }}</span>
+          {{ match.away_team }}
+        </div>
+        <span class="when">{{ match.match_date }} · {{ match.time or "Sin hora" }}</span>
+      </div>
+      <a class="btn sm" href="/match-detail/{{ match.match_id }}?league={{ league_dashboard.league|urlencode }}&day={{ day }}">Detalle</a>
+    </div>
+    {% else %}
+    <div style="padding:24px 20px;color:var(--muted);">No hay cruces persistidos para esta liga en la fecha seleccionada.</div>
+    {% endfor %}
+  </div>
+
+</div>
 {% endblock %}

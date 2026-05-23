@@ -1,29 +1,33 @@
 {% extends "base.html" %}
 {% block title %}Registro | Gordon BetScanner{% endblock %}
 {% block content %}
-<section class="section auth-panel">
-  <article class="card panel">
-    <header class="panel-head">
-      <h3>Crear cuenta</h3>
-      <p>Plan free por defecto</p>
-    </header>
-    {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
-    <form method="post" class="account-form">
-      <label>
-        <span>Correo</span>
-        <input type="email" name="gmail" value="{{ gmail }}" autocomplete="email" required>
-      </label>
-      <label>
-        <span>Nombre</span>
-        <input type="text" name="nombre" value="{{ nombre }}" autocomplete="username" required>
-      </label>
-      <label>
-        <span>Contraseña</span>
-        <input type="password" name="password" autocomplete="new-password" required>
-      </label>
-      <button type="submit">Crear cuenta</button>
-    </form>
-    <p class="form-note">¿Ya tienes cuenta? <a href="/login">Iniciar sesión</a></p>
-  </article>
-</section>
+<div style="display:flex;justify-content:center;padding-top:32px;">
+  <div style="width:100%;max-width:440px;">
+    <div class="card" style="overflow:hidden;">
+      <div class="card-head">
+        <span class="card-title">Crear cuenta</span>
+        <span style="font-size:13px;color:var(--muted);">Plan free por defecto</span>
+      </div>
+      <div style="padding:24px;">
+        {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+        <form method="post" class="account-form">
+          <div class="field">
+            <label class="field-label" for="inp-email">Correo</label>
+            <input class="input" type="email" id="inp-email" name="gmail" value="{{ gmail }}" autocomplete="email" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="inp-nombre">Nombre</label>
+            <input class="input" type="text" id="inp-nombre" name="nombre" value="{{ nombre }}" autocomplete="username" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="inp-pw">Contraseña</label>
+            <input class="input" type="password" id="inp-pw" name="password" autocomplete="new-password" required>
+          </div>
+          <button type="submit" class="btn primary" style="width:100%;justify-content:center;margin-top:4px;">Crear cuenta</button>
+        </form>
+        <p class="form-note" style="margin-top:16px;text-align:center;">¿Ya tienes cuenta? <a href="/login" style="color:var(--brand);font-weight:600;">Iniciar sesión</a></p>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}

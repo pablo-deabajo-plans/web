@@ -1,63 +1,119 @@
 {% extends "base.html" %}
 {% block title %}Mi cuenta | Gordon BetScanner{% endblock %}
+{% block nav_account %}active{% endblock %}
 {% block content %}
-<section class="section panel-grid">
-  <article class="card panel">
-    <header class="panel-head">
-      <h3>Mi cuenta</h3>
-      <p>Datos principales</p>
-    </header>
-    <div class="mini-grid">
-      <div><strong class="text-label">Correo</strong><span class="text-value">{{ user.gmail }}</span></div>
-      <div><strong class="text-label">Plan</strong><span class="text-value">{{ user.plan|upper }}</span></div>
-      <div><strong class="text-label">Estado</strong><span>{% if plan_access.is_pro %}Acceso completo{% else %}Free: aprendizaje y analisis{% endif %}</span></div>
+
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Mi cuenta</p>
+    <h1 class="title">Configuración</h1>
+  </div>
+</div>
+
+<div class="account-grid">
+
+  <!-- Sidebar: perfil -->
+  <div class="profile-card">
+    <div class="avatar">{{ (user.nombre or user.gmail)[0]|upper }}</div>
+    <div class="profile-name">{{ user.nombre or "Sin nombre" }}</div>
+    <div class="profile-email">{{ user.gmail }}</div>
+    <div class="profile-stats">
+      <div class="profile-stat">
+        <span class="lab">Plan</span>
+        <span class="val">{{ user.plan|upper }}</span>
+      </div>
+      <div class="profile-stat">
+        <span class="lab">Estado</span>
+        <span class="val">{% if plan_access.is_pro %}PRO{% else %}Free{% endif %}</span>
+      </div>
     </div>
-  </article>
-  <article class="card panel">
-    <header class="panel-head">
-      <h3>Nombre</h3>
-      <p>Editable</p>
-    </header>
-    {% if profile_error %}<p class="form-error">{{ profile_error }}</p>{% endif %}
-    {% if profile_success %}<p class="form-success">{{ profile_success }}</p>{% endif %}
-    <form method="post" action="/account/profile" class="account-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label>
-        <span>Nombre</span>
-        <input type="text" name="nombre" value="{{ user.nombre }}" autocomplete="username" required>
-      </label>
-      <button type="submit">Guardar nombre</button>
-    </form>
-  </article>
-  <article class="card panel">
-    <header class="panel-head">
-      <h3>Contraseña</h3>
-      <p>Requiere contraseña actual</p>
-    </header>
-    {% if password_error %}<p class="form-error">{{ password_error }}</p>{% endif %}
-    {% if password_success %}<p class="form-success">{{ password_success }}</p>{% endif %}
-    <form method="post" action="/account/password" class="account-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label>
-        <span>Contraseña actual</span>
-        <input type="password" name="current_password" autocomplete="current-password" required>
-      </label>
-      <label>
-        <span>Nueva contraseña</span>
-        <input type="password" name="new_password" autocomplete="new-password" required>
-      </label>
-      <button type="submit">Cambiar contraseña</button>
-    </form>
-  </article>
-  <article class="card panel">
-    <header class="panel-head">
-      <h3>Sesión</h3>
-      <p>Cerrar acceso actual</p>
-    </header>
-    <form method="post" action="/logout" class="account-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button type="submit">Cerrar sesión</button>
-    </form>
-  </article>
-</section>
+    {% if not plan_access.is_pro %}
+    <a class="btn primary" style="width:100%;margin-top:16px;justify-content:center;" href="/upgrade">Actualizar a PRO</a>
+    {% endif %}
+  </div>
+
+  <!-- Columna derecha: settings -->
+  <div class="settings-stack">
+
+    <!-- Datos de cuenta -->
+    <div class="card" style="overflow:hidden;">
+      <div class="card-head">
+        <span class="card-title">Datos de la cuenta</span>
+      </div>
+      <div style="padding:20px;">
+        <div class="kv">
+          <span class="k">Correo</span>
+          <span class="v">{{ user.gmail }}</span>
+        </div>
+        <div class="kv">
+          <span class="k">Plan</span>
+          <span class="v">{{ user.plan|upper }}</span>
+        </div>
+        <div class="kv">
+          <span class="k">Acceso</span>
+          <span class="v">{% if plan_access.is_pro %}Completo{% else %}Free · aprendizaje y análisis{% endif %}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nombre -->
+    <div class="card" style="overflow:hidden;">
+      <div class="card-head">
+        <span class="card-title">Nombre</span>
+        <span style="font-size:13px;color:var(--muted);">Editable</span>
+      </div>
+      <div style="padding:20px;">
+        {% if profile_error %}<p class="form-error">{{ profile_error }}</p>{% endif %}
+        {% if profile_success %}<p class="form-success">{{ profile_success }}</p>{% endif %}
+        <form method="post" action="/account/profile" class="account-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <div class="field">
+            <label class="field-label" for="inp-nombre">Nombre</label>
+            <input class="input" type="text" id="inp-nombre" name="nombre" value="{{ user.nombre }}" autocomplete="username" required>
+          </div>
+          <button type="submit" class="btn primary" style="align-self:flex-start;">Guardar nombre</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Contraseña -->
+    <div class="card" style="overflow:hidden;">
+      <div class="card-head">
+        <span class="card-title">Contraseña</span>
+        <span style="font-size:13px;color:var(--muted);">Requiere contraseña actual</span>
+      </div>
+      <div style="padding:20px;">
+        {% if password_error %}<p class="form-error">{{ password_error }}</p>{% endif %}
+        {% if password_success %}<p class="form-success">{{ password_success }}</p>{% endif %}
+        <form method="post" action="/account/password" class="account-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <div class="field">
+            <label class="field-label" for="inp-cur-pw">Contraseña actual</label>
+            <input class="input" type="password" id="inp-cur-pw" name="current_password" autocomplete="current-password" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="inp-new-pw">Nueva contraseña</label>
+            <input class="input" type="password" id="inp-new-pw" name="new_password" autocomplete="new-password" required>
+          </div>
+          <button type="submit" class="btn primary" style="align-self:flex-start;">Cambiar contraseña</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Sesión -->
+    <div class="card" style="overflow:hidden;">
+      <div class="card-head">
+        <span class="card-title">Sesión</span>
+        <span style="font-size:13px;color:var(--muted);">Cerrar acceso actual</span>
+      </div>
+      <div style="padding:20px;">
+        <form method="post" action="/logout">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn danger" style="border:1px solid var(--border);">Cerrar sesión</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
 {% endblock %}

@@ -1,33 +1,53 @@
 {% extends "base.html" %}
 {% block title %}{{ analysis.local }} vs {{ analysis.visitante }} | Gordon BetScanner{% endblock %}
+{% block nav_ligas %}active{% endblock %}
 {% block content %}
-<section class="hero">
-  <header>
+
+<div class="breadcrumb">
+  <a href="/?day={{ day }}">Ligas</a>
+  <span class="sep">›</span>
+  <a href="/league/{{ league|urlencode }}?day={{ day }}">{{ league }}</a>
+  <span class="sep">›</span>
+  <span>{{ analysis.local }} vs {{ analysis.visitante }}</span>
+</div>
+
+<div class="page-head">
+  <div>
     <p class="eyebrow">Detalle del partido</p>
-    <h1>{{ analysis.local }} vs {{ analysis.visitante }}</h1>
-    <p class="hero-copy">{{ analysis.liga }} - {{ match.match_date }} - {{ match.time or "Sin hora" }}</p>
-  </header>
-  <div class="hero-actions">
-    <a class="button-secondary" href="/league/{{ league|urlencode }}?day={{ day }}">Volver a la liga</a>
-    <a class="button-secondary" href="{% if plan_access.can_view_daily_value %}/daily-value?day={{ day }}{% else %}/upgrade?feature=daily_value&return_to=/daily-value?day={{ day }}{% endif %}">Ranking diario{% if not plan_access.can_view_daily_value %} <span class="pro-inline">PRO</span>{% endif %}</a>
+    <h1 class="title">
+      <span class="matchup">
+        {{ analysis.local }}
+        <span class="vs">vs</span>
+        {{ analysis.visitante }}
+      </span>
+    </h1>
+    <p class="lede">{{ analysis.liga }} · {{ match.match_date }} · {{ match.time or "Sin hora" }}</p>
   </div>
-</section>
+  <div class="hero-actions">
+    <a class="btn" href="/league/{{ league|urlencode }}?day={{ day }}">← Liga</a>
+    <a class="btn" href="{% if plan_access.can_view_daily_value %}/daily-value?day={{ day }}{% else %}/upgrade?feature=daily_value&return_to=/daily-value?day={{ day }}{% endif %}">Ranking diario{% if not plan_access.can_view_daily_value %} <span class="pro-inline">PRO</span>{% endif %}</a>
+  </div>
+</div>
 
 <section class="section">
   <div class="stat-grid">
     {% for card in signal_cards %}
-    <article class="card stat-card">
-      <p>{{ card.label }}</p>
-      <h3>{{ card.value|pct }}</h3>
-    </article>
+    <div class="card stat-card" style="display:flex;flex-direction:column;gap:4px;">
+      <span style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">{{ card.label }}</span>
+      <span style="font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink);">{{ card.value|pct }}</span>
+    </div>
     {% endfor %}
   </div>
 </section>
 
 <section class="section">
-  <nav class="tabs" aria-label="Apartados del partido">
+  <nav class="tabbar" aria-label="Apartados del partido">
     {% for tab_key, tab_name in tabs %}
-    <a class="tab-link {% if active_tab == tab_key %}is-active{% endif %} {% if tab_key not in plan_access.allowed_match_tabs %}is-locked{% endif %}" {% if active_tab == tab_key %}aria-current="page"{% endif %} href="{% if tab_key in plan_access.allowed_match_tabs %}/match-detail/{{ match_id }}?league={{ league|urlencode }}&day={{ day }}&tab={{ tab_key }}{% else %}/upgrade?feature=odds_value&return_to=/match-detail/{{ match_id }}?league={{ league|urlencode }}&day={{ day }}&tab={{ tab_key }}{% endif %}">{{ tab_name }}{% if tab_key not in plan_access.allowed_match_tabs %} <span class="pro-inline">PRO</span>{% endif %}</a>
+    <a class="tab {% if active_tab == tab_key %}on{% endif %} {% if tab_key not in plan_access.allowed_match_tabs %}is-locked{% endif %}"
+       {% if active_tab == tab_key %}aria-current="page"{% endif %}
+       href="{% if tab_key in plan_access.allowed_match_tabs %}/match-detail/{{ match_id }}?league={{ league|urlencode }}&day={{ day }}&tab={{ tab_key }}{% else %}/upgrade?feature=odds_value&return_to=/match-detail/{{ match_id }}?league={{ league|urlencode }}&day={{ day }}&tab={{ tab_key }}{% endif %}">
+      {{ tab_name }}{% if tab_key not in plan_access.allowed_match_tabs %} <span class="pro-inline">PRO</span>{% endif %}
+    </a>
     {% endfor %}
   </nav>
   {% if locked_tab_label %}
@@ -37,271 +57,239 @@
 
 {% if active_tab == "summary" %}
 <section class="section panel-grid">
-  <article class="card panel">
-    <header class="panel-head">
+  <div class="card panel">
+    <div class="panel-head">
       <h3>Probabilidades 1X2</h3>
-      <p>Lectura base del partido</p>
-    </header>
+      <span style="font-size:13px;color:var(--muted);">Lectura base del partido</span>
+    </div>
     <div class="table-wrap">
       <table>
         <tbody>
-          <tr><th>{{ analysis.local }}</th><td>{{ analysis.resultado.home_win|pct }}</td></tr>
-          <tr><th>Empate</th><td>{{ analysis.resultado.draw|pct }}</td></tr>
-          <tr><th>{{ analysis.visitante }}</th><td>{{ analysis.resultado.away_win|pct }}</td></tr>
-          <tr><th>xG</th><td>{{ analysis.xg_local|num(2) }} - {{ analysis.xg_visitante|num(2) }}</td></tr>
-          <tr><th>Total corners</th><td>{{ analysis.resultado.total_corners|num(2) }}</td></tr>
-          <tr><th>Marcador más probable</th><td>{{ analysis.resultado.most_likely_score }}</td></tr>
+          <tr><th>{{ analysis.local }}</th><td class="num">{{ analysis.resultado.home_win|pct }}</td></tr>
+          <tr><th>Empate</th><td class="num">{{ analysis.resultado.draw|pct }}</td></tr>
+          <tr><th>{{ analysis.visitante }}</th><td class="num">{{ analysis.resultado.away_win|pct }}</td></tr>
+          <tr><th>xG</th><td class="num">{{ analysis.xg_local|num(2) }} – {{ analysis.xg_visitante|num(2) }}</td></tr>
+          <tr><th>Total corners</th><td class="num">{{ analysis.resultado.total_corners|num(2) }}</td></tr>
+          <tr><th>Marcador más probable</th><td class="num">{{ analysis.resultado.most_likely_score }}</td></tr>
         </tbody>
       </table>
     </div>
-  </article>
-  <article class="card panel">
-    <header class="panel-head">
+  </div>
+  <div class="card panel">
+    <div class="panel-head">
       <h3>Insights del modelo</h3>
-      <p>Lectura corta</p>
-    </header>
+      <span style="font-size:13px;color:var(--muted);">Lectura corta</span>
+    </div>
     <ul class="bullet-list">
       {% for item in insights %}
       <li>{{ item }}</li>
       {% else %}
-      <li>Sin insights adicionales.</li>
+      <li style="color:var(--muted);">Sin insights adicionales.</li>
       {% endfor %}
     </ul>
-  </article>
+  </div>
 </section>
+
 {% elif active_tab == "projection" %}
 <section class="section panel-grid">
-  <article class="card panel panel-span">
-    <header class="panel-head">
+  <div class="card panel panel-span">
+    <div class="panel-head">
       <h3>Distribución probabilística</h3>
-      <p>Umbrales Over derivados del modelo</p>
-    </header>
+      <span style="font-size:13px;color:var(--muted);">Umbrales Over derivados del modelo</span>
+    </div>
     <form method="get" class="projection-controls">
       <input type="hidden" name="league" value="{{ league }}">
       <input type="hidden" name="day" value="{{ day }}">
       <input type="hidden" name="tab" value="projection">
-      <label>
-        <span>Estadística</span>
-        <select name="projection_stat">
+      <div class="field">
+        <label class="field-label">Estadística</label>
+        <select class="select" name="projection_stat">
           {% for item in projection_stats %}
           {% if plan_access.is_pro or item.key in ["goals", "corners"] %}
           <option value="{{ item.key }}" {% if selected_projection_stat == item.key %}selected{% endif %}>{{ item.label }}</option>
           {% endif %}
           {% endfor %}
         </select>
-      </label>
-      <label>
-        <span>Probabilidad mínima</span>
-        <select name="min_probability">
+      </div>
+      <div class="field">
+        <label class="field-label">Probabilidad mínima</label>
+        <select class="select" name="min_probability">
           {% for option in projection_min_probabilities %}
           {% if plan_access.is_pro or option >= 0.5 %}
           <option value="{{ option }}" {% if selected_min_probability == option %}selected{% endif %}>{{ option|pct }}</option>
           {% endif %}
           {% endfor %}
         </select>
-      </label>
-      <button type="submit">Actualizar</button>
+      </div>
+      <button type="submit" class="btn primary" style="align-self:flex-end;">Actualizar</button>
     </form>
     {% if projection_distribution.is_limited %}
-    <a class="locked-note locked-note-link" href="/upgrade?feature=advanced_projection&return_to=/match-detail/{{ match_id }}?league={{ league|urlencode }}&day={{ day }}&tab=projection">Plan Free: distribucion limitada a total partido, goles/corners y probabilidad minima del 50%. Disponible completo con plan PRO.</a>
+    <a class="locked-note locked-note-link" href="/upgrade?feature=advanced_projection&return_to=/match-detail/{{ match_id }}?league={{ league|urlencode }}&day={{ day }}&tab=projection">Plan Free: distribución limitada a total partido, goles/corners y probabilidad mínima del 50%. Disponible completo con plan PRO.</a>
     {% endif %}
-  </article>
+  </div>
 
   {% for scope in projection_distribution.scopes %}
-  <article class="card panel">
-    <header class="panel-head">
-      <h3>{{ projection_distribution.stat_label }} - {{ scope.label }}</h3>
-      <p>{% if scope.available %}Prob. mínima {{ selected_min_probability|pct }}{% else %}Sin soporte suficiente{% endif %}</p>
-    </header>
+  <div class="card panel">
+    <div class="panel-head">
+      <h3>{{ projection_distribution.stat_label }} – {{ scope.label }}</h3>
+      <span style="font-size:13px;color:var(--muted);">{% if scope.available %}Prob. mínima {{ selected_min_probability|pct }}{% else %}Sin soporte suficiente{% endif %}</span>
+    </div>
     {% if scope.available %}
     <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Umbral</th>
-            <th>Probabilidad</th>
-          </tr>
-        </thead>
+      <table class="data">
+        <thead><tr><th>Umbral</th><th>Probabilidad</th></tr></thead>
         <tbody>
           {% for row in scope.rows %}
-          <tr>
-            <td>{{ row.threshold }}</td>
-            <td>{{ row.probability|pct }}</td>
-          </tr>
+          <tr><td>{{ row.threshold }}</td><td class="num">{{ row.probability|pct }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
     {% elif scope.message %}
-    <p>{{ scope.message }}</p>
+    <p style="color:var(--muted);">{{ scope.message }}</p>
     {% else %}
-    <p>No hay umbrales por encima de la probabilidad mínima seleccionada.</p>
+    <p style="color:var(--muted);">No hay umbrales por encima de la probabilidad mínima seleccionada.</p>
     {% endif %}
-  </article>
+  </div>
   {% endfor %}
 </section>
+
 {% elif active_tab == "odds" %}
 <section class="section panel-grid">
-  <article class="card panel panel-span">
-    <header class="panel-head">
+  <div class="card panel panel-span">
+    <div class="panel-head">
       <h3>Mercados ordenados por edge</h3>
-      <p>{% if plan_access.can_view_odds_value %}Solo se muestran cuotas externas reales disponibles{% else %}Disponible con plan PRO{% endif %}</p>
-    </header>
+      <span style="font-size:13px;color:var(--muted);">{% if plan_access.can_view_odds_value %}Solo cuotas externas reales disponibles{% else %}Disponible con plan PRO{% endif %}</span>
+    </div>
     {% if not plan_access.can_view_odds_value %}
     <a class="pro-state-label" href="/upgrade?feature=odds_value&return_to=/match-detail/{{ match_id }}?league={{ league|urlencode }}&day={{ day }}&tab=odds">Disponible con plan PRO</a>
     {% else %}
     {% if top_edges %}
     <div class="table-wrap">
-      <table class="responsive-table">
+      <table class="data">
         <thead>
           <tr>
-            <th>Mercado</th>
-            <th>Prob</th>
-            <th>Cuota justa</th>
-            <th>Cuota</th>
-            <th>Edge</th>
-            <th>Provider</th>
+            <th>Mercado</th><th>Prob</th><th>Cuota justa</th><th>Cuota</th><th>Edge</th><th>Provider</th>
           </tr>
         </thead>
         <tbody>
           {% for row in top_edges %}
           <tr>
             <td>{{ row.market }}</td>
-            <td>{{ row.prob|pct }}</td>
-            <td>@{{ row.fair_odds|num(2) }}</td>
-            <td>@{{ row.offered_odds|num(2) }}</td>
-            <td class="{% if row.edge > 0 %}edge-positive{% else %}edge-flat{% endif %}">{{ row.edge|edge }}</td>
-            <td>{{ row.provider or "-" }}</td>
+            <td class="num">{{ row.prob|pct }}</td>
+            <td class="num">@{{ row.fair_odds|num(2) }}</td>
+            <td class="num">@{{ row.offered_odds|num(2) }}</td>
+            <td>
+              <div class="edge-cell">
+                <span class="edge-val {% if row.edge <= 0 %}edge-flat{% endif %}">{{ row.edge|edge }}</span>
+                {% if row.edge > 0 %}<div class="edge-bar"><span style="width:{{ [row.edge * 500, 100]|min }}%"></span></div>{% endif %}
+              </div>
+            </td>
+            <td style="color:var(--muted);">{{ row.provider or "–" }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
     {% else %}
-    <p>Sin precio externo disponible todavía para este partido. No se muestra valor real hasta que exista cuota de sportsbook.</p>
+    <p style="color:var(--muted);padding:8px 0;">Sin precio externo disponible todavía para este partido.</p>
     {% endif %}
     {% endif %}
-  </article>
+  </div>
 </section>
+
 {% elif active_tab == "season" %}
 <section class="section panel-grid">
-  <article class="card panel">
-    <header class="panel-head">
-      <h3>{{ analysis.local }} - casa</h3>
-      <p>Temporada completa</p>
-    </header>
+  <div class="card panel">
+    <div class="panel-head"><h3>{{ analysis.local }} – casa</h3><span style="font-size:13px;color:var(--muted);">Temporada completa</span></div>
     <div class="table-wrap">
       <table>
         <tbody>
-          <tr><th>PJ</th><td>{{ analysis.stats_local.home.pj }}</td></tr>
-          <tr><th>GF</th><td>{{ analysis.stats_local.home.gf|num(2) }}</td></tr>
-          <tr><th>GC</th><td>{{ analysis.stats_local.home.gc|num(2) }}</td></tr>
-          <tr><th>BTTS</th><td>{{ analysis.stats_local.home.btts_pct|pct }}</td></tr>
-          <tr><th>Over 2.5</th><td>{{ analysis.stats_local.home.over25_pct|pct }}</td></tr>
+          <tr><th>PJ</th><td class="num">{{ analysis.stats_local.home.pj }}</td></tr>
+          <tr><th>GF</th><td class="num">{{ analysis.stats_local.home.gf|num(2) }}</td></tr>
+          <tr><th>GC</th><td class="num">{{ analysis.stats_local.home.gc|num(2) }}</td></tr>
+          <tr><th>BTTS</th><td class="num">{{ analysis.stats_local.home.btts_pct|pct }}</td></tr>
+          <tr><th>Over 2.5</th><td class="num">{{ analysis.stats_local.home.over25_pct|pct }}</td></tr>
         </tbody>
       </table>
     </div>
-    <details>
-      <summary>Forma reciente (últimos partidos)</summary>
-      <div class="mini-grid">
+    <details style="margin-top:12px;">
+      <summary style="cursor:pointer;font-weight:600;color:var(--muted);font-size:13px;">Forma reciente (últimos partidos)</summary>
+      <div class="mini-grid" style="margin-top:10px;">
         <div><strong class="text-label">GF</strong><span class="text-value">{{ analysis.stats_local.recent_overall.gf|num(2) }}</span></div>
         <div><strong class="text-label">GC</strong><span class="text-value">{{ analysis.stats_local.recent_overall.gc|num(2) }}</span></div>
         <div><strong class="text-label">BTTS</strong><span class="text-value">{{ analysis.stats_local.recent_overall.btts_pct|pct }}</span></div>
         <div><strong class="text-label">Over 2.5</strong><span class="text-value">{{ analysis.stats_local.recent_overall.over25_pct|pct }}</span></div>
       </div>
     </details>
-  </article>
-  <article class="card panel">
-    <header class="panel-head">
-      <h3>{{ analysis.visitante }} - fuera</h3>
-      <p>Temporada completa</p>
-    </header>
+  </div>
+  <div class="card panel">
+    <div class="panel-head"><h3>{{ analysis.visitante }} – fuera</h3><span style="font-size:13px;color:var(--muted);">Temporada completa</span></div>
     <div class="table-wrap">
       <table>
         <tbody>
-          <tr><th>PJ</th><td>{{ analysis.stats_visitante.away.pj }}</td></tr>
-          <tr><th>GF</th><td>{{ analysis.stats_visitante.away.gf|num(2) }}</td></tr>
-          <tr><th>GC</th><td>{{ analysis.stats_visitante.away.gc|num(2) }}</td></tr>
-          <tr><th>BTTS</th><td>{{ analysis.stats_visitante.away.btts_pct|pct }}</td></tr>
-          <tr><th>Over 2.5</th><td>{{ analysis.stats_visitante.away.over25_pct|pct }}</td></tr>
+          <tr><th>PJ</th><td class="num">{{ analysis.stats_visitante.away.pj }}</td></tr>
+          <tr><th>GF</th><td class="num">{{ analysis.stats_visitante.away.gf|num(2) }}</td></tr>
+          <tr><th>GC</th><td class="num">{{ analysis.stats_visitante.away.gc|num(2) }}</td></tr>
+          <tr><th>BTTS</th><td class="num">{{ analysis.stats_visitante.away.btts_pct|pct }}</td></tr>
+          <tr><th>Over 2.5</th><td class="num">{{ analysis.stats_visitante.away.over25_pct|pct }}</td></tr>
         </tbody>
       </table>
     </div>
-    <details>
-      <summary>Ver forma reciente</summary>
-      <div class="mini-grid">
+    <details style="margin-top:12px;">
+      <summary style="cursor:pointer;font-weight:600;color:var(--muted);font-size:13px;">Ver forma reciente</summary>
+      <div class="mini-grid" style="margin-top:10px;">
         <div><strong class="text-label">GF</strong><span class="text-value">{{ analysis.stats_visitante.recent_overall.gf|num(2) }}</span></div>
         <div><strong class="text-label">GC</strong><span class="text-value">{{ analysis.stats_visitante.recent_overall.gc|num(2) }}</span></div>
         <div><strong class="text-label">BTTS</strong><span class="text-value">{{ analysis.stats_visitante.recent_overall.btts_pct|pct }}</span></div>
         <div><strong class="text-label">Over 2.5</strong><span class="text-value">{{ analysis.stats_visitante.recent_overall.over25_pct|pct }}</span></div>
       </div>
     </details>
-  </article>
+  </div>
 </section>
+
 {% elif active_tab == "compare" %}
 <section class="section panel-grid">
-  <article class="card panel panel-span">
-    <header class="panel-head">
-      <h3>Comparativa</h3>
-      <p>Contexto avanzado: casa/fuera, global y forma</p>
-    </header>
+  <div class="card panel panel-span">
+    <div class="panel-head"><h3>Comparativa</h3><span style="font-size:13px;color:var(--muted);">Casa/fuera, global y forma</span></div>
     {% if comparison_table %}
     <div class="table-wrap">
-      <table class="responsive-table">
+      <table class="data">
         <thead>
-          <tr>
-            {% for key in comparison_table[0].keys() %}
-            <th>{{ key }}</th>
-            {% endfor %}
-          </tr>
+          <tr>{% for key in comparison_table[0].keys() %}<th>{{ key }}</th>{% endfor %}</tr>
         </thead>
         <tbody>
           {% for row in comparison_table %}
-          <tr>
-            {% for value in row.values() %}
-            <td>{{ value }}</td>
-            {% endfor %}
-          </tr>
+          <tr>{% for value in row.values() %}<td>{{ value }}</td>{% endfor %}</tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
     {% else %}
-    <p>Sin comparativa disponible para este partido.</p>
+    <p style="color:var(--muted);">Sin comparativa disponible para este partido.</p>
     {% endif %}
-  </article>
-  <article class="card panel">
-    <header class="panel-head">
-      <h3>H2H</h3>
-      <p>Contexto secundario</p>
-    </header>
+  </div>
+  <div class="card panel">
+    <div class="panel-head"><h3>H2H</h3><span style="font-size:13px;color:var(--muted);">Contexto secundario</span></div>
     <div class="mini-grid">
       <div><strong class="text-label">Partidos</strong><span class="text-value">{{ analysis.h2h.matches or 0 }}</span></div>
       <div><strong class="text-label">{{ analysis.local }}</strong><span class="text-value">{{ analysis.h2h.home_wins or 0 }}</span></div>
       <div><strong class="text-label">Empates</strong><span class="text-value">{{ analysis.h2h.draws or 0 }}</span></div>
       <div><strong class="text-label">{{ analysis.visitante }}</strong><span class="text-value">{{ analysis.h2h.away_wins or 0 }}</span></div>
     </div>
-  </article>
+  </div>
 </section>
+
 {% elif active_tab == "players" %}
 <section class="section">
-  <article class="card panel">
-    <header class="panel-head">
-      <h3>Lectura de jugadores</h3>
-      <p>{{ player_payload.provider or "Persistido" }}</p>
-    </header>
+  <div class="card panel">
+    <div class="panel-head"><h3>Lectura de jugadores</h3><span style="font-size:13px;color:var(--muted);">{{ player_payload.provider or "Persistido" }}</span></div>
     {% if player_payload.available %}
     <div class="table-wrap">
-      <table class="responsive-table">
+      <table class="data">
         <thead>
           <tr>
-            <th>Jugador</th>
-            <th>Equipo</th>
-            <th>Prop</th>
-            <th>Prob</th>
-            <th>Esperado</th>
-            <th>Muestra</th>
-            <th>Confianza</th>
+            <th>Jugador</th><th>Equipo</th><th>Prop</th><th>Prob</th><th>Esperado</th><th>Muestra</th><th>Confianza</th>
           </tr>
         </thead>
         <tbody>
@@ -310,9 +298,9 @@
             <td>{{ row.player_name }}</td>
             <td>{{ row.team_name }}</td>
             <td>{{ row.metric }} {{ row.line_label }}</td>
-            <td>{{ row.probability|pct }}</td>
-            <td>{{ row.expected|num(2) }}</td>
-            <td>{{ row.sample }}</td>
+            <td class="num">{{ row.probability|pct }}</td>
+            <td class="num">{{ row.expected|num(2) }}</td>
+            <td class="num">{{ row.sample }}</td>
             <td>{{ row.confidence_label }}</td>
           </tr>
           {% endfor %}
@@ -320,10 +308,10 @@
       </table>
     </div>
     {% else %}
-    <p>Esta sección muestra props de jugadores cuando hay datos fiables disponibles.
-       <br> La vista prioriza rapidez y estabilidad del análisis.</p>
+    <p style="color:var(--muted);">Esta sección muestra props de jugadores cuando hay datos fiables disponibles. La vista prioriza rapidez y estabilidad del análisis.</p>
     {% endif %}
-  </article>
+  </div>
 </section>
 {% endif %}
+
 {% endblock %}

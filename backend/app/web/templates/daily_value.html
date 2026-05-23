@@ -1,47 +1,56 @@
 {% extends "base.html" %}
 {% block title %}Ranking diario | Gordon BetScanner{% endblock %}
+{% block nav_ranking %}active{% endblock %}
 {% block content %}
-<section class="hero">
-  <header>
+
+<div class="page-head">
+  <div>
     <p class="eyebrow">Value ranking</p>
-    <h1>Oportunidades de valor del día</h1>
-    <p class="hero-copy">Ranking separado por liga para garantizar comparaciones reales.</p>
-  </header>
-  {% if plan_access.can_view_daily_value %}
-  <form method="get" class="toolbar-card">
-    <label>
-      <span>Fecha</span>
-      <input type="date" name="day" value="{{ day }}">
-    </label>
-    <label>
-      <span>Tipo de competición</span>
-      <select name="competition_view">
-        <option value="Ligas" {% if competition_view == "Ligas" %}selected{% endif %}>Ligas</option>
-        <option value="Torneos" {% if competition_view == "Torneos" %}selected{% endif %}>Torneos</option>
-      </select>
-    </label>
-    <button type="submit">Actualizar ranking</button>
-  </form>
-  {% else %}
-  <a class="card toolbar-card pro-lock-card" href="/upgrade?feature=daily_value&return_to=/daily-value?day={{ day }}&competition_view={{ competition_view|urlencode }}">
-    <strong>Disponible con plan PRO</strong>
-    <span>El ranking diario completo queda reservado para cobertura de valor.</span>
-  </a>
-  {% endif %}
-</section>
+    <h1 class="title">Oportunidades de valor del día</h1>
+    <p class="lede">Ranking separado por liga para garantizar comparaciones reales.</p>
+  </div>
+</div>
+
+{% if plan_access.can_view_daily_value %}
+<form method="get" class="filter-bar">
+  <div class="field">
+    <label class="field-label" for="inp-day">Fecha</label>
+    <input class="input" type="date" id="inp-day" name="day" value="{{ day }}">
+  </div>
+  <div class="field">
+    <label class="field-label" for="inp-comp">Tipo de competición</label>
+    <select class="select" id="inp-comp" name="competition_view">
+      <option value="Ligas"   {% if competition_view == "Ligas"   %}selected{% endif %}>Ligas</option>
+      <option value="Torneos" {% if competition_view == "Torneos" %}selected{% endif %}>Torneos</option>
+    </select>
+  </div>
+  <div></div>
+  <button type="submit" class="btn primary">Actualizar ranking</button>
+</form>
+{% else %}
+<a class="card" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;margin-bottom:24px;gap:16px;text-decoration:none;" href="/upgrade?feature=daily_value&return_to=/daily-value?day={{ day }}&competition_view={{ competition_view|urlencode }}">
+  <div>
+    <strong style="font-weight:700;">Disponible con plan PRO</strong>
+    <p class="lede" style="margin-top:2px;font-size:13px;">El ranking diario completo queda reservado para cobertura de valor.</p>
+  </div>
+  <span class="btn primary">Actualizar a PRO</span>
+</a>
+{% endif %}
 
 {% if plan_access.can_view_daily_value %}
 {% for group in ranking_groups %}
 <section class="section">
-  <header class="section-head">
-    <h2>{{ group.league }}</h2>
-    <p>{{ group.country }} · {{ group.match_count }} partidos</p>
-  </header>
-  <div class="card table-wrap panel">
-    <table>
+  <div class="table-wrap">
+    <div class="table-head">
+      <div class="league-tag">
+        <h3>{{ group.league }}</h3>
+        <span class="meta">{{ group.country }} · {{ group.match_count }} partidos</span>
+      </div>
+    </div>
+    <table class="data">
       <thead>
         <tr>
-          <th>Match</th>
+          <th>Partido</th>
           <th>Pick</th>
           <th>Prob</th>
           <th>Cuota justa</th>
@@ -53,13 +62,20 @@
       <tbody>
         {% for pick in group.picks %}
         <tr>
-          <td>{{ pick.match }}</td>
+          <td style="font-weight:600;">{{ pick.match }}</td>
           <td>{{ pick.pick_label or pick.market }}</td>
-          <td>{{ pick.prob|pct }}</td>
-          <td>@{{ pick.fair_odds|num(2) }}</td>
-          <td>@{{ pick.offered_odds|num(2) }}</td>
-          <td class="{% if pick.edge > 0 %}edge-positive{% else %}edge-flat{% endif %}">{{ pick.edge|edge }}</td>
-          <td><a class="button-secondary small" href="/match-detail/{{ pick.match_id }}?league={{ group.league|urlencode }}&day={{ day }}">Abrir</a></td>
+          <td class="num">{{ pick.prob|pct }}</td>
+          <td class="num">@{{ pick.fair_odds|num(2) }}</td>
+          <td class="num">@{{ pick.offered_odds|num(2) }}</td>
+          <td>
+            <div class="edge-cell">
+              <span class="edge-val {% if pick.edge <= 0 %}edge-flat{% endif %}">{{ pick.edge|edge }}</span>
+              {% if pick.edge > 0 %}
+              <div class="edge-bar"><span style="width:{{ [pick.edge * 500, 100]|min }}%"></span></div>
+              {% endif %}
+            </div>
+          </td>
+          <td><a class="btn sm" href="/match-detail/{{ pick.match_id }}?league={{ group.league|urlencode }}&day={{ day }}">Abrir</a></td>
         </tr>
         {% endfor %}
       </tbody>
@@ -68,12 +84,12 @@
 </section>
 {% else %}
 <section class="section">
-  <article class="card empty-card">
+  <div class="card" style="padding:24px 20px;">
     <h3>Sin oportunidades de valor hoy</h3>
-    <p>No se han detectado picks con edge positivo para el tipo de competición seleccionado.</p>
-
-  </article>
+    <p class="lede" style="margin-top:6px;">No se han detectado picks con edge positivo para el tipo de competición seleccionado.</p>
+  </div>
 </section>
 {% endfor %}
 {% endif %}
+
 {% endblock %}

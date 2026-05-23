@@ -5,32 +5,47 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Gordon BetScanner{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/style.css">
 </head>
 <body>
-  <header class="shell-header">
-    <div class="shell-brand">
-      <a href="/" class="brand-link">Gordon BetScanner</a>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="/" class="brand">
+        <span class="brand-mark">G</span>
+        <span class="brand-name">Gordon <small>BetScanner</small></span>
+      </a>
+
+      <div class="nav-links" id="main-nav">
+        <a href="/?day={{ day }}" class="nav-link {% block nav_ligas %}{% endblock %}">Ligas</a>
+        <a href="{% if plan_access.can_view_daily_value %}/daily-value?day={{ day }}{% else %}/upgrade?feature=daily_value&return_to=/daily-value?day={{ day }}{% endif %}" class="nav-link {% block nav_ranking %}{% endblock %}">Ranking diario{% if not plan_access.can_view_daily_value %} <span class="pro-inline">PRO</span>{% endif %}</a>
+        {% if current_user %}
+        <a href="/account" class="nav-link {% block nav_account %}{% endblock %}">Mi cuenta</a>
+        {% else %}
+        <a href="/login" class="nav-link {% block nav_login %}{% endblock %}">Iniciar sesión</a>
+        {% endif %}
+      </div>
+
+      <div class="nav-right">
+        {% if plan_access and plan_access.is_pro %}
+        <span class="pro-chip">PRO</span>
+        {% endif %}
+        {% if current_user %}
+        <a href="/account" class="av" title="Mi cuenta">{{ (current_user.nombre or current_user.gmail)[0]|upper }}</a>
+        {% else %}
+        <a href="/login" class="av" title="Iniciar sesión">?</a>
+        {% endif %}
+        <button class="nav-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="main-nav">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
     </div>
+  </nav>
 
-    <button class="nav-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="main-nav">
-      <span></span>
-      <span></span>
-      <span></span>
-    </button>
-
-    <nav class="shell-nav" id="main-nav">
-      <a href="/?day={{ day }}" class="nav-link">Ligas</a>
-      <a href="{% if plan_access.can_view_daily_value %}/daily-value?day={{ day }}{% else %}/upgrade?feature=daily_value&return_to=/daily-value?day={{ day }}{% endif %}" class="nav-link">Ranking diario{% if not plan_access.can_view_daily_value %} <span class="pro-inline">PRO</span>{% endif %}</a>
-      {% if current_user %}
-      <a href="/account" class="nav-link">Mi cuenta</a>
-      {% else %}
-      <a href="/login" class="nav-link">Iniciar sesión</a>
-      {% endif %}
-    </nav>
-  </header>
-
-  <main class="page-shell">
+  <main class="page">
     {% block content %}{% endblock %}
   </main>
 
