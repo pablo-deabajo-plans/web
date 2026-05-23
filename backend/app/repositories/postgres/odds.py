@@ -8,6 +8,18 @@ from backend.app.repositories.postgres.base import PostgresRepository
 
 
 class PostgresOddsRepository(PostgresRepository, OddsRepository):
+    @staticmethod
+    def _row_to_odds(row) -> OddsQuote:
+        return OddsQuote(
+            id=row[0],
+            match_id=row[1],
+            market=row[2],
+            selection=row[3],
+            decimal_odds=row[4],
+            sportsbook=row[5],
+            captured_at=row[6],
+        )
+
     def list_latest_odds_for_day(self, target_date: date) -> list[OddsQuote]:
         query = """
         SELECT id, match_id, market, selection, decimal_odds, sportsbook, captured_at
@@ -19,18 +31,7 @@ class PostgresOddsRepository(PostgresRepository, OddsRepository):
             with conn.cursor() as cursor:
                 cursor.execute(query, (target_date,))
                 rows = cursor.fetchall()
-        return [
-            OddsQuote(
-                match_id=row[1],
-                market=row[2],
-                selection=row[3],
-                decimal_odds=row[4],
-                sportsbook=row[5],
-                captured_at=row[6],
-                id=row[0],
-            )
-            for row in rows
-        ]
+        return [self._row_to_odds(row) for row in rows]
 
     def list_odds_for_match(self, match_id: str) -> list[OddsQuote]:
         query = """
@@ -43,18 +44,7 @@ class PostgresOddsRepository(PostgresRepository, OddsRepository):
             with conn.cursor() as cursor:
                 cursor.execute(query, (match_id,))
                 rows = cursor.fetchall()
-        return [
-            OddsQuote(
-                match_id=row[1],
-                market=row[2],
-                selection=row[3],
-                decimal_odds=row[4],
-                sportsbook=row[5],
-                captured_at=row[6],
-                id=row[0],
-            )
-            for row in rows
-        ]
+        return [self._row_to_odds(row) for row in rows]
 
     def upsert_odds(self, quotes: list[OddsQuote]) -> None:
         query = """
@@ -79,7 +69,8 @@ class PostgresOddsRepository(PostgresRepository, OddsRepository):
             captured_at = EXCLUDED.captured_at,
             source = EXCLUDED.source
         """
-        with self._connection() as conn:
+        conn = self._connection()
+        try:
             with conn.cursor() as cursor:
                 cursor.executemany(
                     query,
@@ -102,3 +93,8 @@ class PostgresOddsRepository(PostgresRepository, OddsRepository):
                     ],
                 )
             conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()

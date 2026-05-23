@@ -271,8 +271,7 @@ class PostgresMatchRepository(PostgresRepository, MatchRepository):
                     cursor.executemany(UPSERT_MATCHES_QUERY, payload)
                     cursor.executemany(UPSERT_SPORTS_MATCHES_QUERY, self._sports_match_payload(matches))
                     cursor.executemany(UPSERT_SPORTS_TEAM_MATCH_STATS_QUERY, self._sports_team_stats_payload(matches))
-        except psycopg2.Error as exc:
-            conn.rollback()
+        except Exception as exc:
             LOGGER.exception("Failed to upsert matches count=%s", len(matches))
             raise PostgresMatchRepositoryError("Could not persist matches") from exc
         finally:

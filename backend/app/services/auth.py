@@ -168,12 +168,16 @@ class AuthService:
 
     def create_session_token(self, user: User) -> str:
         now = datetime.now(timezone.utc)
+        jti = str(uuid4())
         payload = {
             "sub": user.id,
             "iat": int(now.timestamp()),
             "exp": int((now + timedelta(seconds=self._session_ttl_seconds)).timestamp()),
             "csrf": secrets.token_urlsafe(24),
+            "jti": jti,
         }
+        expires_at = now + timedelta(seconds=self._session_ttl_seconds)
+        self._users.create_session(jti, user.id, str(payload["csrf"]), expires_at)
         return self._sign_payload(payload)
 
     def read_session(self, token: str | None) -> SessionData | None:
@@ -184,6 +188,9 @@ class AuthService:
             return None
         expires_at = datetime.fromtimestamp(int(payload["exp"]), tz=timezone.utc)
         if expires_at <= datetime.now(timezone.utc):
+            return None
+        jti = payload.get("jti")
+        if jti is not None and not self._users.session_exists(jti):
             return None
         iat = payload.get("iat")
         issued_at = datetime.fromtimestamp(int(iat), tz=timezone.utc) if iat is not None else datetime.fromtimestamp(0, tz=timezone.utc)
@@ -199,6 +206,16 @@ class AuthService:
         if user.password_changed_at is not None and session.issued_at < user.password_changed_at:
             return None
         return user
+
+    def revoke_session(self, token: str | None) -> None:
+        if not token:
+            return
+        payload = self._read_payload(token)
+        if payload is None:
+            return
+        jti = payload.get("jti")
+        if jti:
+            self._users.delete_session(jti)
 
     def verify_csrf(self, token: str | None, csrf_token: str | None) -> None:
         session = self.read_session(token)

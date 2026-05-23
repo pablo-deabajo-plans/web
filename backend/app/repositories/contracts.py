@@ -92,6 +92,15 @@ class UserRepository(Protocol):
     def verify_email(self, user_id: str, verified_at: datetime) -> User:
         ...
 
+    def create_session(self, session_id: str, user_id: str, csrf_token: str, expires_at: datetime) -> None:
+        ...
+
+    def session_exists(self, session_id: str) -> bool:
+        ...
+
+    def delete_session(self, session_id: str) -> None:
+        ...
+
 
 class LoginAttemptRepository(Protocol):
     def get_recent_failures(self, key: str, window_seconds: int) -> int:
@@ -101,4 +110,9 @@ class LoginAttemptRepository(Protocol):
         ...
 
     def clear_failures(self, key: str) -> None:
+        ...
+
+
+class AuditLogRepository(Protocol):
+    def log(self, user_id: str | None, action: str, metadata: dict) -> None:
         ...

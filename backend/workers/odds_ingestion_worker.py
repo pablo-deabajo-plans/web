@@ -185,7 +185,19 @@ def run_once() -> int:
             )
             continue
 
-        odds_repository.upsert_odds(quotes)
+        try:
+            odds_repository.upsert_odds(quotes)
+        except Exception as exc:
+            skipped_matches += 1
+            failures.append(str(match.id))
+            _log_worker_error(
+                source="db",
+                league=match.competition,
+                match_id=match.id,
+                context="upsert_odds",
+                error=exc,
+            )
+            continue
         persisted_quotes += len(quotes)
         matches_with_odds += 1
 

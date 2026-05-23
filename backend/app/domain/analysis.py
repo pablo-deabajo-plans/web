@@ -6,7 +6,7 @@ import math
 import pandas as pd
 
 from backend.app.domain.models import Analysis, AnalysisMarket, AnalysisResult
-from data.teams import clave_equipo, nombre_visual_equipo
+from backend.app.config.teams import clave_equipo, nombre_visual_equipo
 from backend.app.domain.stats import calcular_h2h, calcular_stats, extraer_historico
 
 
@@ -168,6 +168,7 @@ def calculate_knockout_home_bonus(stats_local: dict, stats_visitante: dict) -> t
     differential_win = max(0.0, stats_local["home"]["win_pct"] - stats_visitante["away"]["win_pct"])
     differential_gf = max(0.0, stats_local["home"]["gf"] - stats_visitante["away"]["gf"])
     differential_solidity = max(0.0, stats_local["home"]["clean_sheet_pct"] - stats_visitante["away"]["clean_sheet_pct"])
+    # knockout bonus caps: local +22% max, away −14% max
     local_bonus = 1 + min(0.22, (differential_ppg * 0.04) + (differential_win * 0.12) + (differential_gf * 0.03))
     away_penalty = min(0.14, (differential_win * 0.08) + (differential_solidity * 0.06))
     return local_bonus, away_penalty
@@ -257,12 +258,15 @@ def build_match_analysis(
         stats_local, stats_visitante, h2h = build_fallback_h2h(historico, local, visitante)
         if stats_local["overall"]["pj"] == 0 or stats_visitante["overall"]["pj"] == 0:
             return None
+    # goal model: weighted blend home/away 45% · overall 20% · recent 35%
     ataque_local = (stats_local["home"]["gf"] * 0.45) + (stats_local["overall"]["gf"] * 0.20) + (stats_local["gf_rec"] * 0.35)
     defensa_visitante = (stats_visitante["away"]["gc"] * 0.45) + (stats_visitante["overall"]["gc"] * 0.20) + (stats_visitante["gc_rec"] * 0.35)
     ataque_visitante = (stats_visitante["away"]["gf"] * 0.45) + (stats_visitante["overall"]["gf"] * 0.20) + (stats_visitante["gf_rec"] * 0.35)
     defensa_local = (stats_local["home"]["gc"] * 0.45) + (stats_local["overall"]["gc"] * 0.20) + (stats_local["gc_rec"] * 0.35)
+    # form adjustment: 0.04 per ppg differential, capped at ±0.08
     ajuste_forma = max(-0.08, min(0.08, (stats_local["form"]["ppg"] - stats_visitante["form"]["ppg"]) * 0.04))
     ajuste_h2h, detalle_h2h = calculate_contextual_h2h_adjustment(stats_local, stats_visitante, h2h)
+    # 1.10 home advantage multiplier applied to local xG only
     xg_local = ((ataque_local + defensa_visitante) / 2) * 1.10 * (1 + ajuste_forma + ajuste_h2h)
     xg_visitante = ((ataque_visitante + defensa_local) / 2) * (1 - ajuste_forma - (ajuste_h2h / 2))
     bonus_eliminatoria_local = 1.0
@@ -273,10 +277,13 @@ def build_match_analysis(
         xg_visitante *= 1 - penalizacion_eliminatoria_visitante
     xg_local = max(0.15, xg_local)
     xg_visitante = max(0.15, xg_visitante)
+    # corner model: home/away 55% · overall 15% · opponent 30%; local gets +10% home advantage
     xc_local = (model_value(stats_local["home"], "corners_for", "has_corners", DEFAULT_CORNERS_FOR) * 0.55 + model_value(stats_local["overall"], "corners_for", "has_corners", DEFAULT_CORNERS_FOR) * 0.15 + model_value(stats_visitante["away"], "corners_against", "has_corners", DEFAULT_CORNERS_AGAINST) * 0.30) * 1.10
     xc_visitante = (model_value(stats_visitante["away"], "corners_for", "has_corners", DEFAULT_CORNERS_FOR) * 0.55 + model_value(stats_visitante["overall"], "corners_for", "has_corners", DEFAULT_CORNERS_FOR) * 0.15 + model_value(stats_local["home"], "corners_against", "has_corners", DEFAULT_CORNERS_AGAINST) * 0.30)
+    # card model: home/away 50% · overall 15% · opponent 35%
     xt_local = (model_value(stats_local["home"], "cards_for", "has_cards", DEFAULT_CARDS_FOR) * 0.50 + model_value(stats_local["overall"], "cards_for", "has_cards", DEFAULT_CARDS_FOR) * 0.15 + model_value(stats_visitante["away"], "cards_against", "has_cards", DEFAULT_CARDS_AGAINST) * 0.35)
     xt_visitante = (model_value(stats_visitante["away"], "cards_for", "has_cards", DEFAULT_CARDS_FOR) * 0.50 + model_value(stats_visitante["overall"], "cards_for", "has_cards", DEFAULT_CARDS_FOR) * 0.15 + model_value(stats_local["home"], "cards_against", "has_cards", DEFAULT_CARDS_AGAINST) * 0.35)
+    # shot model: home/away 55% · recent overall 45%
     xs_local = (offensive_model_value(stats_local["home"], stats_visitante["away"], "shots_for", "shots_against", "has_shots", DEFAULT_SHOTS_FOR) * 0.55 + offensive_model_value(stats_local["recent_overall"], stats_visitante["recent_overall"], "shots_for", "shots_against", "has_shots", DEFAULT_SHOTS_FOR) * 0.45)
     xs_visitante = (offensive_model_value(stats_visitante["away"], stats_local["home"], "shots_for", "shots_against", "has_shots", DEFAULT_SHOTS_FOR) * 0.55 + offensive_model_value(stats_visitante["recent_overall"], stats_local["recent_overall"], "shots_for", "shots_against", "has_shots", DEFAULT_SHOTS_FOR) * 0.45)
     xst_local = min(xs_local, (offensive_model_value(stats_local["home"], stats_visitante["away"], "shots_on_target_for", "shots_on_target_against", "has_shots_on_target", DEFAULT_SHOTS_ON_TARGET_FOR) * 0.55 + offensive_model_value(stats_local["recent_overall"], stats_visitante["recent_overall"], "shots_on_target_for", "shots_on_target_against", "has_shots_on_target", DEFAULT_SHOTS_ON_TARGET_FOR) * 0.45))

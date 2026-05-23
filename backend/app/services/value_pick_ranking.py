@@ -6,6 +6,8 @@ from backend.app.domain.market_odds import compare_analysis_to_quotes, external_
 from backend.app.domain.models import Analysis
 from backend.app.domain.pricing import expected_edge, fair_odds
 
+MIN_EDGE = 0.025  # minimum edge (2.5%) required to include a market in the ranking
+
 
 def _confidence_score(probability: float) -> float:
     return abs(float(probability) - 0.5) * 2.0
@@ -69,7 +71,7 @@ def build_value_pick_ranking(items: list[dict], limit: int = 10) -> list[dict]:
                     continue
                 offered_odds = float(market_odds[market_name]["odds"])
                 edge = expected_edge(probability, offered_odds)
-                if edge < 0.025:
+                if edge < MIN_EDGE:
                     continue
                 comparison_rows.append(
                     {

@@ -18,6 +18,7 @@ MATCH_TABS = (
 PROJECTION_MIN_PROBABILITIES = (0.2, 0.3, 0.4, 0.5, 0.6)
 PROJECTION_NEAR_CERTAINTY = 0.985
 PROJECTION_MAX_ROWS = 24
+LOW_EDGE_WARNING_THRESHOLD = 0.03  # edge below 3% triggers a "thin edge" warning in the summary
 
 PROJECTION_STATS = (
     {"key": "corners", "label": "Corners"},
@@ -143,7 +144,7 @@ def build_match_executive_summary(analysis: dict, odds_rows: list[dict]) -> str:
         top_edges = positive_edges[:2]
         markets = ", ".join(f"{row['market']} ({row['edge'] * 100:+.2f}%)" for row in top_edges)
         edge_read = f"Hay edge positivo en {markets}."
-        if float(top_edges[0]["edge"]) < 0.03:
+        if float(top_edges[0]["edge"]) < LOW_EDGE_WARNING_THRESHOLD:
             edge_read += " La ventaja existe, pero es fina y sensible a cualquier ajuste de precio."
         else:
             edge_read += " El precio supera la cuota justa del modelo y da argumento de entrada."

@@ -4,13 +4,19 @@ from contextlib import asynccontextmanager
 import os
 from pathlib import Path
 from threading import Thread
+import uuid
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.app.core import configure_logging, settings
 from backend.app.core.logging import get_logger
 from backend.app.api.dependencies import require_authenticated_request
+from backend.app.api.rate_limiter import limiter
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from backend.app.api.routes.health import router as health_router
 from backend.app.api.routes.history import router as history_router
 from backend.app.api.routes.dashboard import router as dashboard_router
@@ -74,10 +80,32 @@ async def _lifespan(app: FastAPI):
         LOGGER.info("Embedded scheduler stop requested")
 
 
+async def _request_tracing(request: Request, call_next):
+    request_id = str(uuid.uuid4())
+    request.state.request_id = request_id
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
+async def _security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    return response
+
+
 def create_app() -> FastAPI:
     configure_logging()
     settings.validate_security()
     app = FastAPI(title="Gordon BetScanner Backend", version="0.1.0", lifespan=_lifespan)
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(BaseHTTPMiddleware, dispatch=_security_headers)
+    app.add_middleware(BaseHTTPMiddleware, dispatch=_request_tracing)
     static_dir = Path(__file__).resolve().parent / "web" / "static"
     app.mount("/assets", StaticFiles(directory=str(static_dir)), name="assets")
     app.include_router(web_router)
@@ -96,3 +124,21 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+_error_templates = Jinja2Templates(
+    directory=str(Path(__file__).resolve().parent / "web" / "templates")
+)
+
+
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc: Exception):
+    return _error_templates.TemplateResponse(
+        "errors/404.html", {"request": request}, status_code=404
+    )
+
+
+@app.exception_handler(500)
+async def server_error_handler(request: Request, exc: Exception):
+    return _error_templates.TemplateResponse(
+        "errors/500.html", {"request": request}, status_code=500
+    )

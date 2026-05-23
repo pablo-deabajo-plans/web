@@ -111,6 +111,30 @@ class PostgresUserRepository:
             raise ValueError("user not found")
         return self._row_to_user(row)
 
+    def create_session(self, session_id: str, user_id: str, csrf_token: str, expires_at: datetime) -> None:
+        with self._connection_factory() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO app.user_sessions (id, user_id, csrf_token, expires_at) VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO NOTHING",
+                    (session_id, user_id, csrf_token, expires_at),
+                )
+            conn.commit()
+
+    def session_exists(self, session_id: str) -> bool:
+        with self._connection_factory() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT 1 FROM app.user_sessions WHERE id = %s AND expires_at > NOW()",
+                    (session_id,),
+                )
+                return cursor.fetchone() is not None
+
+    def delete_session(self, session_id: str) -> None:
+        with self._connection_factory() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM app.user_sessions WHERE id = %s", (session_id,))
+            conn.commit()
+
     @staticmethod
     def _row_to_user(row) -> User | None:
         if row is None:

@@ -16,14 +16,25 @@ from backend.app.services.analyze_match import AnalyzeMatchService
 from backend.app.services.match_ingestion import MatchIngestionService, MatchIngestionServiceError
 from backend.app.services.value_pick_ranking import build_value_pick_ranking
 from backend.app.repositories.providers.espn import ESPNProviderError
-from data.sources import (
+from backend.app.services.dashboard_formatters import (
+    _fmt_conditional,
+    _fmt_value,
+    _read_advantage,
+    _read_advantage_if_data,
+)
+from backend.app.services.dashboard_serializers import (
+    _build_signal_flags,
+    _match_identifier,
+    _serialize_match_row,
+)
+from backend.app.config.sources import (
     ESPN_LEAGUE_IDS,
     LEAGUE_CONFIGS,
     descargar_datos_liga,
     fusionar_calendarios,
     preparar_calendario,
 )
-from data.teams import nombre_visual_equipo, normalizar_nombre
+from backend.app.config.teams import nombre_visual_equipo, normalizar_nombre
 
 
 COMPETITION_TYPES = {
@@ -126,7 +137,7 @@ class DashboardService:
             "league": league,
             "country": LEAGUE_COUNTRIES.get(league, "Internacional"),
             "match_count": len(context["matches"]),
-            "matches": [self._serialize_match_row(row) for row in context["matches"]],
+            "matches": [_serialize_match_row(row) for row in context["matches"]],
             "ranking": ranking,
         }
 
@@ -196,14 +207,14 @@ class DashboardService:
         }
 
         return {
-            "match": self._serialize_match_row(selected_match),
+            "match": _serialize_match_row(selected_match),
             "analysis": analysis,
             "insights": self._analyze_match_service.insights(analysis),
             "comparison_table": self._build_comparison_table(analysis),
             "odds_rows": odds_rows,
             "auto_odds": external_odds,
             "player_probabilities": player_probabilities,
-            "signal_flags": self._build_signal_flags(analysis),
+            "signal_flags": _build_signal_flags(analysis),
         }
 
     def compare_odds(self, *, rows: list[dict]) -> list[dict]:
@@ -315,7 +326,7 @@ class DashboardService:
         merged_matches = fusionar_calendarios(base_csv, matches_espn, csv_teams)
         matches = merged_matches.to_dict("records") if not merged_matches.empty else []
         for match in matches:
-            match["MatchId"] = self._match_identifier(league, match)
+            match["MatchId"] = _match_identifier(league, match)
 
         return {
             "league": league,
@@ -378,129 +389,10 @@ class DashboardService:
                 analysis_map[str(match.id)] = item.analysis
         return pd.DataFrame(rows), analysis_map
 
-    @staticmethod
-    def _match_identifier(league: str, match: dict) -> str:
-        event_id = str(match.get("EventId", "") or "").strip()
-        if event_id:
-            return event_id
-        key = [
-            league,
-            str(match.get("MatchDate", "")),
-            normalizar_nombre(str(match.get("HomeTeamRaw", match.get("HomeTeam", "")))),
-            normalizar_nombre(str(match.get("AwayTeamRaw", match.get("AwayTeam", "")))),
-        ]
-        return "fixture:" + "|".join(key)
-
-    @staticmethod
-    def _serialize_match_row(match: dict) -> dict:
-        return {
-            "match_id": match["MatchId"],
-            "event_id": str(match.get("EventId", "") or ""),
-            "date": str(match.get("Date", "")),
-            "match_date": str(match.get("MatchDate", "")),
-            "time": str(match.get("Time", "")),
-            "home_team": str(match.get("HomeTeam", "")),
-            "away_team": str(match.get("AwayTeam", "")),
-            "home_team_raw": str(match.get("HomeTeamRaw", match.get("HomeTeam", ""))),
-            "away_team_raw": str(match.get("AwayTeamRaw", match.get("AwayTeam", ""))),
-            "fixture_label": str(match.get("FixtureLabel", "")),
-            "source": str(match.get("Source", "")),
-        }
-
     def _stored_quotes(self, match_id: str) -> list[OddsQuote]:
         if self._odds_repository is None or not match_id:
             return []
         return list(self._odds_repository.list_odds_for_match(match_id))
-
-    @staticmethod
-    def _build_odds_rows(analysis: Analysis, external_odds: dict[str, dict]) -> list[dict]:
-        rows: list[dict] = []
-        for market in analysis.mercados:
-            if market.name not in external_odds:
-                continue
-            probability = float(market.prob)
-            fair = fair_odds(probability)
-            offered = float(external_odds[market.name]["odds"])
-            rows.append(
-                {
-                    "market": market.name,
-                    "prob": probability,
-                    "fair_odds": fair,
-                    "offered_odds": offered,
-                    "edge": (probability * offered) - 1.0,
-                    "provider": external_odds[market.name].get("provider"),
-                }
-            )
-        return rows
-
-    @staticmethod
-    def _build_signal_flags(analysis: Analysis) -> dict[str, dict]:
-        result = analysis.resultado
-        tracked_keys = ("1", "X", "2", "BTTS", "O25", "Over9.5_Corn")
-        return {
-            key: {
-                "probability": float(result[key]),
-                "highlight": float(result[key]) >= VALUE_BET_THRESHOLD,
-            }
-            for key in tracked_keys
-            if key in result
-        }
-
-    @staticmethod
-    def _fmt_value(value: float, *, percentage: bool = False, suffix: str = "") -> str:
-        if percentage:
-            return f"{value * 100:.1f}%"
-        return f"{value:.2f}{suffix}"
-
-    @classmethod
-    def _fmt_conditional(cls, value: float, available: bool, *, percentage: bool = False) -> str:
-        if not available:
-            return "-"
-        return cls._fmt_value(value, percentage=percentage)
-
-    @staticmethod
-    def _read_advantage(
-        home_label: str,
-        away_label: str,
-        home_value: float,
-        away_value: float,
-        *,
-        inverted: bool = False,
-        percentage: bool = False,
-    ) -> str:
-        diff_real = home_value - away_value
-        diff_read = -diff_real if inverted else diff_real
-        threshold = 0.02 if percentage else 0.05
-        if abs(diff_read) < threshold:
-            return "Muy parejo"
-        winner = home_label if diff_read > 0 else away_label
-        magnitude = abs(diff_real) * (100 if percentage else 1)
-        suffix = " pp" if percentage else ""
-        return f"Ventaja {winner} ({magnitude:.1f}{suffix})"
-
-    @classmethod
-    def _read_advantage_if_data(
-        cls,
-        home_label: str,
-        away_label: str,
-        home_value: float,
-        away_value: float,
-        home_available: bool,
-        away_available: bool,
-        *,
-        inverted: bool = False,
-        percentage: bool = False,
-    ) -> str:
-        if not (home_available and away_available):
-            return "Sin datos suficientes"
-        return cls._read_advantage(
-            home_label,
-            away_label,
-            home_value,
-            away_value,
-            inverted=inverted,
-            percentage=percentage,
-        )
 
     def _build_comparison_table(self, analysis: Analysis) -> list[dict]:
         home = analysis.local
@@ -527,21 +419,21 @@ class DashboardService:
         rows = [
             {
                 "Metric": "GF escenario casa/fuera",
-                home: self._fmt_value(home_home["gf"]),
-                away: self._fmt_value(away_away["gf"]),
-                "Lectura": self._read_advantage(home, away, home_home["gf"], away_away["gf"]),
+                home: _fmt_value(home_home["gf"]),
+                away: _fmt_value(away_away["gf"]),
+                "Lectura": _read_advantage(home, away, home_home["gf"], away_away["gf"]),
             },
             {
                 "Metric": "GC escenario casa/fuera",
-                home: self._fmt_value(home_home["gc"]),
-                away: self._fmt_value(away_away["gc"]),
-                "Lectura": self._read_advantage(home, away, home_home["gc"], away_away["gc"], inverted=True),
+                home: _fmt_value(home_home["gc"]),
+                away: _fmt_value(away_away["gc"]),
+                "Lectura": _read_advantage(home, away, home_home["gc"], away_away["gc"], inverted=True),
             },
             {
                 "Metric": "Corners escenario casa/fuera",
-                home: self._fmt_conditional(home_home["corners_for"], home_home.get("has_corners", False)),
-                away: self._fmt_conditional(away_away["corners_for"], away_away.get("has_corners", False)),
-                "Lectura": self._read_advantage_if_data(
+                home: _fmt_conditional(home_home["corners_for"], home_home.get("has_corners", False)),
+                away: _fmt_conditional(away_away["corners_for"], away_away.get("has_corners", False)),
+                "Lectura": _read_advantage_if_data(
                     home,
                     away,
                     home_home["corners_for"],
@@ -552,9 +444,9 @@ class DashboardService:
             },
             {
                 "Metric": "Remates escenario casa/fuera",
-                home: self._fmt_conditional(home_home["shots_for"], home_home.get("has_shots", False)),
-                away: self._fmt_conditional(away_away["shots_for"], away_away.get("has_shots", False)),
-                "Lectura": self._read_advantage_if_data(
+                home: _fmt_conditional(home_home["shots_for"], home_home.get("has_shots", False)),
+                away: _fmt_conditional(away_away["shots_for"], away_away.get("has_shots", False)),
+                "Lectura": _read_advantage_if_data(
                     home,
                     away,
                     home_home["shots_for"],
@@ -565,9 +457,9 @@ class DashboardService:
             },
             {
                 "Metric": "Remates a puerta escenario",
-                home: self._fmt_conditional(home_home["shots_on_target_for"], home_home.get("has_shots_on_target", False)),
-                away: self._fmt_conditional(away_away["shots_on_target_for"], away_away.get("has_shots_on_target", False)),
-                "Lectura": self._read_advantage_if_data(
+                home: _fmt_conditional(home_home["shots_on_target_for"], home_home.get("has_shots_on_target", False)),
+                away: _fmt_conditional(away_away["shots_on_target_for"], away_away.get("has_shots_on_target", False)),
+                "Lectura": _read_advantage_if_data(
                     home,
                     away,
                     home_home["shots_on_target_for"],
@@ -578,45 +470,45 @@ class DashboardService:
             },
             {
                 "Metric": "GF global temporada",
-                home: self._fmt_value(home_overall["gf"]),
-                away: self._fmt_value(away_overall["gf"]),
-                "Lectura": self._read_advantage(home, away, home_overall["gf"], away_overall["gf"]),
+                home: _fmt_value(home_overall["gf"]),
+                away: _fmt_value(away_overall["gf"]),
+                "Lectura": _read_advantage(home, away, home_overall["gf"], away_overall["gf"]),
             },
             {
                 "Metric": "GC global temporada",
-                home: self._fmt_value(home_overall["gc"]),
-                away: self._fmt_value(away_overall["gc"]),
-                "Lectura": self._read_advantage(home, away, home_overall["gc"], away_overall["gc"], inverted=True),
+                home: _fmt_value(home_overall["gc"]),
+                away: _fmt_value(away_overall["gc"]),
+                "Lectura": _read_advantage(home, away, home_overall["gc"], away_overall["gc"], inverted=True),
             },
             {
                 "Metric": f"GF ultimos {recent_window} generales",
-                home: self._fmt_value(home_recent["gf"]),
-                away: self._fmt_value(away_recent["gf"]),
-                "Lectura": self._read_advantage(home, away, home_recent["gf"], away_recent["gf"]),
+                home: _fmt_value(home_recent["gf"]),
+                away: _fmt_value(away_recent["gf"]),
+                "Lectura": _read_advantage(home, away, home_recent["gf"], away_recent["gf"]),
             },
             {
                 "Metric": f"GC ultimos {recent_window} generales",
-                home: self._fmt_value(home_recent["gc"]),
-                away: self._fmt_value(away_recent["gc"]),
-                "Lectura": self._read_advantage(home, away, home_recent["gc"], away_recent["gc"], inverted=True),
+                home: _fmt_value(home_recent["gc"]),
+                away: _fmt_value(away_recent["gc"]),
+                "Lectura": _read_advantage(home, away, home_recent["gc"], away_recent["gc"], inverted=True),
             },
             {
                 "Metric": f"BTTS ultimos {recent_window}",
-                home: self._fmt_value(home_recent["btts_pct"], percentage=True),
-                away: self._fmt_value(away_recent["btts_pct"], percentage=True),
-                "Lectura": self._read_advantage(home, away, home_recent["btts_pct"], away_recent["btts_pct"], percentage=True),
+                home: _fmt_value(home_recent["btts_pct"], percentage=True),
+                away: _fmt_value(away_recent["btts_pct"], percentage=True),
+                "Lectura": _read_advantage(home, away, home_recent["btts_pct"], away_recent["btts_pct"], percentage=True),
             },
             {
                 "Metric": f"Over 2.5 ultimos {recent_window}",
-                home: self._fmt_value(home_recent["over25_pct"], percentage=True),
-                away: self._fmt_value(away_recent["over25_pct"], percentage=True),
-                "Lectura": self._read_advantage(home, away, home_recent["over25_pct"], away_recent["over25_pct"], percentage=True),
+                home: _fmt_value(home_recent["over25_pct"], percentage=True),
+                away: _fmt_value(away_recent["over25_pct"], percentage=True),
+                "Lectura": _read_advantage(home, away, home_recent["over25_pct"], away_recent["over25_pct"], percentage=True),
             },
             {
                 "Metric": f"Forma ultimos {recent_window}",
                 home: f"{stats_home['form']['streak']} ({stats_home['form']['ppg']:.2f} ppg)",
                 away: f"{stats_away['form']['streak']} ({stats_away['form']['ppg']:.2f} ppg)",
-                "Lectura": self._read_advantage(home, away, stats_home["form"]["ppg"], stats_away["form"]["ppg"]),
+                "Lectura": _read_advantage(home, away, stats_home["form"]["ppg"], stats_away["form"]["ppg"]),
             },
             {
                 "Metric": f"Contexto extra ultimos {context_window}",

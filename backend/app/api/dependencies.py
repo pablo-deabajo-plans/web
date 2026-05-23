@@ -9,6 +9,7 @@ from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBea
 
 from backend.app.core import TTLCache, settings
 from backend.app.repositories.in_memory import (
+    InMemoryAuditLogRepository,
     InMemoryLoginAttemptRepository,
     InMemoryMatchRepository,
     InMemoryOddsRepository,
@@ -18,6 +19,7 @@ from backend.app.repositories.in_memory import (
 )
 from backend.app.repositories.file_favorites import FileFavoriteRepository
 from backend.app.repositories.postgres.connection import create_postgres_connection_factory
+from backend.app.repositories.postgres.audit_log import PostgresAuditLogRepository
 from backend.app.repositories.postgres.login_attempts import PostgresLoginAttemptRepository
 from backend.app.repositories.postgres.matches import PostgresMatchRepository
 from backend.app.repositories.postgres.odds import PostgresOddsRepository
@@ -104,6 +106,13 @@ def _login_attempt_repository():
     if _postgres_configured():
         return PostgresLoginAttemptRepository(_connection_factory())
     return InMemoryLoginAttemptRepository()
+
+
+@lru_cache(maxsize=1)
+def _audit_log_repository():
+    if _postgres_configured():
+        return PostgresAuditLogRepository(_connection_factory())
+    return InMemoryAuditLogRepository()
 
 
 @lru_cache(maxsize=1)
@@ -206,3 +215,7 @@ def get_auth_service() -> AuthService:
         settings.session_ttl_seconds,
         _login_attempt_repository(),
     )
+
+
+def get_audit_log_repository():
+    return _audit_log_repository()

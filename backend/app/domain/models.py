@@ -153,15 +153,6 @@ class AnalysisResult:
     top_scores: tuple[tuple[str, int], ...] = field(default_factory=tuple)
     most_likely_score: str = "0-0"
 
-    def __getitem__(self, key: str) -> Any:
-        return self.to_legacy_dict()[key]
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return self.to_legacy_dict().get(key, default)
-
-    def __contains__(self, key: str) -> bool:
-        return key in self.to_legacy_dict()
-
     def to_legacy_dict(self) -> dict[str, Any]:
         return {
             "1": self.home_win,
@@ -237,20 +228,6 @@ class AnalysisMarket:
     def nombre(self) -> str:
         return self.name
 
-    def __getitem__(self, key: str) -> Any:
-        if key in ("name", "nombre"):
-            return self.name
-        if key == "prob":
-            return self.prob
-        raise KeyError(key)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        if key in ("name", "nombre"):
-            return self.name
-        if key == "prob":
-            return self.prob
-        return default
-
     @classmethod
     def from_legacy_dict(cls, payload: dict[str, Any]) -> "AnalysisMarket":
         return cls(name=str(payload.get("name") or payload["nombre"]), prob=float(payload["prob"]))
@@ -280,41 +257,6 @@ class AnalysisSnapshot:
     mercados: tuple[AnalysisMarket, ...] = field(default_factory=tuple)
     trace: dict[str, Any] = field(default_factory=dict)
     timestamp: str = ""
-
-    def __getitem__(self, key: str) -> Any:
-        return self.to_legacy_dict()[key]
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return self.to_legacy_dict().get(key, default)
-
-    def __contains__(self, key: str) -> bool:
-        return key in self.to_legacy_dict()
-
-    def to_legacy_dict(self) -> dict[str, Any]:
-        return {
-            "liga": self.liga,
-            "local": self.local,
-            "visitante": self.visitante,
-            "local_raw": self.local_raw,
-            "visitante_raw": self.visitante_raw,
-            "match_date": self.match_date,
-            "match_label": self.match_label,
-            "resultado": self.resultado.to_legacy_dict(),
-            "stats_local": self.stats_local,
-            "stats_visitante": self.stats_visitante,
-            "h2h": self.h2h,
-            "xg_local": self.xg_local,
-            "xg_visitante": self.xg_visitante,
-            "xc_local": self.xc_local,
-            "xc_visitante": self.xc_visitante,
-            "xt_local": self.xt_local,
-            "xt_visitante": self.xt_visitante,
-            "bonus_eliminatoria_local": self.bonus_eliminatoria_local,
-            "penalizacion_eliminatoria_visitante": self.penalizacion_eliminatoria_visitante,
-            "mercados": [{"nombre": market.name, "prob": market.prob} for market in self.mercados],
-            "trace": self.trace,
-            "timestamp": self.timestamp,
-        }
 
     @classmethod
     def from_legacy_dict(cls, payload: dict[str, Any]) -> "AnalysisSnapshot":

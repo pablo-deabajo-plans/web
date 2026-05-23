@@ -8,7 +8,7 @@ from typing import Sequence
 from backend.app.core.time import ensure_utc_datetime
 from backend.app.domain.models import Match, OddsQuote, Pick, PlayerProp, Result, User
 from backend.app.domain.pricing import build_pick
-from backend.app.repositories.contracts import LoginAttemptRepository, MatchRepository, OddsRepository, PickRepository, ResultRepository, UserRepository
+from backend.app.repositories.contracts import AuditLogRepository, LoginAttemptRepository, MatchRepository, OddsRepository, PickRepository, ResultRepository, UserRepository
 
 
 class InMemoryMatchRepository(MatchRepository):
@@ -171,6 +171,11 @@ class InMemoryResultRepository(ResultRepository):
         ]
 
 
+class InMemoryAuditLogRepository(AuditLogRepository):
+    def log(self, user_id: str | None, action: str, metadata: dict) -> None:
+        pass  # no-op for in-memory / test environments
+
+
 class InMemoryLoginAttemptRepository(LoginAttemptRepository):
     def __init__(self) -> None:
         self._data: dict[str, list[float]] = {}
@@ -245,3 +250,12 @@ class InMemoryUserRepository(UserRepository):
             if uid == user_id:
                 del self._verification_tokens[token]
         return updated
+
+    def create_session(self, session_id: str, user_id: str, csrf_token: str, expires_at: datetime) -> None:
+        pass
+
+    def session_exists(self, session_id: str) -> bool:
+        return True
+
+    def delete_session(self, session_id: str) -> None:
+        pass

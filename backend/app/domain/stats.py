@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from data.teams import clave_equipo, nombre_visual_equipo
+from backend.app.config.teams import clave_equipo, nombre_visual_equipo
 
 
 VENTANA_RECIENTE_GENERAL = 10

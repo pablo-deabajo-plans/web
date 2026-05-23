@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -29,6 +30,7 @@ class FileFavoriteRepository:
     def __init__(self, path: Path = DEFAULT_FAVORITES_FILE) -> None:
         self._path = path
         self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._lock = threading.Lock()
 
     def list_all(self) -> list[FavoritePickRecord]:
         if not self._path.exists():
@@ -52,17 +54,19 @@ class FileFavoriteRepository:
         return items
 
     def save(self, item: FavoritePickRecord) -> None:
-        records = self.list_all()
-        records.insert(0, item)
-        self.replace_all(records[:30])
+        with self._lock:
+            records = self.list_all()
+            records.insert(0, item)
+            self.replace_all(records[:30])
 
     def delete(self, favorite_id: str) -> bool:
-        existing = self.list_all()
-        remaining = [item for item in existing if item.id != favorite_id]
-        if len(remaining) == len(existing):
-            return False
-        self.replace_all(remaining)
-        return True
+        with self._lock:
+            existing = self.list_all()
+            remaining = [item for item in existing if item.id != favorite_id]
+            if len(remaining) == len(existing):
+                return False
+            self.replace_all(remaining)
+            return True
 
     def clear(self) -> None:
         self.replace_all([])

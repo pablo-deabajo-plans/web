@@ -34,14 +34,14 @@ def test_build_match_analysis_returns_expected_shape() -> None:
     )
 
     assert analysis is not None
-    assert analysis["liga"] == "LaLiga"
-    assert analysis["local"] == "Alpha FC"
-    assert analysis["visitante"] == "Beta FC"
-    assert analysis["resultado"]["1"] >= 0.0
-    assert analysis["resultado"]["X"] >= 0.0
-    assert analysis["resultado"]["2"] >= 0.0
-    assert len(analysis["mercados"]) >= 3
-    assert "trace" in analysis
+    assert analysis.liga == "LaLiga"
+    assert analysis.local == "Alpha FC"
+    assert analysis.visitante == "Beta FC"
+    assert analysis.resultado.home_win >= 0.0
+    assert analysis.resultado.draw >= 0.0
+    assert analysis.resultado.away_win >= 0.0
+    assert len(analysis.mercados) >= 3
+    assert analysis.trace is not None
 
 
 def test_build_match_analysis_returns_none_when_teams_have_no_history() -> None:
@@ -81,8 +81,8 @@ def test_simulate_match_is_deterministic_with_analytical_model() -> None:
     second = simulate_match(1.4, 0.9, 5.2, 4.7, 2.1, 2.3, 12.0, 10.0, 4.5, 3.8)
 
     assert first == second
-    assert first["Marcador"]
-    assert len(first["TopScores"]) == 3
-    assert abs((first["1"] + first["X"] + first["2"]) - 1.0) < 0.001
-    assert 0.0 <= first["BTTS"] <= 1.0
-    assert 0.0 <= first["O25"] <= 1.0
+    assert first.most_likely_score
+    assert len(first.top_scores) == 3
+    assert abs((first.home_win + first.draw + first.away_win) - 1.0) < 0.001
+    assert 0.0 <= first.both_teams_score <= 1.0
+    assert 0.0 <= first.over_2_5_goals <= 1.0

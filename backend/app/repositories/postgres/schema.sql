@@ -226,6 +226,16 @@ CREATE TABLE IF NOT EXISTS login_attempts (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS audit_log (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     TEXT,
+    action      TEXT NOT NULL,
+    metadata    JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_audit_log_user_id ON audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
+
 CREATE TABLE IF NOT EXISTS backtest_picks (
     id TEXT PRIMARY KEY,
     run_id TEXT NOT NULL REFERENCES backtest_runs(id) ON DELETE CASCADE,
