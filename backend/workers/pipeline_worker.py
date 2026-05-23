@@ -20,6 +20,7 @@ from backend.app.domain.models import SETTLED_MATCH_STATUSES
 from backend.app.repositories.postgres.bootstrap import ensure_postgres_schema
 from backend.app.repositories.postgres.connection import create_postgres_connection_factory
 from backend.workers.analysis_worker import run_once as run_analysis_once
+from backend.workers.bzzoiro_odds_worker import run_once as run_bzzoiro_odds_once
 from backend.workers.match_ingestion_worker import run_once as run_match_ingestion_once
 from backend.workers.odds_ingestion_worker import run_once as run_odds_ingestion_once
 from backend.workers.runtime import resolve_target_date
@@ -287,6 +288,10 @@ def run_once() -> int:
     )
 
     run_odds_ingestion_once()
+    try:
+        run_bzzoiro_odds_once()
+    except Exception as exc:
+        LOGGER.warning("bzzoiro odds step failed (non-fatal) error=%s", exc)
     after_odds = _load_snapshot(connection_factory, target_date)
     _require(
         after_odds.matches_with_supported_odds > 0,
