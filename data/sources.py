@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import io
 import json
 import logging
@@ -12,6 +13,11 @@ from pathlib import Path
 
 import pandas as pd
 import requests
+
+from backend.app.core.cache import TTLCache
+
+_SOURCES_CACHE = TTLCache()
+
 try:
     import streamlit as st
 except ModuleNotFoundError:
@@ -20,10 +26,13 @@ except ModuleNotFoundError:
         secrets: dict[str, str] = {}
 
         @staticmethod
-        def cache_data(*_, **__):
+        def cache_data(ttl: int = 3600, **__):
             def decorator(func):
-                return func
-
+                @functools.wraps(func)
+                def wrapper(*args, **kwargs):
+                    key = repr((args, sorted(kwargs.items())))
+                    return _SOURCES_CACHE.get_or_set(func.__name__, key, ttl, lambda: func(*args, **kwargs))
+                return wrapper
             return decorator
 
     st = _StreamlitFallback()

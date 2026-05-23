@@ -416,19 +416,19 @@ class DashboardService:
     def _build_odds_rows(analysis: Analysis, external_odds: dict[str, dict]) -> list[dict]:
         rows: list[dict] = []
         for market in analysis.mercados:
-            if market.nombre not in external_odds:
+            if market.name not in external_odds:
                 continue
             probability = float(market.prob)
             fair = fair_odds(probability)
-            offered = float(external_odds[market.nombre]["odds"])
+            offered = float(external_odds[market.name]["odds"])
             rows.append(
                 {
-                    "market": market.nombre,
+                    "market": market.name,
                     "prob": probability,
                     "fair_odds": fair,
                     "offered_odds": offered,
                     "edge": (probability * offered) - 1.0,
-                    "provider": external_odds[market.nombre].get("provider"),
+                    "provider": external_odds[market.name].get("provider"),
                 }
             )
         return rows

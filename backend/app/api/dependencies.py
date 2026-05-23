@@ -9,6 +9,7 @@ from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBea
 
 from backend.app.core import TTLCache, settings
 from backend.app.repositories.in_memory import (
+    InMemoryLoginAttemptRepository,
     InMemoryMatchRepository,
     InMemoryOddsRepository,
     InMemoryPickRepository,
@@ -17,6 +18,7 @@ from backend.app.repositories.in_memory import (
 )
 from backend.app.repositories.file_favorites import FileFavoriteRepository
 from backend.app.repositories.postgres.connection import create_postgres_connection_factory
+from backend.app.repositories.postgres.login_attempts import PostgresLoginAttemptRepository
 from backend.app.repositories.postgres.matches import PostgresMatchRepository
 from backend.app.repositories.postgres.odds import PostgresOddsRepository
 from backend.app.repositories.postgres.picks import PostgresPickRepository
@@ -95,6 +97,13 @@ def _user_repository():
     if _postgres_configured():
         return PostgresUserRepository(_connection_factory())
     return InMemoryUserRepository()
+
+
+@lru_cache(maxsize=1)
+def _login_attempt_repository():
+    if _postgres_configured():
+        return PostgresLoginAttemptRepository(_connection_factory())
+    return InMemoryLoginAttemptRepository()
 
 
 @lru_cache(maxsize=1)
@@ -191,4 +200,9 @@ def get_user_repository():
 
 
 def get_auth_service() -> AuthService:
-    return AuthService(_user_repository(), settings.session_secret_key, settings.session_ttl_seconds)
+    return AuthService(
+        _user_repository(),
+        settings.session_secret_key,
+        settings.session_ttl_seconds,
+        _login_attempt_repository(),
+    )

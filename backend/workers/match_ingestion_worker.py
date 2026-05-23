@@ -86,7 +86,6 @@ def run_once() -> int:
         return 0
 
     connection_factory = create_postgres_connection_factory()
-    ensure_postgres_schema(connection_factory)
     repository = PostgresMatchRepository(connection_factory)
     service = MatchIngestionService(repository=repository)
 
@@ -176,6 +175,7 @@ def run_once() -> int:
 def main() -> int:
     configure_logging()
     try:
+        ensure_postgres_schema(create_postgres_connection_factory())
         run_once()
     except (MatchIngestionServiceError, RuntimeError, ValueError) as exc:
         _log_worker_error(

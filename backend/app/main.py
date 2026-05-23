@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 import os
 from pathlib import Path
@@ -48,11 +50,25 @@ def _start_embedded_scheduler(app: FastAPI) -> None:
     LOGGER.info("Embedded scheduler started inside FastAPI process")
 
 
+async def _scheduler_watchdog(app: FastAPI) -> None:
+    while True:
+        await asyncio.sleep(60)
+        thread = getattr(app.state, "embedded_scheduler_thread", None)
+        if thread is not None and not thread.is_alive():
+            LOGGER.warning("Embedded scheduler thread died — restarting")
+            _start_embedded_scheduler(app)
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     ensure_postgres_schema(create_postgres_connection_factory())
     _start_embedded_scheduler(app)
+    watchdog_task = asyncio.create_task(_scheduler_watchdog(app)) if _embedded_scheduler_enabled() else None
     yield
+    if watchdog_task is not None:
+        watchdog_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await watchdog_task
     if _embedded_scheduler_enabled():
         embedded_scheduler.STOP_REQUESTED = True
         LOGGER.info("Embedded scheduler stop requested")

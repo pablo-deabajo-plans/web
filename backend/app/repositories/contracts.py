@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Protocol, Sequence
 
 from backend.app.domain.models import Match, OddsQuote, Pick, PlayerProp, Result, User
@@ -78,4 +78,27 @@ class UserRepository(Protocol):
         ...
 
     def update_password_hash(self, user_id: str, password_hash: str) -> User:
+        ...
+
+    def update_password_changed_at(self, user_id: str) -> None:
+        ...
+
+    def create_verification_token(self, user_id: str, token: str, expires_at: datetime) -> None:
+        ...
+
+    def get_by_verification_token(self, token: str) -> User | None:
+        ...
+
+    def verify_email(self, user_id: str, verified_at: datetime) -> User:
+        ...
+
+
+class LoginAttemptRepository(Protocol):
+    def get_recent_failures(self, key: str, window_seconds: int) -> int:
+        ...
+
+    def record_failure(self, key: str) -> None:
+        ...
+
+    def clear_failures(self, key: str) -> None:
         ...

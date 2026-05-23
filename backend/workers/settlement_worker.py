@@ -68,6 +68,8 @@ class SettlemablePick:
     offered_odds: Decimal
     stake_units: Decimal
     kickoff_at: datetime | None = None
+    home_corners: float | None = None
+    away_corners: float | None = None
 
 
 def _target_date_from_env() -> date | None:
@@ -143,7 +145,9 @@ def _load_finished_picks(connection_factory, target_date: date | None) -> list[S
         p.market,
         p.selection,
         p.offered_odds,
-        p.stake_units
+        p.stake_units,
+        m.home_corners,
+        m.away_corners
     FROM picks p
     JOIN matches m ON m.id = p.match_id
     LEFT JOIN results r ON r.pick_id = p.id
@@ -170,6 +174,8 @@ def _load_finished_picks(connection_factory, target_date: date | None) -> list[S
             selection=str(row[9] or ""),
             offered_odds=_normalize_decimal(row[10]),
             stake_units=_normalize_decimal(row[11]),
+            home_corners=float(row[12]) if row[12] is not None else None,
+            away_corners=float(row[13]) if row[13] is not None else None,
         )
         for row in rows
     ]
@@ -265,6 +271,8 @@ def _settle_pick(pick: SettlemablePick) -> SettlementDecision | None:
         selection=pick.selection,
         stake_units=pick.stake_units,
         offered_odds=pick.offered_odds,
+        home_corners=pick.home_corners,
+        away_corners=pick.away_corners,
     )
 
 
@@ -319,7 +327,6 @@ def run_once() -> int:
     target_date = _target_date_from_env()
     pipeline_run_id = os.getenv("PIPELINE_RUN_ID", str(uuid4()))
     connection_factory = create_postgres_connection_factory()
-    ensure_postgres_schema(connection_factory)
     incomplete_before = _count_incomplete_settlements(connection_factory, target_date)
     picks = _load_finished_picks(connection_factory, target_date)
     LOGGER.info(
@@ -365,6 +372,7 @@ def run_once() -> int:
 def main() -> int:
     configure_logging()
     try:
+        ensure_postgres_schema(create_postgres_connection_factory())
         run_once()
     except (psycopg2.Error, RuntimeError, ValueError) as exc:
         _log_worker_error(context="main", error=exc)

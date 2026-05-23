@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+import time
 from typing import Sequence
 
 from backend.app.core.time import ensure_utc_datetime
 from backend.app.domain.models import Match, OddsQuote, Pick, PlayerProp, Result, User
 from backend.app.domain.pricing import build_pick
-from backend.app.repositories.contracts import MatchRepository, OddsRepository, PickRepository, ResultRepository, UserRepository
+from backend.app.repositories.contracts import LoginAttemptRepository, MatchRepository, OddsRepository, PickRepository, ResultRepository, UserRepository
 
 
 class InMemoryMatchRepository(MatchRepository):
@@ -170,9 +171,27 @@ class InMemoryResultRepository(ResultRepository):
         ]
 
 
+class InMemoryLoginAttemptRepository(LoginAttemptRepository):
+    def __init__(self) -> None:
+        self._data: dict[str, list[float]] = {}
+
+    def get_recent_failures(self, key: str, window_seconds: int) -> int:
+        cutoff = time.time() - window_seconds
+        recent = [ts for ts in self._data.get(key, []) if ts >= cutoff]
+        self._data[key] = recent
+        return len(recent)
+
+    def record_failure(self, key: str) -> None:
+        self._data.setdefault(key, []).append(time.time())
+
+    def clear_failures(self, key: str) -> None:
+        self._data.pop(key, None)
+
+
 class InMemoryUserRepository(UserRepository):
     def __init__(self, users: list[User] | None = None) -> None:
         self._users = {user.id: user for user in (users or [])}
+        self._verification_tokens: dict[str, tuple[str, datetime]] = {}  # token → (user_id, expires_at)
 
     def get_by_id(self, user_id: str) -> User | None:
         return self._users.get(user_id)
@@ -196,4 +215,33 @@ class InMemoryUserRepository(UserRepository):
         user = self._users[user_id]
         updated = replace(user, password_hash=password_hash)
         self._users[user_id] = updated
+        return updated
+
+    def update_password_changed_at(self, user_id: str) -> None:
+        user = self._users[user_id]
+        updated = replace(user, password_changed_at=datetime.now(timezone.utc))
+        self._users[user_id] = updated
+
+    def create_verification_token(self, user_id: str, token: str, expires_at: datetime) -> None:
+        for existing_token, (uid, _) in list(self._verification_tokens.items()):
+            if uid == user_id:
+                del self._verification_tokens[existing_token]
+        self._verification_tokens[token] = (user_id, expires_at)
+
+    def get_by_verification_token(self, token: str) -> User | None:
+        entry = self._verification_tokens.get(token)
+        if entry is None:
+            return None
+        user_id, expires_at = entry
+        if datetime.now(timezone.utc) > expires_at:
+            return None
+        return self._users.get(user_id)
+
+    def verify_email(self, user_id: str, verified_at: datetime) -> User:
+        user = self._users[user_id]
+        updated = replace(user, email_verified_at=verified_at)
+        self._users[user_id] = updated
+        for token, (uid, _) in list(self._verification_tokens.items()):
+            if uid == user_id:
+                del self._verification_tokens[token]
         return updated

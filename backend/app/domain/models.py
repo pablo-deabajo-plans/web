@@ -118,6 +118,8 @@ class User:
     nombre: str
     password_hash: str
     plan: str = "free"
+    password_changed_at: datetime | None = None
+    email_verified_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -228,26 +230,30 @@ class AnalysisResult:
 
 @dataclass(frozen=True)
 class AnalysisMarket:
-    nombre: str
+    name: str
     prob: float
 
+    @property
+    def nombre(self) -> str:
+        return self.name
+
     def __getitem__(self, key: str) -> Any:
-        if key == "nombre":
-            return self.nombre
+        if key in ("name", "nombre"):
+            return self.name
         if key == "prob":
             return self.prob
         raise KeyError(key)
 
     def get(self, key: str, default: Any = None) -> Any:
-        if key == "nombre":
-            return self.nombre
+        if key in ("name", "nombre"):
+            return self.name
         if key == "prob":
             return self.prob
         return default
 
     @classmethod
     def from_legacy_dict(cls, payload: dict[str, Any]) -> "AnalysisMarket":
-        return cls(nombre=str(payload["nombre"]), prob=float(payload["prob"]))
+        return cls(name=str(payload.get("name") or payload["nombre"]), prob=float(payload["prob"]))
 
 
 @dataclass(frozen=True)
@@ -305,7 +311,7 @@ class AnalysisSnapshot:
             "xt_visitante": self.xt_visitante,
             "bonus_eliminatoria_local": self.bonus_eliminatoria_local,
             "penalizacion_eliminatoria_visitante": self.penalizacion_eliminatoria_visitante,
-            "mercados": [market.__dict__ for market in self.mercados],
+            "mercados": [{"nombre": market.name, "prob": market.prob} for market in self.mercados],
             "trace": self.trace,
             "timestamp": self.timestamp,
         }

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Iterator
@@ -82,52 +83,86 @@ class PostgresConnectionFactory:
     def __init__(self, settings: PostgresSettings | None = None) -> None:
         self._settings = settings or PostgresSettings()
         self._pool: ThreadedConnectionPool | None = None
+        self._lock = threading.Lock()
 
     def __call__(self) -> PooledPostgresConnection:
         return self.create_connection()
 
     def _get_pool(self) -> ThreadedConnectionPool:
-        self._settings.validate()
         if self._pool is not None:
             return self._pool
-        try:
-            self._pool = ThreadedConnectionPool(
-                minconn=self._settings.pool_minconn,
-                maxconn=self._settings.pool_maxconn,
-                host=self._settings.host,
-                port=self._settings.port,
-                dbname=self._settings.database,
-                user=self._settings.user,
-                password=self._settings.password,
-                sslmode=self._settings.sslmode,
-                connect_timeout=self._settings.connect_timeout,
-                application_name=self._settings.application_name,
-            )
-            return self._pool
-        except psycopg2.Error as exc:
-            LOGGER.exception(
-                "Failed to initialize PostgreSQL pool host=%s port=%s db=%s user=%s",
-                self._settings.host,
-                self._settings.port,
-                self._settings.database,
-                self._settings.user,
-            )
-            raise PostgresConnectionError("Could not initialize PostgreSQL connection pool") from exc
+        with self._lock:
+            if self._pool is not None:
+                return self._pool
+            self._settings.validate()
+            try:
+                self._pool = ThreadedConnectionPool(
+                    minconn=self._settings.pool_minconn,
+                    maxconn=self._settings.pool_maxconn,
+                    host=self._settings.host,
+                    port=self._settings.port,
+                    dbname=self._settings.database,
+                    user=self._settings.user,
+                    password=self._settings.password,
+                    sslmode=self._settings.sslmode,
+                    connect_timeout=self._settings.connect_timeout,
+                    application_name=self._settings.application_name,
+                )
+                return self._pool
+            except psycopg2.Error as exc:
+                LOGGER.exception(
+                    "Failed to initialize PostgreSQL pool host=%s port=%s db=%s user=%s",
+                    self._settings.host,
+                    self._settings.port,
+                    self._settings.database,
+                    self._settings.user,
+                )
+                raise PostgresConnectionError("Could not initialize PostgreSQL connection pool") from exc
+
+    def _reset_pool(self) -> None:
+        with self._lock:
+            old_pool = self._pool
+            self._pool = None
+        if old_pool is not None:
+            try:
+                old_pool.closeall()
+            except Exception:
+                pass
+        LOGGER.warning(
+            "PostgreSQL connection pool reset host=%s port=%s db=%s",
+            self._settings.host,
+            self._settings.port,
+            self._settings.database,
+        )
 
     def create_connection(self) -> PooledPostgresConnection:
-        pool = self._get_pool()
-        try:
-            connection = pool.getconn()
-        except psycopg2.Error as exc:
-            LOGGER.exception(
-                "Failed to acquire PostgreSQL connection from pool host=%s port=%s db=%s user=%s",
-                self._settings.host,
-                self._settings.port,
-                self._settings.database,
-                self._settings.user,
-            )
-            raise PostgresConnectionError("Could not acquire PostgreSQL connection from pool") from exc
-        return PooledPostgresConnection(pool, connection)
+        for attempt in range(2):
+            pool = self._get_pool()
+            try:
+                conn = pool.getconn()
+            except psycopg2.Error as exc:
+                LOGGER.exception(
+                    "Failed to acquire PostgreSQL connection from pool host=%s port=%s db=%s user=%s",
+                    self._settings.host,
+                    self._settings.port,
+                    self._settings.database,
+                    self._settings.user,
+                )
+                if attempt == 0:
+                    self._reset_pool()
+                    continue
+                raise PostgresConnectionError("Could not acquire PostgreSQL connection from pool") from exc
+            if conn.closed:
+                try:
+                    pool.putconn(conn, close=True)
+                except Exception:
+                    pass
+                if attempt == 0:
+                    self._reset_pool()
+                    continue
+                raise PostgresConnectionError("Could not acquire a live PostgreSQL connection after pool reset")
+            return PooledPostgresConnection(pool, conn)
+        raise PostgresConnectionError("Could not acquire PostgreSQL connection from pool")
 
     @contextmanager
     def connection(self) -> Iterator[PooledPostgresConnection]:

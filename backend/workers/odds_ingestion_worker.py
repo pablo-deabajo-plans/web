@@ -115,7 +115,6 @@ def run_once() -> int:
         return 0
 
     connection_factory = create_postgres_connection_factory()
-    ensure_postgres_schema(connection_factory)
     match_repository = PostgresMatchRepository(connection_factory)
     odds_repository = PostgresOddsRepository(connection_factory)
     matches = list(match_repository.list_matches_for_day(target_date))
@@ -237,6 +236,7 @@ def run_once() -> int:
 def main() -> int:
     configure_logging()
     try:
+        ensure_postgres_schema(create_postgres_connection_factory())
         run_once()
     except (RuntimeError, ValueError, ESPNProviderError) as exc:
         _log_worker_error(

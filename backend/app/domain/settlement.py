@@ -84,6 +84,43 @@ def _normalize_total_goals_selection(selection: str) -> str:
     return normalized.upper()
 
 
+def _parse_direction_and_line(selection: str) -> tuple[str | None, str | None, float | None]:
+    """Parse pick selections like OVER_2_5, HOME_OVER_2_5, AWAY_UNDER_3_5.
+
+    Returns (side, direction, line) where side is 'home'/'away'/None.
+    """
+    parts = str(selection or "").upper().split("_")
+    if not parts:
+        return None, None, None
+    side: str | None = None
+    if parts[0] in {"HOME", "AWAY"}:
+        side = parts[0].lower()
+        parts = parts[1:]
+    if not parts or parts[0] not in {"OVER", "UNDER"}:
+        return side, None, None
+    direction = parts[0].lower()
+    line_parts = parts[1:]
+    if not line_parts:
+        return side, direction, None
+    try:
+        line = float(".".join(line_parts))
+    except ValueError:
+        return side, direction, None
+    return side, direction, line
+
+
+def _settle_over_under(actual: float, selection: str) -> str | None:
+    """Settle an over/under selection against an actual value. Returns 'won', 'lost', or None."""
+    side, direction, line = _parse_direction_and_line(selection)
+    if direction is None or line is None:
+        return None
+    if direction == "over":
+        return "won" if actual > line else "lost"
+    if direction == "under":
+        return "won" if actual < line else "lost"
+    return None
+
+
 def settle_market_pick(
     *,
     match_status: str,
@@ -95,6 +132,8 @@ def settle_market_pick(
     selection: str,
     stake_units: Decimal,
     offered_odds: Decimal,
+    home_corners: float | None = None,
+    away_corners: float | None = None,
 ) -> SettlementDecision | None:
     normalized_status = normalize_match_status(match_status)
     if normalized_status in VOID_MATCH_STATUSES:
@@ -140,6 +179,56 @@ def settle_market_pick(
         return SettlementDecision(
             status=status,
             settled_selection=settled_selection,
+            profit_units=profit_for_status(status, stake_units, offered_odds),
+        )
+
+    if market_key == "team goals":
+        side, direction, line = _parse_direction_and_line(selection)
+        if side == "home":
+            actual = float(home_score)
+        elif side == "away":
+            actual = float(away_score)
+        else:
+            return _void_decision("ambiguous_team_side")
+        if direction is None or line is None:
+            return _void_decision("unparseable_selection")
+        status = _settle_over_under(actual, selection)
+        if status is None:
+            return _void_decision("unparseable_selection")
+        return SettlementDecision(
+            status=status,
+            settled_selection=f"{side.upper()}_{direction.upper()}_{line}",
+            profit_units=profit_for_status(status, stake_units, offered_odds),
+        )
+
+    if market_key == "total corners":
+        if home_corners is None or away_corners is None:
+            return _void_decision("missing_corner_data")
+        status = _settle_over_under(home_corners + away_corners, selection)
+        if status is None:
+            return _void_decision("unparseable_selection")
+        return SettlementDecision(
+            status=status,
+            settled_selection=selection,
+            profit_units=profit_for_status(status, stake_units, offered_odds),
+        )
+
+    if market_key == "team corners":
+        if home_corners is None or away_corners is None:
+            return _void_decision("missing_corner_data")
+        side, direction, line = _parse_direction_and_line(selection)
+        if side == "home":
+            actual = home_corners
+        elif side == "away":
+            actual = away_corners
+        else:
+            return _void_decision("ambiguous_team_side")
+        status = _settle_over_under(actual, selection)
+        if status is None:
+            return _void_decision("unparseable_selection")
+        return SettlementDecision(
+            status=status,
+            settled_selection=selection,
             profit_units=profit_for_status(status, stake_units, offered_odds),
         )
 

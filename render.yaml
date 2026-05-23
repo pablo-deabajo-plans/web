@@ -28,7 +28,7 @@ services:
       - key: POSTGRES_PASSWORD
         sync: false
       - key: POSTGRES_SSLMODE
-        value: disable
+        value: require
       - key: MATCH_INGESTION_INTERVAL_MINUTES
         value: "30"
       - key: ODDS_INGESTION_INTERVAL_MINUTES

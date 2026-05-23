@@ -5,11 +5,10 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY requirements.local.txt ./requirements.local.txt
 COPY backend/requirements.txt ./backend/requirements.txt
 
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.local.txt
+    && pip install --no-cache-dir -r backend/requirements.txt
 
 COPY . .
 

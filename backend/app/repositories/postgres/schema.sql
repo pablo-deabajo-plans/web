@@ -6,6 +6,17 @@ ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS gmail TEXT;
 ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS nombre TEXT;
 ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS password_hash TEXT;
 ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
+ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMPTZ;
+ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_email_verification_tokens_token
+    ON email_verification_tokens (token);
 
 DO $$
 BEGIN
@@ -208,6 +219,12 @@ CREATE TABLE IF NOT EXISTS backtest_run_groups (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_backtest_run_groups_unique
     ON backtest_run_groups (run_id, group_type, group_key);
 CREATE INDEX IF NOT EXISTS idx_backtest_run_groups_run_id ON backtest_run_groups (run_id);
+
+CREATE TABLE IF NOT EXISTS login_attempts (
+    key TEXT PRIMARY KEY,
+    timestamps JSONB NOT NULL DEFAULT '[]'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 CREATE TABLE IF NOT EXISTS backtest_picks (
     id TEXT PRIMARY KEY,

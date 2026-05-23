@@ -12,7 +12,7 @@ from backend.app.core import settings
 from backend.app.core.time import local_today, to_local_datetime
 from backend.app.domain.models import User
 from backend.app.repositories.contracts import MatchRepository, PickRepository
-from backend.app.services.auth import AuthError, AuthService
+from backend.app.services.auth import AuthError, AuthService, RateLimitError
 from backend.app.schemas.analysis import AnalysisRead
 from backend.app.services.dashboard import COMPETITION_TYPES
 from backend.app.services.dashboard import DashboardService
@@ -156,7 +156,7 @@ def register_submit(
     auth: AuthService = Depends(get_auth_service),
 ):
     try:
-        user = auth.register(gmail, nombre, password)
+        user = auth.register(gmail, nombre, password, client_key=request.client.host if request.client else "")
     except AuthError as exc:
         return templates.TemplateResponse(
             request,
@@ -167,6 +167,30 @@ def register_submit(
     response = _redirect("/account")
     _set_session_cookie(response, auth.create_session_token(user))
     return response
+
+
+@router.get("/verify-email", response_class=HTMLResponse)
+def verify_email(
+    request: Request,
+    token: str | None = Query(default=None),
+    auth: AuthService = Depends(get_auth_service),
+):
+    if not token:
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            _base_context(request, auth, day=local_today().isoformat(), error="Enlace de verificación no válido.", gmail=""),
+            status_code=400,
+        )
+    user = auth.verify_email_token(token)
+    if user is None:
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            _base_context(request, auth, day=local_today().isoformat(), error="El enlace de verificación ha caducado o no es válido.", gmail=""),
+            status_code=400,
+        )
+    return _redirect("/account")
 
 
 @router.get("/login", response_class=HTMLResponse)

@@ -142,14 +142,14 @@ def simulate_match(
 
 def build_markets(resultado: AnalysisResult, local: str, visitante: str) -> tuple[AnalysisMarket, ...]:
     return (
-        AnalysisMarket(nombre=f"Victoria {local}", prob=resultado.home_win),
-        AnalysisMarket(nombre="Empate", prob=resultado.draw),
-        AnalysisMarket(nombre=f"Victoria {visitante}", prob=resultado.away_win),
-        AnalysisMarket(nombre="Ambos marcan", prob=resultado.both_teams_score),
-        AnalysisMarket(nombre="No marcan ambos", prob=max(0.0, min(1.0, 1.0 - resultado.both_teams_score))),
-        AnalysisMarket(nombre="Over 2.5 goles", prob=resultado.over_2_5_goals),
-        AnalysisMarket(nombre="Under 2.5 goles", prob=resultado.under_2_5_goals),
-        AnalysisMarket(nombre="Over 9.5 corners", prob=resultado.over_9_5_corners),
+        AnalysisMarket(name=f"Victoria {local}", prob=resultado.home_win),
+        AnalysisMarket(name="Empate", prob=resultado.draw),
+        AnalysisMarket(name=f"Victoria {visitante}", prob=resultado.away_win),
+        AnalysisMarket(name="Ambos marcan", prob=resultado.both_teams_score),
+        AnalysisMarket(name="No marcan ambos", prob=max(0.0, min(1.0, 1.0 - resultado.both_teams_score))),
+        AnalysisMarket(name="Over 2.5 goles", prob=resultado.over_2_5_goals),
+        AnalysisMarket(name="Under 2.5 goles", prob=resultado.under_2_5_goals),
+        AnalysisMarket(name="Over 9.5 corners", prob=resultado.over_9_5_corners),
     )
 
 
@@ -207,7 +207,21 @@ def calculate_contextual_h2h_adjustment(stats_local: dict, stats_visitante: dict
     return final_adjustment, {"mode": "h2h_plus_recent", "window": context_window, "h2h_factor": h2h_factor, "recent_factor": recent_adjustment}
 
 
-def build_traceability(stats_local: dict, stats_visitante: dict, h2h: dict, ataque_local: float, defensa_visitante: float, ataque_visitante: float, defensa_local: float, ajuste_forma: float, ajuste_h2h: float, detalle_h2h: dict, xg_local: float, xg_visitante: float) -> dict:
+def build_traceability(
+    *,
+    stats_local: dict,
+    stats_visitante: dict,
+    h2h: dict,
+    ataque_local: float,
+    defensa_visitante: float,
+    ataque_visitante: float,
+    defensa_local: float,
+    ajuste_forma: float,
+    ajuste_h2h: float,
+    detalle_h2h: dict,
+    xg_local: float,
+    xg_visitante: float,
+) -> dict:
     return {
         "local_xg": {"components": [{"label": "GF local en casa", "value": stats_local["home"]["gf"], "weight": 0.45, "group": "Ataque local"}, {"label": "GF local global", "value": stats_local["overall"]["gf"], "weight": 0.20, "group": "Ataque local"}, {"label": "GF local recientes", "value": stats_local["gf_rec"], "weight": 0.35, "group": "Ataque local"}, {"label": "GC visitante fuera", "value": stats_visitante["away"]["gc"], "weight": 0.45, "group": "Defensa visitante"}, {"label": "GC visitante global", "value": stats_visitante["overall"]["gc"], "weight": 0.20, "group": "Defensa visitante"}, {"label": "GC visitante recientes", "value": stats_visitante["gc_rec"], "weight": 0.35, "group": "Defensa visitante"}], "base_attack": ataque_local, "base_defense": defensa_visitante, "home_boost": 1.10, "form_adjustment": ajuste_forma, "h2h_adjustment": ajuste_h2h, "final_xg": xg_local},
         "visitante_xg": {"components": [{"label": "GF visitante fuera", "value": stats_visitante["away"]["gf"], "weight": 0.45, "group": "Ataque visitante"}, {"label": "GF visitante global", "value": stats_visitante["overall"]["gf"], "weight": 0.20, "group": "Ataque visitante"}, {"label": "GF visitante recientes", "value": stats_visitante["gf_rec"], "weight": 0.35, "group": "Ataque visitante"}, {"label": "GC local en casa", "value": stats_local["home"]["gc"], "weight": 0.45, "group": "Defensa local"}, {"label": "GC local global", "value": stats_local["overall"]["gc"], "weight": 0.20, "group": "Defensa local"}, {"label": "GC local recientes", "value": stats_local["gc_rec"], "weight": 0.35, "group": "Defensa local"}], "base_attack": ataque_visitante, "base_defense": defensa_local, "home_boost": 1.00, "form_adjustment": ajuste_forma, "h2h_adjustment": ajuste_h2h, "final_xg": xg_visitante},
@@ -293,18 +307,18 @@ def build_match_analysis(
         penalizacion_eliminatoria_visitante=penalizacion_eliminatoria_visitante,
         mercados=mercados,
         trace=build_traceability(
-            stats_local,
-            stats_visitante,
-            h2h,
-            ataque_local,
-            defensa_visitante,
-            ataque_visitante,
-            defensa_local,
-            ajuste_forma,
-            ajuste_h2h,
-            detalle_h2h,
-            xg_local,
-            xg_visitante,
+            stats_local=stats_local,
+            stats_visitante=stats_visitante,
+            h2h=h2h,
+            ataque_local=ataque_local,
+            defensa_visitante=defensa_visitante,
+            ataque_visitante=ataque_visitante,
+            defensa_local=defensa_local,
+            ajuste_forma=ajuste_forma,
+            ajuste_h2h=ajuste_h2h,
+            detalle_h2h=detalle_h2h,
+            xg_local=xg_local,
+            xg_visitante=xg_visitante,
         ),
         timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
     )

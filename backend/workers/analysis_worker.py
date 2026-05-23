@@ -299,7 +299,6 @@ def run_once() -> int:
     target_date = _target_date_from_env()
     pipeline_run_id = os.getenv("PIPELINE_RUN_ID", str(uuid4()))
     connection_factory = create_postgres_connection_factory()
-    ensure_postgres_schema(connection_factory)
     match_repository = PostgresMatchRepository(connection_factory)
     odds_repository = PostgresOddsRepository(connection_factory)
     pick_repository = PostgresPickRepository(connection_factory)
@@ -439,6 +438,7 @@ def run_once() -> int:
 def main() -> int:
     configure_logging()
     try:
+        ensure_postgres_schema(create_postgres_connection_factory())
         run_once()
     except (RuntimeError, ValueError) as exc:
         LOGGER.exception(

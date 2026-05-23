@@ -49,7 +49,7 @@ class AnalysisMarketRead(BaseModel):
 
     @classmethod
     def from_domain(cls, market: AnalysisMarket) -> "AnalysisMarketRead":
-        return cls(nombre=market.nombre, prob=market.prob)
+        return cls(nombre=market.name, prob=market.prob)
 
 
 class AnalysisRead(BaseModel):

@@ -6,7 +6,7 @@ from backend.app.domain.models import Analysis
 from backend.app.domain.pricing import build_pick, kelly_fraction
 
 
-MODEL_VERSION = "legacy-poisson-v1"
+MODEL_VERSION = "poisson-v1"
 KELLY_MULTIPLIER = 0.5
 
 
