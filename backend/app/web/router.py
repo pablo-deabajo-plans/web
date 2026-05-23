@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, Query, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -659,7 +660,10 @@ def match_detail(
             feature="advanced_projection",
             return_to=f"/match-detail/{match_id}?league={league}&day={day.isoformat()}&tab=projection&projection_stat={projection_stat}",
         )
-    payload = service.get_match_dashboard(league=league, target_date=day, match_id=match_id)
+    try:
+        payload = service.get_match_dashboard(league=league, target_date=day, match_id=match_id)
+    except ValueError:
+        return _redirect(f"/league/{quote(league)}?day={day.isoformat()}&competition_view=Ligas")
     analysis = AnalysisRead.from_domain(payload["analysis"]).model_dump()
     active_tab = plan_access.coerce_match_tab(requested_tab)
     locked_tab_label = tab_label(requested_tab) if requested_tab != active_tab else ""
