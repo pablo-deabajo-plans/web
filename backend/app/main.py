@@ -66,9 +66,17 @@ async def _scheduler_watchdog(app: FastAPI) -> None:
             _start_embedded_scheduler(app)
 
 
+def _postgres_env_configured() -> bool:
+    return all(
+        os.getenv(v, "").strip()
+        for v in ("POSTGRES_HOST", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD")
+    )
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
-    ensure_postgres_schema(create_postgres_connection_factory())
+    if _postgres_env_configured():
+        ensure_postgres_schema(create_postgres_connection_factory())
     _start_embedded_scheduler(app)
     watchdog_task = asyncio.create_task(_scheduler_watchdog(app)) if _embedded_scheduler_enabled() else None
     yield

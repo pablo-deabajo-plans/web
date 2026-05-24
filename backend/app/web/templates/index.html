@@ -19,7 +19,7 @@
   <div class="stat-divider"></div>
   <div class="stat">
     <span class="stat-label">Partidos</span>
-    <span class="stat-val">{{ league_rows|sum(attribute='match_count') if league_rows else 0 }}</span>
+    <span class="stat-val">{{ league_rows|selectattr('match_count', 'ne', none)|sum(attribute='match_count') if league_rows else 0 }}</span>
   </div>
   {% if search_query %}
   <div class="stat-divider"></div>
