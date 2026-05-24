@@ -258,10 +258,14 @@ def home(
     competition_view = _normalize_competition_view(competition_view)
     current_user = _current_user(request, auth)
     plan_access = access_for_user(current_user)
-    league_rows = _stored_league_rows(target_day, competition_view, match_repository) or _static_league_rows(competition_view)
+    try:
+        league_rows = _stored_league_rows(target_day, competition_view, match_repository) or _static_league_rows(competition_view)
+        search_results = _search_stored_matches(target_day, q, match_repository) if q and q.strip() else []
+    except Exception:
+        league_rows = _static_league_rows(competition_view)
+        search_results = []
     league_rows = plan_access.filter_league_rows(league_rows)
-    search_results = _search_stored_matches(target_day, q, match_repository) if q and q.strip() else []
-    search_results = plan_access.filter_matches(search_results)
+    search_results_filtered = plan_access.filter_matches(search_results)
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -272,7 +276,7 @@ def home(
             "competition_view": competition_view,
             "league_rows": league_rows,
             "search_query": q or "",
-            "search_results": search_results,
+            "search_results": search_results_filtered,
             "data_stale": _check_data_stale(),
         },
     )

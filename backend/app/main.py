@@ -76,7 +76,10 @@ def _postgres_env_configured() -> bool:
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     if _postgres_env_configured():
-        ensure_postgres_schema(create_postgres_connection_factory())
+        try:
+            ensure_postgres_schema(create_postgres_connection_factory())
+        except Exception as exc:
+            LOGGER.warning("PostgreSQL schema bootstrap failed — continuing: %s", exc)
     _start_embedded_scheduler(app)
     watchdog_task = asyncio.create_task(_scheduler_watchdog(app)) if _embedded_scheduler_enabled() else None
     yield
@@ -153,12 +156,13 @@ _error_templates = Jinja2Templates(
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: Exception):
     return _error_templates.TemplateResponse(
-        "errors/404.html", {"request": request}, status_code=404
+        request, "errors/404.html", {}, status_code=404
     )
 
 
-@app.exception_handler(500)
-async def server_error_handler(request: Request, exc: Exception):
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    LOGGER.exception("Unhandled exception: %s", exc)
     return _error_templates.TemplateResponse(
-        "errors/500.html", {"request": request}, status_code=500
+        request, "errors/500.html", {}, status_code=500
     )
