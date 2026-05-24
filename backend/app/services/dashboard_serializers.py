@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from backend.app.domain.analysis import VALUE_BET_THRESHOLD
+from backend.app.domain.analysis import BTTS_INSIGHT_THRESHOLD
 from backend.app.domain.models import Analysis, OddsQuote
 from backend.app.domain.pricing import fair_odds
 from backend.app.config.teams import normalizar_nombre
@@ -62,7 +62,7 @@ def _build_signal_flags(analysis: Analysis) -> dict[str, dict]:
     return {
         key: {
             "probability": float(result_dict[key]),
-            "highlight": float(result_dict[key]) >= VALUE_BET_THRESHOLD,
+            "highlight": float(result_dict[key]) >= BTTS_INSIGHT_THRESHOLD,
         }
         for key in tracked_keys
         if key in result_dict

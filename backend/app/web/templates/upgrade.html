@@ -56,25 +56,12 @@
       <p>Pago no habilitado aun</p>
     </header>
     <div class="upgrade-action-row">
-      <button type="button" class="button-disabled" onclick="handleUpgradeToPro()" aria-describedby="upgrade-placeholder-note">Desbloquear PRO</button>
+      <button type="button" class="button-disabled" aria-describedby="upgrade-placeholder-note">Desbloquear PRO</button>
       <a class="button-secondary" href="{{ return_to }}">Volver</a>
     </div>
     <p id="upgrade-placeholder-note" class="form-note">Proximamente: aqui se conectara el checkout. No se ejecuta ningun cobro desde esta pantalla.</p>
   </article>
 </section>
 
-<script>
-  function handleUpgradeToPro() {
-    startProCheckout();
-  }
-
-  function startProCheckout() {
-    // TODO: conectar proveedor de pago cuando se habilite monetizacion.
-    // TODO: onPaymentSuccess debe actualizar user.plan = "pro" en backend.
-    const note = document.getElementById("upgrade-placeholder-note");
-    if (note) {
-      note.textContent = "Pago no habilitado aun. El checkout PRO se conectara aqui mas adelante.";
-    }
-  }
-</script>
+<script src="/assets/upgrade.js"></script>
 {% endblock %}

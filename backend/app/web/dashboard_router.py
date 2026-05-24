@@ -18,6 +18,7 @@ from backend.app.schemas.analysis import AnalysisRead
 from backend.app.services.auth import AuthService
 from backend.app.services.dashboard import COMPETITION_TYPES, DashboardService
 from backend.app.web._web_shared import (
+    _check_data_stale,
     _current_user,
     _redirect,
     _upgrade_response,
@@ -272,6 +273,7 @@ def home(
             "league_rows": league_rows,
             "search_query": q or "",
             "search_results": search_results,
+            "data_stale": _check_data_stale(),
         },
     )
 
@@ -309,6 +311,7 @@ def league_detail(
             "day": target_day.isoformat(),
             "competition_view": competition_view,
             "league_dashboard": league_dashboard,
+            "data_stale": _check_data_stale(),
         },
     )
 
@@ -347,6 +350,7 @@ def daily_value(
             "day": target_day.isoformat(),
             "competition_view": competition_view,
             "ranking_groups": ranking_groups,
+            "data_stale": _check_data_stale(),
         },
     )
 
@@ -431,5 +435,6 @@ def match_detail(
             "projection_distribution": projection_distribution,
             "player_payload": payload["player_probabilities"],
             "player_rows": player_rows,
+            "data_stale": _check_data_stale(),
         },
     )

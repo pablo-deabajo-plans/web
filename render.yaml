@@ -14,7 +14,9 @@ services:
       - key: APP_ENV
         value: production
       - key: EMBEDDED_SCHEDULER_ENABLED
-        value: "true"
+        value: "false"
+      - key: SESSION_SECRET_KEY
+        sync: false
       - key: API_AUTH_KEY
         sync: false
       - key: POSTGRES_HOST
@@ -41,3 +43,40 @@ services:
         sync: false
       - key: FROM_EMAIL
         value: "noreply@gordon-betscanner.com"
+
+  - type: worker
+    name: gordon-betscanner-scheduler
+    runtime: python
+    plan: free
+    region: oregon
+    repo: https://github.com/pablo-deabajo-plans/web
+    branch: main
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: python -m backend.workers.scheduler
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: API_AUTH_KEY
+        sync: false
+      - key: POSTGRES_HOST
+        sync: false
+      - key: POSTGRES_PORT
+        value: "5432"
+      - key: POSTGRES_DB
+        sync: false
+      - key: POSTGRES_USER
+        sync: false
+      - key: POSTGRES_PASSWORD
+        sync: false
+      - key: POSTGRES_SSLMODE
+        value: require
+      - key: MATCH_INGESTION_INTERVAL_MINUTES
+        value: "30"
+      - key: ODDS_INGESTION_INTERVAL_MINUTES
+        value: "30"
+      - key: ANALYSIS_INTERVAL_MINUTES
+        value: "30"
+      - key: SETTLEMENT_INTERVAL_MINUTES
+        value: "60"
+      - key: RESEND_API_KEY
+        sync: false

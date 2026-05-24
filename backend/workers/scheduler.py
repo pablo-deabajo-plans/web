@@ -4,6 +4,7 @@ import json
 import os
 import signal
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,7 +23,7 @@ from backend.workers.settlement_worker import run_once as run_settlement_once
 
 
 LOGGER = get_logger(__name__)
-STOP_REQUESTED = False
+STOP_REQUESTED = threading.Event()
 
 
 @dataclass(frozen=True)
@@ -90,8 +91,7 @@ def _build_jobs() -> list[ScheduledJob]:
 
 
 def _handle_signal(signum, _frame) -> None:
-    global STOP_REQUESTED
-    STOP_REQUESTED = True
+    STOP_REQUESTED.set()
     LOGGER.info("Scheduler received shutdown signal signum=%s", signum)
 
 
@@ -111,7 +111,7 @@ def _run_job(job: ScheduledJob) -> None:
             processed,
             elapsed,
         )
-    except (RuntimeError, ValueError) as exc:
+    except Exception as exc:
         elapsed = time.monotonic() - started_at
         _log_scheduler_error(
             context=f"run_job job={job.name} duration_seconds={elapsed:.2f}",
@@ -129,7 +129,7 @@ def run_forever() -> int:
         ", ".join(f"{job.name}:{job.interval_seconds}s" for job in jobs),
     )
 
-    while not STOP_REQUESTED:
+    while not STOP_REQUESTED.is_set():
         now = time.monotonic()
         for job in jobs:
             if now < next_run_at[job.name]:
@@ -138,7 +138,7 @@ def run_forever() -> int:
             # always observe the latest committed outputs from upstream workers.
             _run_job(job)
             next_run_at[job.name] = time.monotonic() + job.interval_seconds
-        time.sleep(1)
+        STOP_REQUESTED.wait(timeout=1)
 
     LOGGER.info("Scheduler stopped")
     return 0
@@ -149,7 +149,7 @@ def main() -> int:
     _install_signal_handlers()
     try:
         return run_forever()
-    except (RuntimeError, ValueError) as exc:
+    except Exception as exc:
         _log_scheduler_error(context="main", error=exc)
         return 1
 

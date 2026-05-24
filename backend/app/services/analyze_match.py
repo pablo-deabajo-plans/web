@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date, datetime
+
 import pandas as pd
 
 from backend.app.domain.models import Analysis
@@ -13,7 +15,7 @@ class AnalyzeMatchService:
         liga: str,
         local: str,
         visitante: str,
-        match_date=None,
+        match_date: date | datetime | None = None,
         match_label: str = "",
     ) -> Analysis | None:
         return build_match_analysis(

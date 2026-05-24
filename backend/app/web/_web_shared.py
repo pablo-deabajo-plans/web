@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import Request, status
@@ -12,6 +13,32 @@ from backend.app.domain.models import User
 from backend.app.services.auth import AuthService
 from backend.app.web.presenters import fmt_edge, fmt_num, fmt_pct, safe_text
 from backend.app.web.plans import access_for_user, upgrade_feature_context
+
+
+_DATA_STALE_THRESHOLD = timedelta(hours=4)
+_DATA_STALE_CACHE_TTL = timedelta(minutes=5)
+_data_stale_cache: tuple[datetime, bool] | None = None
+
+
+def _check_data_stale() -> bool:
+    global _data_stale_cache
+    now = datetime.now(timezone.utc)
+    cache = _data_stale_cache
+    if cache is not None:
+        cached_at, result = cache
+        if now - cached_at < _DATA_STALE_CACHE_TTL:
+            return result
+    try:
+        from backend.app.api.dependencies import get_health_service
+        snapshot = get_health_service().get()
+        last = snapshot.last_analysis_at
+        if last is not None and last.tzinfo is None:
+            last = last.replace(tzinfo=timezone.utc)
+        stale = last is None or (now - last) > _DATA_STALE_THRESHOLD
+    except Exception:
+        stale = False
+    _data_stale_cache = (now, stale)
+    return stale
 
 
 BASE_DIR = Path(__file__).resolve().parent

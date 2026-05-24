@@ -228,6 +228,15 @@ CREATE TABLE IF NOT EXISTS login_attempts (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    token   TEXT        NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_password_reset_tokens_token
+    ON password_reset_tokens (token);
+
 CREATE TABLE IF NOT EXISTS audit_log (
     id          BIGSERIAL PRIMARY KEY,
     user_id     TEXT,

@@ -107,6 +107,8 @@ class AuthService:
         self._users = users
         self._session_secret = session_secret
         self._session_ttl_seconds = session_ttl_seconds
+        if login_attempts is None:
+            _LOGGER.warning("AuthService using in-memory rate limiting — state resets on restart")
         self._login_attempts: LoginAttemptRepository = login_attempts or _InMemoryLoginAttemptStore()
 
     def register(self, gmail: str, nombre: str, password: str, client_key: str = "") -> User:
@@ -130,7 +132,7 @@ class AuthService:
         )
         self._users.create_user(user)
         token = self.generate_verification_token(user.id)
-        _LOGGER.info("Email verification token generated user_id=%s token=%s", user.id, token)
+        _LOGGER.info("Email verification token generated user_id=%s", user.id)
         return user
 
     def authenticate(self, gmail: str, password: str, client_key: str = "") -> User:

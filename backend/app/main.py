@@ -46,7 +46,7 @@ def _start_embedded_scheduler(app: FastAPI) -> None:
     worker_thread = getattr(app.state, "embedded_scheduler_thread", None)
     if worker_thread and worker_thread.is_alive():
         return
-    embedded_scheduler.STOP_REQUESTED = False
+    embedded_scheduler.STOP_REQUESTED.clear()
     worker_thread = Thread(
         target=embedded_scheduler.run_forever,
         name="embedded-render-scheduler",
@@ -77,7 +77,7 @@ async def _lifespan(app: FastAPI):
         with contextlib.suppress(asyncio.CancelledError):
             await watchdog_task
     if _embedded_scheduler_enabled():
-        embedded_scheduler.STOP_REQUESTED = True
+        embedded_scheduler.STOP_REQUESTED.set()
         LOGGER.info("Embedded scheduler stop requested")
 
 
@@ -98,7 +98,7 @@ async def _security_headers(request, call_next):
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline'; "
+        "script-src 'self'; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data:; "

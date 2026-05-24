@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import math
 
 import pandas as pd
@@ -10,7 +10,7 @@ from backend.app.config.teams import clave_equipo, nombre_visual_equipo
 from backend.app.domain.stats import calcular_h2h, calcular_stats, extraer_historico
 
 
-VALUE_BET_THRESHOLD = 0.65
+BTTS_INSIGHT_THRESHOLD = 0.65
 SIMULACIONES = 50000
 LIGAS_FASE_ELIMINATORIA = {"Champions League", "Europa League", "Conference League", "Copa del Rey"}
 DEFAULT_CORNERS_FOR = 4.5
@@ -22,6 +22,22 @@ DEFAULT_SHOTS_AGAINST = 11.0
 DEFAULT_SHOTS_ON_TARGET_FOR = 4.0
 DEFAULT_SHOTS_ON_TARGET_AGAINST = 4.0
 POISSON_SCORE_MAX = 12
+
+# Expert-prior weights (not data-derived from backtesting).
+W_GOALS_HOME_AWAY   = 0.45  # home/away venue split
+W_GOALS_OVERALL     = 0.20  # season-wide average
+W_GOALS_RECENT      = 0.35  # last-N-match form
+
+W_CORNERS_HOME_AWAY = 0.55
+W_CORNERS_OVERALL   = 0.15
+W_CORNERS_OPPONENT  = 0.30  # opponent conceded rate
+
+W_CARDS_HOME_AWAY   = 0.50
+W_CARDS_OVERALL     = 0.15
+W_CARDS_OPPONENT    = 0.35
+
+W_SHOTS_VENUE       = 0.55  # venue-specific (home or away)
+W_SHOTS_RECENT      = 0.45  # recent overall
 
 
 def model_value(stats: dict, key: str, flag: str, default: float) -> float:
@@ -78,6 +94,7 @@ def build_top_scores(home_mean: float, away_mean: float) -> list[tuple[str, int]
 
 
 def simulate_match(
+    *,
     xg_local: float,
     xg_visitante: float,
     xc_local: float,
@@ -153,14 +170,14 @@ def build_markets(resultado: AnalysisResult, local: str, visitante: str) -> tupl
     )
 
 
-def is_home_knockout_bonus_applicable(league: str, match_date) -> bool:
+def is_home_knockout_bonus_applicable(league: str, match_date: date | datetime | None) -> bool:
     if league not in LIGAS_FASE_ELIMINATORIA:
         return False
     if league == "Copa del Rey":
         return True
     if match_date is None:
         return True
-    return getattr(match_date, "month", 1) >= 2
+    return match_date.month >= 2
 
 
 def calculate_knockout_home_bonus(stats_local: dict, stats_visitante: dict) -> tuple[float, float]:
@@ -186,8 +203,8 @@ def build_insights(analysis: Analysis) -> list[str]:
         insights.append(f"El sesgo base favorece al visitante con {resultado.away_win * 100:.1f}% de victoria.")
     if local_home["gf"] > visitante_away["gc"]:
         insights.append(f"El ataque en casa de {analysis.local} ({local_home['gf']:.2f}) supera la defensa fuera de {analysis.visitante} ({visitante_away['gc']:.2f}).")
-    if resultado.both_teams_score >= VALUE_BET_THRESHOLD:
-        insights.append("Ambos marcan entra en zona caliente del modelo por encima del 65%.")
+    if resultado.both_teams_score >= BTTS_INSIGHT_THRESHOLD:
+        insights.append(f"Ambos marcan entra en zona caliente del modelo por encima del {BTTS_INSIGHT_THRESHOLD * 100:.0f}%.")
     if resultado.over_9_5_corners >= 0.55:
         insights.append("El partido proyecta un volumen de corners alto y consistente con trading en vivo.")
     if h2h["matches"] == 0:
@@ -223,10 +240,61 @@ def build_traceability(
     xg_local: float,
     xg_visitante: float,
 ) -> dict:
+    components_local = [
+        {"label": "GF local en casa",      "value": stats_local["home"]["gf"],        "weight": W_GOALS_HOME_AWAY, "group": "Ataque local"},
+        {"label": "GF local global",        "value": stats_local["overall"]["gf"],     "weight": W_GOALS_OVERALL,   "group": "Ataque local"},
+        {"label": "GF local recientes",     "value": stats_local["gf_rec"],            "weight": W_GOALS_RECENT,    "group": "Ataque local"},
+        {"label": "GC visitante fuera",     "value": stats_visitante["away"]["gc"],    "weight": W_GOALS_HOME_AWAY, "group": "Defensa visitante"},
+        {"label": "GC visitante global",    "value": stats_visitante["overall"]["gc"], "weight": W_GOALS_OVERALL,   "group": "Defensa visitante"},
+        {"label": "GC visitante recientes", "value": stats_visitante["gc_rec"],        "weight": W_GOALS_RECENT,    "group": "Defensa visitante"},
+    ]
+    components_visitante = [
+        {"label": "GF visitante fuera",     "value": stats_visitante["away"]["gf"],    "weight": W_GOALS_HOME_AWAY, "group": "Ataque visitante"},
+        {"label": "GF visitante global",    "value": stats_visitante["overall"]["gf"], "weight": W_GOALS_OVERALL,   "group": "Ataque visitante"},
+        {"label": "GF visitante recientes", "value": stats_visitante["gf_rec"],        "weight": W_GOALS_RECENT,    "group": "Ataque visitante"},
+        {"label": "GC local en casa",       "value": stats_local["home"]["gc"],        "weight": W_GOALS_HOME_AWAY, "group": "Defensa local"},
+        {"label": "GC local global",        "value": stats_local["overall"]["gc"],     "weight": W_GOALS_OVERALL,   "group": "Defensa local"},
+        {"label": "GC local recientes",     "value": stats_local["gc_rec"],            "weight": W_GOALS_RECENT,    "group": "Defensa local"},
+    ]
+    local_xg_trace = {
+        "components":      components_local,
+        "base_attack":     ataque_local,
+        "base_defense":    defensa_visitante,
+        "home_boost":      1.10,
+        "form_adjustment": ajuste_forma,
+        "h2h_adjustment":  ajuste_h2h,
+        "final_xg":        xg_local,
+    }
+    visitante_xg_trace = {
+        "components":      components_visitante,
+        "base_attack":     ataque_visitante,
+        "base_defense":    defensa_local,
+        "home_boost":      1.00,
+        "form_adjustment": ajuste_forma,
+        "h2h_adjustment":  ajuste_h2h,
+        "final_xg":        xg_visitante,
+    }
+    adjustments_trace = {
+        "form": {
+            "local_ppg":     stats_local["form"]["ppg"],
+            "visitante_ppg": stats_visitante["form"]["ppg"],
+            "factor":        ajuste_forma,
+        },
+        "h2h": {
+            "matches":       h2h["matches"],
+            "local_win_pct": h2h["local_win_pct"],
+            "away_win_pct":  h2h["away_win_pct"],
+            "factor":        ajuste_h2h,
+            "mode":          detalle_h2h["mode"],
+            "window":        detalle_h2h["window"],
+            "h2h_factor":    detalle_h2h["h2h_factor"],
+            "recent_factor": detalle_h2h["recent_factor"],
+        },
+    }
     return {
-        "local_xg": {"components": [{"label": "GF local en casa", "value": stats_local["home"]["gf"], "weight": 0.45, "group": "Ataque local"}, {"label": "GF local global", "value": stats_local["overall"]["gf"], "weight": 0.20, "group": "Ataque local"}, {"label": "GF local recientes", "value": stats_local["gf_rec"], "weight": 0.35, "group": "Ataque local"}, {"label": "GC visitante fuera", "value": stats_visitante["away"]["gc"], "weight": 0.45, "group": "Defensa visitante"}, {"label": "GC visitante global", "value": stats_visitante["overall"]["gc"], "weight": 0.20, "group": "Defensa visitante"}, {"label": "GC visitante recientes", "value": stats_visitante["gc_rec"], "weight": 0.35, "group": "Defensa visitante"}], "base_attack": ataque_local, "base_defense": defensa_visitante, "home_boost": 1.10, "form_adjustment": ajuste_forma, "h2h_adjustment": ajuste_h2h, "final_xg": xg_local},
-        "visitante_xg": {"components": [{"label": "GF visitante fuera", "value": stats_visitante["away"]["gf"], "weight": 0.45, "group": "Ataque visitante"}, {"label": "GF visitante global", "value": stats_visitante["overall"]["gf"], "weight": 0.20, "group": "Ataque visitante"}, {"label": "GF visitante recientes", "value": stats_visitante["gf_rec"], "weight": 0.35, "group": "Ataque visitante"}, {"label": "GC local en casa", "value": stats_local["home"]["gc"], "weight": 0.45, "group": "Defensa local"}, {"label": "GC local global", "value": stats_local["overall"]["gc"], "weight": 0.20, "group": "Defensa local"}, {"label": "GC local recientes", "value": stats_local["gc_rec"], "weight": 0.35, "group": "Defensa local"}], "base_attack": ataque_visitante, "base_defense": defensa_local, "home_boost": 1.00, "form_adjustment": ajuste_forma, "h2h_adjustment": ajuste_h2h, "final_xg": xg_visitante},
-        "adjustments": {"form": {"local_ppg": stats_local["form"]["ppg"], "visitante_ppg": stats_visitante["form"]["ppg"], "factor": ajuste_forma}, "h2h": {"matches": h2h["matches"], "local_win_pct": h2h["local_win_pct"], "away_win_pct": h2h["away_win_pct"], "factor": ajuste_h2h, "mode": detalle_h2h["mode"], "window": detalle_h2h["window"], "h2h_factor": detalle_h2h["h2h_factor"], "recent_factor": detalle_h2h["recent_factor"]}},
+        "local_xg":    local_xg_trace,
+        "visitante_xg": visitante_xg_trace,
+        "adjustments": adjustments_trace,
     }
 
 
@@ -242,14 +310,12 @@ def build_fallback_h2h(historico: pd.DataFrame, local: str, visitante: str) -> t
     return calcular_stats(h2h_history, local), calcular_stats(h2h_history, visitante), calcular_h2h(h2h_history, local, visitante, 8)
 
 
-# Weights: goals 0.45/0.20/0.35, corners 0.55/0.15/0.30, cards 0.50/0.15/0.35
-# (attack/defence/form). These are expert priors, not data-derived from backtesting.
 def build_match_analysis(
     df: pd.DataFrame,
     liga: str,
     local: str,
     visitante: str,
-    match_date=None,
+    match_date: date | datetime | None = None,
     match_label: str = "",
 ) -> Analysis | None:
     historico = extraer_historico(df)
@@ -260,11 +326,10 @@ def build_match_analysis(
         stats_local, stats_visitante, h2h = build_fallback_h2h(historico, local, visitante)
         if stats_local["overall"]["pj"] == 0 or stats_visitante["overall"]["pj"] == 0:
             return None
-    # goal model: weighted blend home/away 45% · overall 20% · recent 35%
-    ataque_local = (stats_local["home"]["gf"] * 0.45) + (stats_local["overall"]["gf"] * 0.20) + (stats_local["gf_rec"] * 0.35)
-    defensa_visitante = (stats_visitante["away"]["gc"] * 0.45) + (stats_visitante["overall"]["gc"] * 0.20) + (stats_visitante["gc_rec"] * 0.35)
-    ataque_visitante = (stats_visitante["away"]["gf"] * 0.45) + (stats_visitante["overall"]["gf"] * 0.20) + (stats_visitante["gf_rec"] * 0.35)
-    defensa_local = (stats_local["home"]["gc"] * 0.45) + (stats_local["overall"]["gc"] * 0.20) + (stats_local["gc_rec"] * 0.35)
+    ataque_local = (stats_local["home"]["gf"] * W_GOALS_HOME_AWAY) + (stats_local["overall"]["gf"] * W_GOALS_OVERALL) + (stats_local["gf_rec"] * W_GOALS_RECENT)
+    defensa_visitante = (stats_visitante["away"]["gc"] * W_GOALS_HOME_AWAY) + (stats_visitante["overall"]["gc"] * W_GOALS_OVERALL) + (stats_visitante["gc_rec"] * W_GOALS_RECENT)
+    ataque_visitante = (stats_visitante["away"]["gf"] * W_GOALS_HOME_AWAY) + (stats_visitante["overall"]["gf"] * W_GOALS_OVERALL) + (stats_visitante["gf_rec"] * W_GOALS_RECENT)
+    defensa_local = (stats_local["home"]["gc"] * W_GOALS_HOME_AWAY) + (stats_local["overall"]["gc"] * W_GOALS_OVERALL) + (stats_local["gc_rec"] * W_GOALS_RECENT)
     # form adjustment: 0.04 per ppg differential, capped at ±0.08
     ajuste_forma = max(-0.08, min(0.08, (stats_local["form"]["ppg"] - stats_visitante["form"]["ppg"]) * 0.04))
     ajuste_h2h, detalle_h2h = calculate_contextual_h2h_adjustment(stats_local, stats_visitante, h2h)
@@ -279,20 +344,55 @@ def build_match_analysis(
         xg_visitante *= 1 - penalizacion_eliminatoria_visitante
     xg_local = max(0.15, xg_local)
     xg_visitante = max(0.15, xg_visitante)
-    # corner model: home/away 55% · overall 15% · opponent 30%; local gets +10% home advantage
-    xc_local = (model_value(stats_local["home"], "corners_for", "has_corners", DEFAULT_CORNERS_FOR) * 0.55 + model_value(stats_local["overall"], "corners_for", "has_corners", DEFAULT_CORNERS_FOR) * 0.15 + model_value(stats_visitante["away"], "corners_against", "has_corners", DEFAULT_CORNERS_AGAINST) * 0.30) * 1.10
-    xc_visitante = (model_value(stats_visitante["away"], "corners_for", "has_corners", DEFAULT_CORNERS_FOR) * 0.55 + model_value(stats_visitante["overall"], "corners_for", "has_corners", DEFAULT_CORNERS_FOR) * 0.15 + model_value(stats_local["home"], "corners_against", "has_corners", DEFAULT_CORNERS_AGAINST) * 0.30)
-    # card model: home/away 50% · overall 15% · opponent 35%
-    xt_local = (model_value(stats_local["home"], "cards_for", "has_cards", DEFAULT_CARDS_FOR) * 0.50 + model_value(stats_local["overall"], "cards_for", "has_cards", DEFAULT_CARDS_FOR) * 0.15 + model_value(stats_visitante["away"], "cards_against", "has_cards", DEFAULT_CARDS_AGAINST) * 0.35)
-    xt_visitante = (model_value(stats_visitante["away"], "cards_for", "has_cards", DEFAULT_CARDS_FOR) * 0.50 + model_value(stats_visitante["overall"], "cards_for", "has_cards", DEFAULT_CARDS_FOR) * 0.15 + model_value(stats_local["home"], "cards_against", "has_cards", DEFAULT_CARDS_AGAINST) * 0.35)
-    # shot model: home/away 55% · recent overall 45%
-    xs_local = (offensive_model_value(stats_local["home"], stats_visitante["away"], "shots_for", "shots_against", "has_shots", DEFAULT_SHOTS_FOR) * 0.55 + offensive_model_value(stats_local["recent_overall"], stats_visitante["recent_overall"], "shots_for", "shots_against", "has_shots", DEFAULT_SHOTS_FOR) * 0.45)
-    xs_visitante = (offensive_model_value(stats_visitante["away"], stats_local["home"], "shots_for", "shots_against", "has_shots", DEFAULT_SHOTS_FOR) * 0.55 + offensive_model_value(stats_visitante["recent_overall"], stats_local["recent_overall"], "shots_for", "shots_against", "has_shots", DEFAULT_SHOTS_FOR) * 0.45)
-    xst_local = min(xs_local, (offensive_model_value(stats_local["home"], stats_visitante["away"], "shots_on_target_for", "shots_on_target_against", "has_shots_on_target", DEFAULT_SHOTS_ON_TARGET_FOR) * 0.55 + offensive_model_value(stats_local["recent_overall"], stats_visitante["recent_overall"], "shots_on_target_for", "shots_on_target_against", "has_shots_on_target", DEFAULT_SHOTS_ON_TARGET_FOR) * 0.45))
-    xst_visitante = min(xs_visitante, (offensive_model_value(stats_visitante["away"], stats_local["home"], "shots_on_target_for", "shots_on_target_against", "has_shots_on_target", DEFAULT_SHOTS_ON_TARGET_FOR) * 0.55 + offensive_model_value(stats_visitante["recent_overall"], stats_local["recent_overall"], "shots_on_target_for", "shots_on_target_against", "has_shots_on_target", DEFAULT_SHOTS_ON_TARGET_FOR) * 0.45))
+    corners_local_home = model_value(stats_local["home"], "corners_for", "has_corners", DEFAULT_CORNERS_FOR)
+    corners_local_overall = model_value(stats_local["overall"], "corners_for", "has_corners", DEFAULT_CORNERS_FOR)
+    corners_visitante_against_away = model_value(stats_visitante["away"], "corners_against", "has_corners", DEFAULT_CORNERS_AGAINST)
+    xc_local = (corners_local_home * W_CORNERS_HOME_AWAY + corners_local_overall * W_CORNERS_OVERALL + corners_visitante_against_away * W_CORNERS_OPPONENT) * 1.10
+
+    corners_visitante_away = model_value(stats_visitante["away"], "corners_for", "has_corners", DEFAULT_CORNERS_FOR)
+    corners_visitante_overall = model_value(stats_visitante["overall"], "corners_for", "has_corners", DEFAULT_CORNERS_FOR)
+    corners_local_against_home = model_value(stats_local["home"], "corners_against", "has_corners", DEFAULT_CORNERS_AGAINST)
+    xc_visitante = corners_visitante_away * W_CORNERS_HOME_AWAY + corners_visitante_overall * W_CORNERS_OVERALL + corners_local_against_home * W_CORNERS_OPPONENT
+
+    cards_local_home = model_value(stats_local["home"], "cards_for", "has_cards", DEFAULT_CARDS_FOR)
+    cards_local_overall = model_value(stats_local["overall"], "cards_for", "has_cards", DEFAULT_CARDS_FOR)
+    cards_visitante_against_away = model_value(stats_visitante["away"], "cards_against", "has_cards", DEFAULT_CARDS_AGAINST)
+    xt_local = cards_local_home * W_CARDS_HOME_AWAY + cards_local_overall * W_CARDS_OVERALL + cards_visitante_against_away * W_CARDS_OPPONENT
+
+    cards_visitante_away = model_value(stats_visitante["away"], "cards_for", "has_cards", DEFAULT_CARDS_FOR)
+    cards_visitante_overall = model_value(stats_visitante["overall"], "cards_for", "has_cards", DEFAULT_CARDS_FOR)
+    cards_local_against_home = model_value(stats_local["home"], "cards_against", "has_cards", DEFAULT_CARDS_AGAINST)
+    xt_visitante = cards_visitante_away * W_CARDS_HOME_AWAY + cards_visitante_overall * W_CARDS_OVERALL + cards_local_against_home * W_CARDS_OPPONENT
+
+    shots_local_home = offensive_model_value(stats_local["home"], stats_visitante["away"], "shots_for", "shots_against", "has_shots", DEFAULT_SHOTS_FOR)
+    shots_local_recent = offensive_model_value(stats_local["recent_overall"], stats_visitante["recent_overall"], "shots_for", "shots_against", "has_shots", DEFAULT_SHOTS_FOR)
+    xs_local = shots_local_home * W_SHOTS_VENUE + shots_local_recent * W_SHOTS_RECENT
+
+    shots_visitante_away = offensive_model_value(stats_visitante["away"], stats_local["home"], "shots_for", "shots_against", "has_shots", DEFAULT_SHOTS_FOR)
+    shots_visitante_recent = offensive_model_value(stats_visitante["recent_overall"], stats_local["recent_overall"], "shots_for", "shots_against", "has_shots", DEFAULT_SHOTS_FOR)
+    xs_visitante = shots_visitante_away * W_SHOTS_VENUE + shots_visitante_recent * W_SHOTS_RECENT
+
+    shots_on_target_local_home = offensive_model_value(stats_local["home"], stats_visitante["away"], "shots_on_target_for", "shots_on_target_against", "has_shots_on_target", DEFAULT_SHOTS_ON_TARGET_FOR)
+    shots_on_target_local_recent = offensive_model_value(stats_local["recent_overall"], stats_visitante["recent_overall"], "shots_on_target_for", "shots_on_target_against", "has_shots_on_target", DEFAULT_SHOTS_ON_TARGET_FOR)
+    xst_local = min(xs_local, shots_on_target_local_home * W_SHOTS_VENUE + shots_on_target_local_recent * W_SHOTS_RECENT)
+
+    shots_on_target_visitante_away = offensive_model_value(stats_visitante["away"], stats_local["home"], "shots_on_target_for", "shots_on_target_against", "has_shots_on_target", DEFAULT_SHOTS_ON_TARGET_FOR)
+    shots_on_target_visitante_recent = offensive_model_value(stats_visitante["recent_overall"], stats_local["recent_overall"], "shots_on_target_for", "shots_on_target_against", "has_shots_on_target", DEFAULT_SHOTS_ON_TARGET_FOR)
+    xst_visitante = min(xs_visitante, shots_on_target_visitante_away * W_SHOTS_VENUE + shots_on_target_visitante_recent * W_SHOTS_RECENT)
     local_display = nombre_visual_equipo(local)
     visitante_display = nombre_visual_equipo(visitante)
-    resultado = simulate_match(xg_local, xg_visitante, xc_local, xc_visitante, xt_local, xt_visitante, xs_local, xs_visitante, xst_local, xst_visitante)
+    resultado = simulate_match(
+        xg_local=xg_local,
+        xg_visitante=xg_visitante,
+        xc_local=xc_local,
+        xc_visitante=xc_visitante,
+        xt_local=xt_local,
+        xt_visitante=xt_visitante,
+        xs_local=xs_local,
+        xs_visitante=xs_visitante,
+        xst_local=xst_local,
+        xst_visitante=xst_visitante,
+    )
     mercados = build_markets(resultado, local_display, visitante_display)
     return Analysis(
         liga=liga,

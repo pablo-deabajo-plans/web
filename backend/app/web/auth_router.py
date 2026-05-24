@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import logging
 import secrets
-import sys
 
 from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse
@@ -23,6 +23,8 @@ from backend.app.web._web_shared import (
 )
 from backend.app.web.plans import access_for_user
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(include_in_schema=False)
 
@@ -123,7 +125,7 @@ def register_submit(
     try:
         audit.log(user.id, "register.success", {"gmail": user.gmail})
     except Exception:
-        print("audit log failed", file=sys.stderr)
+        logger.warning("audit log failed", exc_info=True)
     return response
 
 
@@ -188,7 +190,7 @@ def login_submit(
         try:
             audit.log(None, "login.failure", {"gmail": gmail, "reason": str(exc)})
         except Exception:
-            print("audit log failed", file=sys.stderr)
+            logger.warning("audit log failed", exc_info=True)
         new_csrf = _new_pre_csrf()
         resp = templates.TemplateResponse(
             request,
@@ -201,7 +203,7 @@ def login_submit(
     try:
         audit.log(user.id, "login.success", {"gmail": user.gmail})
     except Exception:
-        print("audit log failed", file=sys.stderr)
+        logger.warning("audit log failed", exc_info=True)
     response = _redirect("/")
     _set_session_cookie(response, auth.create_session_token(user))
     return response
@@ -223,7 +225,7 @@ def logout(
     try:
         audit.log(user.id if user else None, "logout", {})
     except Exception:
-        print("audit log failed", file=sys.stderr)
+        logger.warning("audit log failed", exc_info=True)
     response = _redirect("/")
     _clear_session_cookie(response)
     return response

@@ -77,8 +77,8 @@ def test_contextual_h2h_adjustment_is_bounded() -> None:
 
 
 def test_simulate_match_is_deterministic_with_analytical_model() -> None:
-    first = simulate_match(1.4, 0.9, 5.2, 4.7, 2.1, 2.3, 12.0, 10.0, 4.5, 3.8)
-    second = simulate_match(1.4, 0.9, 5.2, 4.7, 2.1, 2.3, 12.0, 10.0, 4.5, 3.8)
+    first = simulate_match(xg_local=1.4, xg_visitante=0.9, xc_local=5.2, xc_visitante=4.7, xt_local=2.1, xt_visitante=2.3, xs_local=12.0, xs_visitante=10.0, xst_local=4.5, xst_visitante=3.8)
+    second = simulate_match(xg_local=1.4, xg_visitante=0.9, xc_local=5.2, xc_visitante=4.7, xt_local=2.1, xt_visitante=2.3, xs_local=12.0, xs_visitante=10.0, xst_local=4.5, xst_visitante=3.8)
 
     assert first == second
     assert first.most_likely_score
