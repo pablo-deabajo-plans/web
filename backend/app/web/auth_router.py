@@ -332,7 +332,7 @@ def forgot_password_submit(
             except Exception:
                 logger.warning("audit log failed", exc_info=True)
         except Exception:
-            pass  # never reveal whether the email was sent
+            logger.error("password reset email failed user_id=%s", user.id, exc_info=True)
     new_csrf = _new_pre_csrf()
     resp = templates.TemplateResponse(
         request,
