@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse
 from backend.app.api.dependencies import get_audit_log_repository, get_auth_service
 from backend.app.core import settings
 from backend.app.core.time import local_today
+from backend.app.infra.email import send_password_reset_email
 from backend.app.repositories.contracts import AuditLogRepository
 from backend.app.services.auth import AuthError, AuthService
 from backend.app.web._web_shared import (
@@ -286,6 +287,118 @@ def account_profile_submit(
         ),
         status_code=400 if profile_error else 200,
     )
+
+
+@router.get("/forgot-password", response_class=HTMLResponse)
+def forgot_password_form(request: Request, auth: AuthService = Depends(get_auth_service)):
+    csrf_token = _new_pre_csrf()
+    response = templates.TemplateResponse(
+        request,
+        "forgot_password.html",
+        _base_context(request, auth, day=local_today().isoformat(), error="", message="", csrf_token=csrf_token),
+    )
+    _set_pre_csrf_cookie(response, csrf_token)
+    return response
+
+
+@router.post("/forgot-password", response_class=HTMLResponse)
+def forgot_password_submit(
+    request: Request,
+    gmail: str = Form(...),
+    csrf_token: str = Form(...),
+    auth: AuthService = Depends(get_auth_service),
+):
+    if not _verify_pre_csrf(request, csrf_token):
+        new_csrf = _new_pre_csrf()
+        resp = templates.TemplateResponse(
+            request,
+            "forgot_password.html",
+            _base_context(request, auth, day=local_today().isoformat(), error="Petición no válida.", message="", csrf_token=new_csrf),
+            status_code=403,
+        )
+        _set_pre_csrf_cookie(resp, new_csrf)
+        return resp
+    user = auth.find_user_by_gmail(gmail)
+    if user is not None:
+        try:
+            token = auth.generate_password_reset_token(user.id)
+            reset_url = str(request.base_url) + f"reset-password?token={token}"
+            send_password_reset_email(user.gmail, reset_url)
+        except Exception:
+            pass  # never reveal whether the email was sent
+    new_csrf = _new_pre_csrf()
+    resp = templates.TemplateResponse(
+        request,
+        "forgot_password.html",
+        _base_context(
+            request, auth,
+            day=local_today().isoformat(),
+            error="",
+            message="Si esa dirección existe en el sistema, hemos enviado un correo de recuperación.",
+            csrf_token=new_csrf,
+        ),
+    )
+    _set_pre_csrf_cookie(resp, new_csrf)
+    return resp
+
+
+@router.get("/reset-password", response_class=HTMLResponse)
+def reset_password_form(
+    request: Request,
+    token: str | None = Query(default=None),
+    auth: AuthService = Depends(get_auth_service),
+):
+    if not token:
+        return _redirect("/forgot-password")
+    user = auth.get_user_by_reset_token(token)
+    if user is None:
+        return templates.TemplateResponse(
+            request,
+            "reset_password.html",
+            _base_context(request, auth, day=local_today().isoformat(), error="El enlace ha caducado o no es válido.", token="", csrf_token=""),
+            status_code=400,
+        )
+    csrf_token = _new_pre_csrf()
+    response = templates.TemplateResponse(
+        request,
+        "reset_password.html",
+        _base_context(request, auth, day=local_today().isoformat(), error="", token=token, csrf_token=csrf_token),
+    )
+    _set_pre_csrf_cookie(response, csrf_token)
+    return response
+
+
+@router.post("/reset-password", response_class=HTMLResponse)
+def reset_password_submit(
+    request: Request,
+    token: str = Form(...),
+    new_password: str = Form(...),
+    csrf_token: str = Form(...),
+    auth: AuthService = Depends(get_auth_service),
+):
+    if not _verify_pre_csrf(request, csrf_token):
+        new_csrf = _new_pre_csrf()
+        resp = templates.TemplateResponse(
+            request,
+            "reset_password.html",
+            _base_context(request, auth, day=local_today().isoformat(), error="Petición no válida.", token=token, csrf_token=new_csrf),
+            status_code=403,
+        )
+        _set_pre_csrf_cookie(resp, new_csrf)
+        return resp
+    try:
+        auth.reset_password(token, new_password)
+    except AuthError as exc:
+        new_csrf = _new_pre_csrf()
+        resp = templates.TemplateResponse(
+            request,
+            "reset_password.html",
+            _base_context(request, auth, day=local_today().isoformat(), error=str(exc), token=token, csrf_token=new_csrf),
+            status_code=400,
+        )
+        _set_pre_csrf_cookie(resp, new_csrf)
+        return resp
+    return _redirect("/login")
 
 
 @router.post("/account/password", response_class=HTMLResponse)

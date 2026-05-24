@@ -18,6 +18,7 @@ from backend.app.api.rate_limiter import limiter
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from backend.app.api.routes.health import router as health_router
+from backend.app.api.routes.jobs import router as jobs_router
 from backend.app.api.routes.history import router as history_router
 from backend.app.api.routes.dashboard import router as dashboard_router
 from backend.app.api.routes.favorites import router as favorites_router
@@ -95,6 +96,16 @@ async def _security_headers(request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data:; "
+        "frame-src 'none'; "
+        "object-src 'none'; "
+        "base-uri 'self';"
+    )
     return response
 
 
@@ -119,6 +130,7 @@ def create_app() -> FastAPI:
     app.include_router(matches_router, prefix="/matches", tags=["matches"], dependencies=protected_dependencies)
     app.include_router(match_router, prefix="/match", tags=["match"], dependencies=protected_dependencies)
     app.include_router(history_router, prefix="/history", tags=["history"], dependencies=protected_dependencies)
+    app.include_router(jobs_router, prefix="/jobs", tags=["jobs"], dependencies=protected_dependencies)
     app.title = settings.app_name
     return app
 

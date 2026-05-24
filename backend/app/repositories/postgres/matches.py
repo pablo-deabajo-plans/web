@@ -32,6 +32,8 @@ SELECT
     away_shots,
     home_shots_on_target,
     away_shots_on_target,
+    raw_home_team,
+    raw_away_team,
     created_at,
     updated_at
 FROM matches
@@ -57,6 +59,8 @@ SELECT
     away_shots,
     home_shots_on_target,
     away_shots_on_target,
+    raw_home_team,
+    raw_away_team,
     created_at,
     updated_at
 FROM matches
@@ -81,6 +85,8 @@ SELECT
     away_shots,
     home_shots_on_target,
     away_shots_on_target,
+    raw_home_team,
+    raw_away_team,
     created_at,
     updated_at
 FROM matches
@@ -114,9 +120,11 @@ INSERT INTO matches (
     home_shots,
     away_shots,
     home_shots_on_target,
-    away_shots_on_target
+    away_shots_on_target,
+    raw_home_team,
+    raw_away_team
 )
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
 ON CONFLICT (id) DO UPDATE SET
     external_id = EXCLUDED.external_id,
     competition = EXCLUDED.competition,
@@ -133,6 +141,8 @@ ON CONFLICT (id) DO UPDATE SET
     away_shots = EXCLUDED.away_shots,
     home_shots_on_target = EXCLUDED.home_shots_on_target,
     away_shots_on_target = EXCLUDED.away_shots_on_target,
+    raw_home_team = EXCLUDED.raw_home_team,
+    raw_away_team = EXCLUDED.raw_away_team,
     updated_at = NOW()
 """
 
@@ -260,6 +270,8 @@ class PostgresMatchRepository(PostgresRepository, MatchRepository):
                 item.away_shots,
                 item.home_shots_on_target,
                 item.away_shots_on_target,
+                item.raw_home_team,
+                item.raw_away_team,
             )
             for item in matches
         ]
@@ -349,6 +361,8 @@ class PostgresMatchRepository(PostgresRepository, MatchRepository):
             away_shots=float(row[13]) if row[13] is not None else None,
             home_shots_on_target=float(row[14]) if row[14] is not None else None,
             away_shots_on_target=float(row[15]) if row[15] is not None else None,
-            created_at=row[16],
-            updated_at=row[17],
+            raw_home_team=row[16],
+            raw_away_team=row[17],
+            created_at=row[18],
+            updated_at=row[19],
         )

@@ -242,6 +242,8 @@ def build_fallback_h2h(historico: pd.DataFrame, local: str, visitante: str) -> t
     return calcular_stats(h2h_history, local), calcular_stats(h2h_history, visitante), calcular_h2h(h2h_history, local, visitante, 8)
 
 
+# Weights: goals 0.45/0.20/0.35, corners 0.55/0.15/0.30, cards 0.50/0.15/0.35
+# (attack/defence/form). These are expert priors, not data-derived from backtesting.
 def build_match_analysis(
     df: pd.DataFrame,
     liga: str,

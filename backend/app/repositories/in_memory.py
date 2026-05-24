@@ -197,6 +197,7 @@ class InMemoryUserRepository(UserRepository):
     def __init__(self, users: list[User] | None = None) -> None:
         self._users = {user.id: user for user in (users or [])}
         self._verification_tokens: dict[str, tuple[str, datetime]] = {}  # token → (user_id, expires_at)
+        self._reset_tokens: dict[str, tuple[str, datetime]] = {}  # token → (user_id, expires_at)
 
     def get_by_id(self, user_id: str) -> User | None:
         return self._users.get(user_id)
@@ -259,3 +260,23 @@ class InMemoryUserRepository(UserRepository):
 
     def delete_session(self, session_id: str) -> None:
         pass
+
+    def create_reset_token(self, user_id: str, token: str, expires_at: datetime) -> None:
+        for existing_token, (uid, _) in list(self._reset_tokens.items()):
+            if uid == user_id:
+                del self._reset_tokens[existing_token]
+        self._reset_tokens[token] = (user_id, expires_at)
+
+    def get_by_reset_token(self, token: str) -> User | None:
+        entry = self._reset_tokens.get(token)
+        if entry is None:
+            return None
+        user_id, expires_at = entry
+        if datetime.now(timezone.utc) > expires_at:
+            return None
+        return self._users.get(user_id)
+
+    def delete_reset_token(self, user_id: str) -> None:
+        for token, (uid, _) in list(self._reset_tokens.items()):
+            if uid == user_id:
+                del self._reset_tokens[token]

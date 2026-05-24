@@ -37,3 +37,7 @@ services:
         value: "30"
       - key: SETTLEMENT_INTERVAL_MINUTES
         value: "60"
+      - key: RESEND_API_KEY
+        sync: false
+      - key: FROM_EMAIL
+        value: "noreply@gordon-betscanner.com"

@@ -70,6 +70,8 @@ class IngestedMatch:
             away_shots=self.away_shots,
             home_shots_on_target=self.home_shots_on_target,
             away_shots_on_target=self.away_shots_on_target,
+            raw_home_team=self.raw_home_team,
+            raw_away_team=self.raw_away_team,
         )
 
 

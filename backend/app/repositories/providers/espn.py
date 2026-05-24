@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone, tzinfo
 from typing import Any
-import requests
+import httpx
 
 from backend.app.core.logging import get_logger
 from backend.app.core.time import UTC, utc_now, utc_today
@@ -36,9 +36,9 @@ class ESPNResponseError(ESPNProviderError):
 
 def _request_json(url: str, *, params: dict[str, Any], timeout: int) -> dict[str, Any]:
     try:
-        response = requests.get(url, params=params, headers=HTTP_HEADERS, timeout=timeout)
+        response = httpx.get(url, params=params, headers=HTTP_HEADERS, timeout=timeout, follow_redirects=True)
         response.raise_for_status()
-    except requests.RequestException as exc:
+    except httpx.HTTPError as exc:
         raise ESPNRequestError(f"ESPN request failed for url={url} params={params}") from exc
 
     try:

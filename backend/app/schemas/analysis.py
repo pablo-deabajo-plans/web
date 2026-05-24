@@ -75,6 +75,7 @@ class AnalysisRead(BaseModel):
     mercados: list[AnalysisMarketRead]
     trace: dict[str, Any]
     timestamp: str
+    model_disclaimer: str = "Model weights are expert estimates; edge values are directional only and have not been backtested against historical ROI."
 
     @classmethod
     def from_domain(cls, analysis: Analysis) -> "AnalysisRead":

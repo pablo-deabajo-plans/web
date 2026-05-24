@@ -135,6 +135,40 @@ class PostgresUserRepository:
                 cursor.execute("DELETE FROM app.user_sessions WHERE id = %s", (session_id,))
             conn.commit()
 
+    def create_reset_token(self, user_id: str, token: str, expires_at) -> None:
+        with self._connection_factory() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO password_reset_tokens (user_id, token, expires_at)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (user_id) DO UPDATE SET token = EXCLUDED.token, expires_at = EXCLUDED.expires_at
+                    """,
+                    (user_id, token, expires_at),
+                )
+            conn.commit()
+
+    def get_by_reset_token(self, token: str) -> User | None:
+        with self._connection_factory() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    f"""
+                    SELECT u.id, u.gmail, u.nombre, u.password_hash, u.plan, u.password_changed_at, u.email_verified_at
+                    FROM users u
+                    JOIN password_reset_tokens t ON t.user_id = u.id
+                    WHERE t.token = %s AND t.expires_at > NOW()
+                    """,
+                    (token,),
+                )
+                row = cursor.fetchone()
+        return self._row_to_user(row)
+
+    def delete_reset_token(self, user_id: str) -> None:
+        with self._connection_factory() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM password_reset_tokens WHERE user_id = %s", (user_id,))
+            conn.commit()
+
     @staticmethod
     def _row_to_user(row) -> User | None:
         if row is None:

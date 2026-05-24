@@ -12,7 +12,7 @@ from html import unescape
 from pathlib import Path
 
 import pandas as pd
-import requests
+import httpx
 
 from backend.app.core.cache import TTLCache
 
@@ -204,7 +204,7 @@ def _load_localized_espn_rows_for_local_day(league_id: str, target_local_date, *
 @st.cache_data(ttl=3600, show_spinner=False)
 def descargar_datos(url: str) -> pd.DataFrame | None:
     try:
-        respuesta = requests.get(url, headers=HTTP_HEADERS, timeout=20)
+        respuesta = httpx.get(url, headers=HTTP_HEADERS, timeout=20, follow_redirects=True)
         respuesta.raise_for_status()
         df = pd.read_csv(io.StringIO(respuesta.content.decode("utf-8", errors="ignore")))
         if "Home" in df.columns and "HomeTeam" not in df.columns:
@@ -214,7 +214,7 @@ def descargar_datos(url: str) -> pd.DataFrame | None:
         if len(df) > 500:
             df = df.tail(400)
         return df
-    except (requests.RequestException, pd.errors.ParserError, UnicodeDecodeError) as exc:
+    except (httpx.HTTPError, pd.errors.ParserError, UnicodeDecodeError) as exc:
         _log_request_error("descargar_datos", exc, {"url": url})
         return None
 
@@ -246,10 +246,10 @@ def descargar_historial_espn(league_id: str, season_type: str) -> pd.DataFrame |
 @st.cache_data(ttl=3600, show_spinner=False)
 def descargar_fixture_footystats(url: str) -> pd.DataFrame | None:
     try:
-        respuesta = requests.get(url, headers=HTTP_HEADERS, timeout=25)
+        respuesta = httpx.get(url, headers=HTTP_HEADERS, timeout=25, follow_redirects=True)
         respuesta.raise_for_status()
         html = respuesta.text
-    except requests.RequestException as exc:
+    except httpx.HTTPError as exc:
         _log_request_error("descargar_fixture_footystats", exc, {"url": url})
         return None
 
@@ -301,6 +301,8 @@ def descargar_fixture_footystats(url: str) -> pd.DataFrame | None:
     )
 
 
+# Downloads run synchronously on first call per process; TTLCache (1 h) prevents repeats.
+# Cache is in-memory only — cold restarts re-download. Persistent caching is deferred.
 @st.cache_data(ttl=3600, show_spinner=False)
 def descargar_datos_liga(liga: str) -> pd.DataFrame | None:
     config = LEAGUE_CONFIGS.get(liga, {})

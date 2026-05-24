@@ -101,6 +101,15 @@ class UserRepository(Protocol):
     def delete_session(self, session_id: str) -> None:
         ...
 
+    def create_reset_token(self, user_id: str, token: str, expires_at: datetime) -> None:
+        ...
+
+    def get_by_reset_token(self, token: str) -> User | None:
+        ...
+
+    def delete_reset_token(self, user_id: str) -> None:
+        ...
+
 
 class LoginAttemptRepository(Protocol):
     def get_recent_failures(self, key: str, window_seconds: int) -> int:

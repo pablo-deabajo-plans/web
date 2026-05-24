@@ -48,6 +48,8 @@ class Fixture:
     away_shots: float | None = None
     home_shots_on_target: float | None = None
     away_shots_on_target: float | None = None
+    raw_home_team: str | None = None
+    raw_away_team: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

@@ -3,7 +3,20 @@
     "allow": [
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\pablo\\\\Documents\\\\Gordon BetScanner\" -Force)",
       "Bash(Select-Object Name, PSIsContainer)",
-      "Bash(Format-Table)"
+      "Bash(Format-Table)",
+      "Bash(git ls-files *)",
+      "Bash(dir \"c:\\\\Users\\\\pablo\\\\Documents\\\\Gordon BetScanner\\\\backend\\\\migrations\\\\versions\")",
+      "Bash(python -c \"from backend.app.services.dashboard import DashboardService; print\\('OK'\\)\")",
+      "Bash(python3 -c \"from backend.app.services.dashboard import DashboardService; print\\('OK'\\)\")",
+      "Bash(where py *)",
+      "Bash(py --version)",
+      "Bash(\"C:\\\\Users\\\\pablo\\\\.local\\\\bin\\\\python3.14.exe\" -c \"import sys; sys.path.insert\\(0, '.'\\); from backend.app.services.dashboard import DashboardService; print\\('OK'\\)\")",
+      "Bash('C:\\\\Users\\\\pablo\\\\.local\\\\bin\\\\python3.14.exe' -c ' *)",
+      "Bash(python -m py_compile backend/app/main.py backend/app/api/routes/jobs.py backend/app/services/auth.py backend/app/repositories/contracts.py backend/app/repositories/postgres/users.py backend/app/repositories/in_memory.py backend/app/web/auth_router.py)",
+      "Bash(python3 -m py_compile backend/app/main.py backend/app/api/routes/jobs.py backend/app/services/auth.py backend/app/repositories/contracts.py backend/app/repositories/postgres/users.py backend/app/repositories/in_memory.py backend/app/web/auth_router.py)",
+      "PowerShell($pyCmd = Get-Command py -ErrorAction SilentlyContinue; if \\(-not $pyCmd\\) { $pyCmd = Get-Command python3 -ErrorAction SilentlyContinue }; if \\($pyCmd\\) { Set-Location \"c:\\\\Users\\\\pablo\\\\Documents\\\\Gordon BetScanner\"; & $pyCmd.Source -m py_compile \"backend/app/main.py\" \"backend/app/api/routes/jobs.py\" \"backend/app/services/auth.py\" \"backend/app/repositories/contracts.py\" \"backend/app/repositories/postgres/users.py\" \"backend/app/repositories/in_memory.py\" \"backend/app/web/auth_router.py\"; \"Exit: $LASTEXITCODE\" } else { \"Python not found\" })",
+      "PowerShell(Get-Command \"py.exe\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Set-Location \"c:\\\\Users\\\\pablo\\\\Documents\\\\Gordon BetScanner\"; & \"C:\\\\Users\\\\pablo\\\\AppData\\\\Roaming\\\\uv\\\\python\\\\cpython-3.14-windows-x86_64-none\\\\Scripts\\\\python.exe\" -m py_compile \"backend/app/main.py\" \"backend/app/api/routes/jobs.py\" \"backend/app/services/auth.py\" \"backend/app/repositories/contracts.py\" \"backend/app/repositories/postgres/users.py\" \"backend/app/repositories/in_memory.py\" \"backend/app/web/auth_router.py\"; \"Exit: $LASTEXITCODE\")"
     ]
   }
 }

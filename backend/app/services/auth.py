@@ -47,6 +47,7 @@ class RateLimitError(AuthError):
 
 _LOGGER = logging.getLogger(__name__)
 _VERIFICATION_TOKEN_TTL_SECONDS = 60 * 60 * 24  # 24 hours
+_RESET_TOKEN_TTL_SECONDS = 60 * 60  # 1 hour
 
 
 @dataclass(frozen=True)
@@ -157,6 +158,27 @@ class AuthService:
         expires_at = datetime.now(timezone.utc) + timedelta(seconds=_VERIFICATION_TOKEN_TTL_SECONDS)
         self._users.create_verification_token(user_id, token, expires_at)
         return token
+
+    def find_user_by_gmail(self, gmail: str) -> User | None:
+        return self._users.get_by_gmail(normalize_gmail(gmail))
+
+    def generate_password_reset_token(self, user_id: str) -> str:
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=_RESET_TOKEN_TTL_SECONDS)
+        self._users.create_reset_token(user_id, token, expires_at)
+        return token
+
+    def get_user_by_reset_token(self, token: str) -> User | None:
+        return self._users.get_by_reset_token(token)
+
+    def reset_password(self, token: str, new_password: str) -> User:
+        user = self._users.get_by_reset_token(token)
+        if user is None:
+            raise AuthError("El enlace de restablecimiento ha caducado o no es válido.")
+        updated = self._users.update_password_hash(user.id, hash_password(validate_password(new_password)))
+        self._users.update_password_changed_at(user.id)
+        self._users.delete_reset_token(user.id)
+        return updated
 
     def verify_email_token(self, token: str) -> User | None:
         user = self._users.get_by_verification_token(token)

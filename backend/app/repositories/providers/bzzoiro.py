@@ -6,7 +6,7 @@ import unicodedata
 from datetime import date, datetime
 from typing import Any
 
-import requests
+import httpx
 
 from backend.app.core.logging import get_logger
 from backend.app.core.time import utc_now
@@ -37,15 +37,16 @@ def _request_json(path: str, *, params: dict[str, Any] | None = None, token: str
     if not token:
         return {}
     try:
-        response = requests.get(
+        response = httpx.get(
             f"{BZZOIRO_BASE_URL}{path}",
             params=params or {},
             headers={"Authorization": f"Token {token}"},
             timeout=_HTTP_TIMEOUT,
+            follow_redirects=True,
         )
         response.raise_for_status()
         return response.json()
-    except requests.RequestException as exc:
+    except httpx.HTTPError as exc:
         raise BzzoiroProviderError(f"Bzzoiro request failed path={path}") from exc
     except ValueError as exc:
         raise BzzoiroProviderError(f"Bzzoiro response not valid JSON path={path}") from exc

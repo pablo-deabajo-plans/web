@@ -128,49 +128,40 @@ def calcular_segmento(df: pd.DataFrame, equipo: str, scope: str) -> dict:
             empates = pd.Series(dtype=bool)
             derrotas = pd.Series(dtype=bool)
         else:
-            goles_favor = pd.Series([fila["FTHG"] if clave_equipo(fila["HomeTeam"]) == equipo_clave else fila["FTAG"] for _, fila in partidos.iterrows()])
-            goles_contra = pd.Series([fila["FTAG"] if clave_equipo(fila["HomeTeam"]) == equipo_clave else fila["FTHG"] for _, fila in partidos.iterrows()])
+            is_home = partidos["HomeTeam"].map(clave_equipo) == equipo_clave
+            goles_favor  = pd.Series(np.where(is_home, partidos["FTHG"], partidos["FTAG"]))
+            goles_contra = pd.Series(np.where(is_home, partidos["FTAG"], partidos["FTHG"]))
             if tiene_corners:
-                corners_favor = pd.Series([fila["HC"] if clave_equipo(fila["HomeTeam"]) == equipo_clave else fila["AC"] for _, fila in partidos.iterrows()])
-                corners_contra = pd.Series([fila["AC"] if clave_equipo(fila["HomeTeam"]) == equipo_clave else fila["HC"] for _, fila in partidos.iterrows()])
+                corners_favor  = pd.Series(np.where(is_home, partidos["HC"], partidos["AC"]))
+                corners_contra = pd.Series(np.where(is_home, partidos["AC"], partidos["HC"]))
             else:
                 corners_favor = serie_nan(len(partidos))
                 corners_contra = serie_nan(len(partidos))
             if tiene_shots:
-                shots_favor = pd.Series([fila["HS"] if clave_equipo(fila["HomeTeam"]) == equipo_clave else fila["AS"] for _, fila in partidos.iterrows()])
-                shots_contra = pd.Series([fila["AS"] if clave_equipo(fila["HomeTeam"]) == equipo_clave else fila["HS"] for _, fila in partidos.iterrows()])
+                shots_favor  = pd.Series(np.where(is_home, partidos["HS"], partidos["AS"]))
+                shots_contra = pd.Series(np.where(is_home, partidos["AS"], partidos["HS"]))
             else:
                 shots_favor = serie_nan(len(partidos))
                 shots_contra = serie_nan(len(partidos))
             if tiene_shots_puerta:
-                shots_on_target_favor = pd.Series([fila["HST"] if clave_equipo(fila["HomeTeam"]) == equipo_clave else fila["AST"] for _, fila in partidos.iterrows()])
-                shots_on_target_contra = pd.Series([fila["AST"] if clave_equipo(fila["HomeTeam"]) == equipo_clave else fila["HST"] for _, fila in partidos.iterrows()])
+                shots_on_target_favor  = pd.Series(np.where(is_home, partidos["HST"], partidos["AST"]))
+                shots_on_target_contra = pd.Series(np.where(is_home, partidos["AST"], partidos["HST"]))
             else:
                 shots_on_target_favor = serie_nan(len(partidos))
                 shots_on_target_contra = serie_nan(len(partidos))
             if tiene_tarjetas:
-                cards_favor = pd.Series(
-                    [
-                        (numero_seguro(fila.get("HY")) + numero_seguro(fila.get("HR")))
-                        if clave_equipo(fila["HomeTeam"]) == equipo_clave
-                        else (numero_seguro(fila.get("AY")) + numero_seguro(fila.get("AR")))
-                        for _, fila in partidos.iterrows()
-                    ]
-                )
-                cards_contra = pd.Series(
-                    [
-                        (numero_seguro(fila.get("AY")) + numero_seguro(fila.get("AR")))
-                        if clave_equipo(fila["HomeTeam"]) == equipo_clave
-                        else (numero_seguro(fila.get("HY")) + numero_seguro(fila.get("HR")))
-                        for _, fila in partidos.iterrows()
-                    ]
-                )
+                h_y = pd.to_numeric(partidos["HY"], errors="coerce").fillna(0)
+                h_r = pd.to_numeric(partidos["HR"], errors="coerce").fillna(0)
+                a_y = pd.to_numeric(partidos["AY"], errors="coerce").fillna(0)
+                a_r = pd.to_numeric(partidos["AR"], errors="coerce").fillna(0)
+                cards_favor  = pd.Series(np.where(is_home, h_y + h_r, a_y + a_r))
+                cards_contra = pd.Series(np.where(is_home, a_y + a_r, h_y + h_r))
             else:
                 cards_favor = serie_nan(len(partidos))
                 cards_contra = serie_nan(len(partidos))
             victorias = goles_favor > goles_contra
-            empates = goles_favor == goles_contra
-            derrotas = goles_favor < goles_contra
+            empates   = goles_favor == goles_contra
+            derrotas  = goles_favor < goles_contra
 
     pj = int(len(partidos))
     if pj == 0:

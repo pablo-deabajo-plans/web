@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS matches (
     away_shots NUMERIC(10,4),
     home_shots_on_target NUMERIC(10,4),
     away_shots_on_target NUMERIC(10,4),
+    raw_home_team TEXT,
+    raw_away_team TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

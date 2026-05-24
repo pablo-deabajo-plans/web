@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import date
-from functools import lru_cache
 
 import pandas as pd
 
@@ -11,7 +10,8 @@ from backend.app.domain.leagues import LEAGUE_COUNTRIES, LEAGUE_SEASON_TYPES
 from backend.app.domain.market_odds import compare_analysis_to_quotes, external_odds_map_for_analysis
 from backend.app.domain.models import Analysis, OddsQuote
 from backend.app.domain.pricing import fair_odds, kelly_fraction
-from backend.app.repositories.contracts import OddsRepository
+from backend.app.core.cache import TTLCache
+from backend.app.repositories.contracts import MatchRepository, OddsRepository
 from backend.app.services.analyze_match import AnalyzeMatchService
 from backend.app.services.match_ingestion import MatchIngestionService, MatchIngestionServiceError
 from backend.app.services.value_pick_ranking import build_value_pick_ranking
@@ -91,11 +91,24 @@ COMPETITION_TYPES = {
 }
 
 
+_DASHBOARD_CONTEXT_TTL = 300  # seconds
+
+
 class DashboardService:
-    def __init__(self, odds_repository: OddsRepository | None = None) -> None:
+    def __init__(
+        self,
+        odds_repository: OddsRepository | None = None,
+        *,
+        match_repository: MatchRepository | None = None,
+        cache: TTLCache | None = None,
+        context_ttl_seconds: int = _DASHBOARD_CONTEXT_TTL,
+    ) -> None:
         self._analyze_match_service = AnalyzeMatchService()
         self._match_ingestion_service = MatchIngestionService()
         self._odds_repository = odds_repository
+        self._match_repository = match_repository
+        self._cache = cache
+        self._context_ttl_seconds = context_ttl_seconds
 
     def list_leagues(self, *, target_date: date, competition_view: str | None = None) -> list[dict]:
         rows = [self._summarize_league(league, target_date) for league in LEAGUE_CONFIGS]
@@ -303,7 +316,15 @@ class DashboardService:
         return build_value_pick_ranking(items, limit=10)
 
     def _load_league_context(self, league: str, target_date: date) -> dict:
-        return _load_league_context_cached(league, target_date.isoformat(), self)
+        if self._cache is None or self._context_ttl_seconds <= 0:
+            return self._load_league_context_uncached(league, target_date)
+        key = f"{league}:{target_date.isoformat()}"
+        return self._cache.get_or_set(
+            "dashboard_context",
+            key,
+            self._context_ttl_seconds,
+            lambda: self._load_league_context_uncached(league, target_date),
+        )
 
     def _load_league_context_uncached(self, league: str, target_date: date) -> dict:
         config = LEAGUE_CONFIGS.get(league, {})
@@ -318,9 +339,15 @@ class DashboardService:
 
         matches_espn = pd.DataFrame()
         analysis_map: dict[str, Analysis] = {}
-        use_espn_fallback = bool(league_id) and (source_type == "espn_scoreboard" or target_date >= date.today() or matches_csv.empty)
-        if use_espn_fallback:
-            matches_espn, analysis_map = self._load_analyzed_espn_matches(league, league_id, target_date)
+        use_espn_source = bool(league_id) and (source_type == "espn_scoreboard" or target_date >= date.today() or matches_csv.empty)
+        if use_espn_source:
+            db_frame, db_analysis_map = self._load_db_matches(league, target_date)
+            if not db_frame.empty:
+                matches_espn = db_frame
+                analysis_map = db_analysis_map
+            else:
+                # Fallback: workers haven't run yet for this day
+                matches_espn, analysis_map = self._load_analyzed_espn_matches(league, league_id, target_date)
 
         base_csv = matches_csv if source_type != "espn_scoreboard" else pd.DataFrame()
         merged_matches = fusionar_calendarios(base_csv, matches_espn, csv_teams)
@@ -335,6 +362,43 @@ class DashboardService:
             "matches": matches,
             "analysis_map": analysis_map,
         }
+
+    def _load_db_matches(self, league: str, target_date: date) -> tuple[pd.DataFrame, dict[str, Analysis]]:
+        if self._match_repository is None:
+            return pd.DataFrame(), {}
+        all_matches = self._match_repository.list_matches_for_day(target_date)
+        league_matches = [m for m in all_matches if m.competition == league]
+        if not league_matches:
+            return pd.DataFrame(), {}
+        rows: list[dict] = []
+        for match in league_matches:
+            local_kickoff = to_local_datetime(match.kickoff_at, LOCAL_TIMEZONE)
+            if local_kickoff.date() != target_date:
+                continue
+            rows.append({
+                "EventId": match.id,
+                "Date": local_kickoff.strftime("%d/%m/%Y"),
+                "MatchDate": local_kickoff.date(),
+                "Time": local_kickoff.strftime("%H:%M"),
+                "HomeTeamRaw": match.raw_home_team or match.home_team,
+                "AwayTeamRaw": match.raw_away_team or match.away_team,
+                "HomeTeam": match.home_team,
+                "AwayTeam": match.away_team,
+                "FTHG": match.home_score,
+                "FTAG": match.away_score,
+                "HC": match.home_corners,
+                "AC": match.away_corners,
+                "HS": match.home_shots,
+                "AS": match.away_shots,
+                "HST": match.home_shots_on_target,
+                "AST": match.away_shots_on_target,
+                "FixtureLabel": (
+                    f"{local_kickoff.strftime('%d/%m/%Y %H:%M')} | "
+                    f"{match.home_team} vs {match.away_team}"
+                ),
+                "Source": match.source or "DB",
+            })
+        return pd.DataFrame(rows), {}
 
     def _load_analyzed_espn_matches(self, league: str, league_id: str, target_date: date) -> tuple[pd.DataFrame, dict[str, Analysis]]:
         season_type = LEAGUE_SEASON_TYPES.get(league, "calendar")
@@ -520,6 +584,3 @@ class DashboardService:
         return rows
 
 
-@lru_cache(maxsize=128)
-def _load_league_context_cached(league: str, target_date_iso: str, service: DashboardService) -> dict:
-    return service._load_league_context_uncached(league, date.fromisoformat(target_date_iso))
