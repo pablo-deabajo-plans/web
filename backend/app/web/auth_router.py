@@ -309,6 +309,7 @@ def forgot_password_submit(
     gmail: str = Form(...),
     csrf_token: str = Form(...),
     auth: AuthService = Depends(get_auth_service),
+    audit: AuditLogRepository = Depends(get_audit_log_repository),
 ):
     if not _verify_pre_csrf(request, csrf_token):
         new_csrf = _new_pre_csrf()
@@ -326,6 +327,10 @@ def forgot_password_submit(
             token = auth.generate_password_reset_token(user.id)
             reset_url = str(request.base_url) + f"reset-password?token={token}"
             send_password_reset_email(user.gmail, reset_url)
+            try:
+                audit.log(user.id, "password_reset.requested", {"gmail": user.gmail})
+            except Exception:
+                logger.warning("audit log failed", exc_info=True)
         except Exception:
             pass  # never reveal whether the email was sent
     new_csrf = _new_pre_csrf()
@@ -375,8 +380,10 @@ def reset_password_submit(
     request: Request,
     token: str = Form(...),
     new_password: str = Form(...),
+    confirm_password: str = Form(...),
     csrf_token: str = Form(...),
     auth: AuthService = Depends(get_auth_service),
+    audit: AuditLogRepository = Depends(get_audit_log_repository),
 ):
     if not _verify_pre_csrf(request, csrf_token):
         new_csrf = _new_pre_csrf()
@@ -388,8 +395,22 @@ def reset_password_submit(
         )
         _set_pre_csrf_cookie(resp, new_csrf)
         return resp
+    if new_password != confirm_password:
+        new_csrf = _new_pre_csrf()
+        resp = templates.TemplateResponse(
+            request,
+            "reset_password.html",
+            _base_context(request, auth, day=local_today().isoformat(), error="Las contraseñas no coinciden.", token=token, csrf_token=new_csrf),
+            status_code=400,
+        )
+        _set_pre_csrf_cookie(resp, new_csrf)
+        return resp
     try:
-        auth.reset_password(token, new_password)
+        user = auth.reset_password(token, new_password)
+        try:
+            audit.log(user.id, "password_reset.completed", {"gmail": user.gmail})
+        except Exception:
+            logger.warning("audit log failed", exc_info=True)
     except AuthError as exc:
         new_csrf = _new_pre_csrf()
         resp = templates.TemplateResponse(

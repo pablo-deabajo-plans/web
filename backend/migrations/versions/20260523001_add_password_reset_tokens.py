@@ -8,7 +8,7 @@ Create Date: 2026-05-23 00:00:00.000000
 from alembic import op
 
 revision = "20260523001"
-down_revision = None
+down_revision = "0001"
 branch_labels = None
 depends_on = None
 
