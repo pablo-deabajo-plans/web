@@ -55,6 +55,9 @@ CREATE INDEX IF NOT EXISTS idx_matches_kickoff_at ON matches (kickoff_at);
 CREATE INDEX IF NOT EXISTS idx_matches_competition_kickoff ON matches (competition, kickoff_at);
 CREATE INDEX IF NOT EXISTS idx_matches_status_kickoff ON matches (status, kickoff_at);
 
+ALTER TABLE IF EXISTS matches ADD COLUMN IF NOT EXISTS raw_home_team TEXT;
+ALTER TABLE IF EXISTS matches ADD COLUMN IF NOT EXISTS raw_away_team TEXT;
+
 CREATE TABLE IF NOT EXISTS odds (
     id TEXT PRIMARY KEY,
     match_id TEXT NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
