@@ -67,6 +67,8 @@ async def _scheduler_watchdog(app: FastAPI) -> None:
 
 
 def _postgres_env_configured() -> bool:
+    if os.getenv("DATABASE_URL", "").strip():
+        return True
     return all(
         os.getenv(v, "").strip()
         for v in ("POSTGRES_HOST", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD")

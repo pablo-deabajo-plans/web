@@ -43,16 +43,11 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def _postgres_configured() -> bool:
+    if os.getenv("DATABASE_URL", "").strip():
+        return True
     return all(
-        [
-            settings_postgres
-            for settings_postgres in (
-                os.getenv("POSTGRES_HOST", "").strip(),
-                os.getenv("POSTGRES_DB", "").strip(),
-                os.getenv("POSTGRES_USER", "").strip(),
-                os.getenv("POSTGRES_PASSWORD", "").strip(),
-            )
-        ]
+        os.getenv(v, "").strip()
+        for v in ("POSTGRES_HOST", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD")
     )
 
 

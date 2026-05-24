@@ -5,6 +5,7 @@ import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Iterator
+from urllib.parse import urlparse
 
 import psycopg2
 from psycopg2.extensions import connection as PGConnection
@@ -20,13 +21,47 @@ class PostgresConnectionError(RuntimeError):
     """Raised when a PostgreSQL connection cannot be created."""
 
 
+def _parse_database_url(url: str) -> dict:
+    parsed = urlparse(url)
+    return {
+        "host": parsed.hostname or "",
+        "port": parsed.port or 5432,
+        "database": (parsed.path or "").lstrip("/"),
+        "user": parsed.username or "",
+        "password": parsed.password or "",
+    }
+
+
+def _settings_from_env() -> dict:
+    database_url = os.getenv("DATABASE_URL", "").strip()
+    if database_url:
+        parsed = _parse_database_url(database_url)
+        return {
+            "host": os.getenv("POSTGRES_HOST", parsed["host"]),
+            "port": int(os.getenv("POSTGRES_PORT", str(parsed["port"]))),
+            "database": os.getenv("POSTGRES_DB", parsed["database"]),
+            "user": os.getenv("POSTGRES_USER", parsed["user"]),
+            "password": os.getenv("POSTGRES_PASSWORD", parsed["password"]),
+        }
+    return {
+        "host": os.getenv("POSTGRES_HOST", ""),
+        "port": int(os.getenv("POSTGRES_PORT", "5432")),
+        "database": os.getenv("POSTGRES_DB", ""),
+        "user": os.getenv("POSTGRES_USER", ""),
+        "password": os.getenv("POSTGRES_PASSWORD", ""),
+    }
+
+
+_env = _settings_from_env()
+
+
 @dataclass(frozen=True)
 class PostgresSettings:
-    host: str = os.getenv("POSTGRES_HOST", "")
-    port: int = int(os.getenv("POSTGRES_PORT", "5432"))
-    database: str = os.getenv("POSTGRES_DB", "")
-    user: str = os.getenv("POSTGRES_USER", "")
-    password: str = os.getenv("POSTGRES_PASSWORD", "")
+    host: str = _env["host"]
+    port: int = _env["port"]
+    database: str = _env["database"]
+    user: str = _env["user"]
+    password: str = _env["password"]
     sslmode: str = os.getenv("POSTGRES_SSLMODE", "prefer")
     connect_timeout: int = int(os.getenv("POSTGRES_CONNECT_TIMEOUT", "10"))
     application_name: str = os.getenv("POSTGRES_APPLICATION_NAME", "gordon-betscanner-backend")
